@@ -1,0 +1,483 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  COMPANY_ADMIN
+  MANAGER
+  CONSULTANT
+  CUSTOMER
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING
+  PROCESSING
+  COMPLETED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  REFUNDED
+}
+
+enum CommissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  PAUSED
+}
+
+enum CommissionRuleType {
+  PERCENTAGE
+  FIXED
+  PRODUCT
+  CATEGORY
+  BONUS
+  VOLUME_TIER
+}
+
+model User {
+  id                String             @id @default(uuid()) @db.Uuid
+  authUserId        String             @unique
+  companyId         String?            @db.Uuid
+  company           Company?           @relation(fields: [companyId], references: [id])
+  role              UserRole           @default(CUSTOMER)
+  email             String             @unique
+  firstName         String?
+  lastName          String?
+  phone             String?
+  isActive          Boolean            @default(true)
+  emailVerifiedAt   DateTime?
+  consultantProfile ConsultantProfile?
+  customer          Customer?
+  teamMemberships   TeamMember[]
+  activityLogs      ActivityLog[]
+  notifications     Notification[]
+  auditLogs         AuditLog[]
+  onboardingSteps   OnboardingStep[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([companyId, role])
+}
+
+model Company {
+  id                String             @id @default(uuid()) @db.Uuid
+  name              String
+  slug              String             @unique
+  logoUrl           String?
+  primaryColor      String             @default("#073763")
+  accentColor       String             @default("#DC1F2A")
+  users             User[]
+  products          Product[]
+  productCategories ProductCategory[]
+  customers         Customer[]
+  orders            Order[]
+  commissionRules   CommissionRule[]
+  paymentProviders  PaymentProvider[]
+  teams             Team[]
+  leads             Lead[]
+  activityLogs      ActivityLog[]
+  auditLogs         AuditLog[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+}
+
+model ConsultantProfile {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String         @unique @db.Uuid
+  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId      String         @db.Uuid
+  referralSlug   String         @unique
+  referralCode   String         @unique
+  bio            String?
+  rank           Int?
+  monthlyGoal    Int            @default(0)
+  onboardingDone Boolean        @default(false)
+  customers      Customer[]
+  orders         Order[]
+  commissions    Commission[]
+  referralLinks  ReferralLink[]
+  leads          Lead[]
+  teamMembers    TeamMember[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([companyId])
+}
+
+model Customer {
+  id                  String              @id @default(uuid()) @db.Uuid
+  userId              String?             @unique @db.Uuid
+  user                User?               @relation(fields: [userId], references: [id])
+  companyId           String              @db.Uuid
+  company             Company             @relation(fields: [companyId], references: [id])
+  consultantProfileId String?             @db.Uuid
+  consultantProfile   ConsultantProfile?  @relation(fields: [consultantProfileId], references: [id])
+  email               String
+  firstName           String?
+  lastName            String?
+  phone               String?
+  tags                String[]
+  notes               String?
+  lifetimeValueCents  Int                 @default(0)
+  lastPurchaseAt      DateTime?
+  orders              Order[]
+  subscriptions       Subscription[]
+  paymentMethods      PaymentMethod[]
+  activityLogs        ActivityLog[]
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@unique([companyId, email])
+  @@index([companyId, consultantProfileId])
+}
+
+model ProductCategory {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @db.Uuid
+  company   Company   @relation(fields: [companyId], references: [id])
+  name      String
+  slug      String
+  products  Product[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([companyId, slug])
+}
+
+model Product {
+  id                    String           @id @default(uuid()) @db.Uuid
+  companyId             String           @db.Uuid
+  company               Company          @relation(fields: [companyId], references: [id])
+  categoryId            String           @db.Uuid
+  category              ProductCategory  @relation(fields: [categoryId], references: [id])
+  title                 String
+  slug                  String
+  description           String
+  priceCents            Int
+  internalCostCents     Int              @default(0)
+  marginBps             Int              @default(0)
+  sku                   String
+  active                Boolean          @default(true)
+  supportsSubscription  Boolean          @default(false)
+  supportsRecurring     Boolean          @default(false)
+  metadata              Json?
+  images                ProductImage[]
+  inventory             Inventory?
+  orderItems            OrderItem[]
+  commissionRules       CommissionRule[]
+  createdAt             DateTime         @default(now())
+  updatedAt             DateTime         @updatedAt
+
+  @@unique([companyId, slug])
+  @@unique([companyId, sku])
+  @@index([companyId, categoryId])
+}
+
+model ProductImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  productId String   @db.Uuid
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String?
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model Inventory {
+  id              String   @id @default(uuid()) @db.Uuid
+  productId       String   @unique @db.Uuid
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantityOnHand  Int      @default(0)
+  reorderPoint    Int      @default(10)
+  reservedQuantity Int     @default(0)
+  updatedAt       DateTime @updatedAt
+}
+
+model Order {
+  id                  String              @id @default(uuid()) @db.Uuid
+  companyId           String              @db.Uuid
+  company             Company             @relation(fields: [companyId], references: [id])
+  customerId          String              @db.Uuid
+  customer            Customer            @relation(fields: [customerId], references: [id])
+  consultantProfileId String?             @db.Uuid
+  consultantProfile   ConsultantProfile?  @relation(fields: [consultantProfileId], references: [id])
+  subtotalCents        Int
+  discountCents        Int                 @default(0)
+  taxCents             Int                 @default(0)
+  shippingCents        Int                 @default(0)
+  totalCents           Int
+  paymentProviderCode  String
+  paymentStatus        PaymentStatus       @default(PENDING)
+  orderStatus          OrderStatus         @default(PENDING)
+  subscriptionStatus   SubscriptionStatus?
+  commissionStatus     CommissionStatus    @default(PENDING)
+  referralSource       String?
+  referralMetadata     Json?
+  items                OrderItem[]
+  commissions          Commission[]
+  paymentTransactions  PaymentTransaction[]
+  subscriptions        Subscription[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([companyId, customerId])
+  @@index([consultantProfileId])
+}
+
+model OrderItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  orderId         String   @db.Uuid
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId       String   @db.Uuid
+  product         Product  @relation(fields: [productId], references: [id])
+  quantity        Int
+  unitPriceCents  Int
+  totalCents      Int
+  metadata        Json?
+}
+
+model Commission {
+  id                  String             @id @default(uuid()) @db.Uuid
+  companyId           String             @db.Uuid
+  consultantProfileId String             @db.Uuid
+  consultantProfile   ConsultantProfile  @relation(fields: [consultantProfileId], references: [id])
+  orderId             String             @db.Uuid
+  order               Order              @relation(fields: [orderId], references: [id])
+  ruleId              String?            @db.Uuid
+  rule                CommissionRule?    @relation(fields: [ruleId], references: [id])
+  amountCents         Int
+  status              CommissionStatus   @default(PENDING)
+  approvedAt          DateTime?
+  paidAt              DateTime?
+  payoutId            String?            @db.Uuid
+  payout              Payout?            @relation(fields: [payoutId], references: [id])
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@index([companyId, consultantProfileId, status])
+}
+
+model CommissionRule {
+  id              String              @id @default(uuid()) @db.Uuid
+  companyId       String              @db.Uuid
+  company         Company             @relation(fields: [companyId], references: [id])
+  productId       String?             @db.Uuid
+  product         Product?            @relation(fields: [productId], references: [id])
+  categoryId      String?             @db.Uuid
+  type            CommissionRuleType
+  name            String
+  percentageBps   Int?
+  fixedAmountCents Int?
+  volumeThreshold Int?
+  bonusAmountCents Int?
+  active          Boolean             @default(true)
+  commissions     Commission[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+}
+
+model Payout {
+  id             String        @id @default(uuid()) @db.Uuid
+  companyId      String        @db.Uuid
+  totalCents     Int
+  status         String        @default("PENDING")
+  providerCode   String?
+  providerRef    String?
+  commissions    Commission[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+}
+
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  companyId              String             @db.Uuid
+  customerId             String             @db.Uuid
+  customer               Customer           @relation(fields: [customerId], references: [id])
+  orderId                String?            @db.Uuid
+  order                  Order?             @relation(fields: [orderId], references: [id])
+  paymentProviderCode    String
+  providerSubscriptionId String?
+  status                 SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart     DateTime?
+  currentPeriodEnd       DateTime?
+  cancelAt               DateTime?
+  metadata               Json?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+}
+
+model PaymentTransaction {
+  id                    String        @id @default(uuid()) @db.Uuid
+  companyId             String        @db.Uuid
+  orderId               String        @db.Uuid
+  order                 Order         @relation(fields: [orderId], references: [id])
+  providerCode          String
+  providerTransactionId String?
+  amountCents           Int
+  status                PaymentStatus @default(PENDING)
+  eventType             String?
+  rawEvent              Json?
+  createdAt             DateTime      @default(now())
+}
+
+model PaymentMethod {
+  id                     String   @id @default(uuid()) @db.Uuid
+  companyId              String   @db.Uuid
+  customerId             String   @db.Uuid
+  customer               Customer @relation(fields: [customerId], references: [id])
+  providerCode           String
+  providerPaymentMethodId String
+  type                   String
+  last4                  String?
+  brand                  String?
+  expMonth               Int?
+  expYear                Int?
+  isDefault              Boolean  @default(false)
+  createdAt              DateTime @default(now())
+}
+
+model PaymentProvider {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @db.Uuid
+  company   Company  @relation(fields: [companyId], references: [id])
+  code      String
+  label     String
+  active    Boolean  @default(false)
+  config    Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, code])
+}
+
+model ReferralLink {
+  id                  String            @id @default(uuid()) @db.Uuid
+  companyId           String            @db.Uuid
+  consultantProfileId String            @db.Uuid
+  consultantProfile   ConsultantProfile @relation(fields: [consultantProfileId], references: [id])
+  slug                String
+  code                String
+  destinationUrl      String
+  clicks              Int               @default(0)
+  conversions         Int               @default(0)
+  metadata            Json?
+  createdAt           DateTime          @default(now())
+
+  @@unique([companyId, slug])
+  @@unique([companyId, code])
+}
+
+model Lead {
+  id                  String             @id @default(uuid()) @db.Uuid
+  companyId           String             @db.Uuid
+  company             Company            @relation(fields: [companyId], references: [id])
+  consultantProfileId String?            @db.Uuid
+  consultantProfile   ConsultantProfile? @relation(fields: [consultantProfileId], references: [id])
+  name                String
+  email               String?
+  phone               String?
+  status              String             @default("NEW")
+  source              String?
+  notes               String?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+}
+
+model Team {
+  id        String       @id @default(uuid()) @db.Uuid
+  companyId String       @db.Uuid
+  company   Company      @relation(fields: [companyId], references: [id])
+  name      String
+  members   TeamMember[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model TeamMember {
+  id                  String             @id @default(uuid()) @db.Uuid
+  teamId              String             @db.Uuid
+  team                Team               @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId              String             @db.Uuid
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consultantProfileId String?            @db.Uuid
+  consultantProfile   ConsultantProfile? @relation(fields: [consultantProfileId], references: [id])
+  role                String             @default("MEMBER")
+  createdAt           DateTime           @default(now())
+
+  @@unique([teamId, userId])
+}
+
+model ActivityLog {
+  id         String    @id @default(uuid()) @db.Uuid
+  companyId  String    @db.Uuid
+  company    Company   @relation(fields: [companyId], references: [id])
+  userId     String?   @db.Uuid
+  user       User?     @relation(fields: [userId], references: [id])
+  customerId String?   @db.Uuid
+  customer   Customer? @relation(fields: [customerId], references: [id])
+  action     String
+  metadata   Json?
+  createdAt  DateTime  @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  readAt    DateTime?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String?  @db.Uuid
+  company   Company? @relation(fields: [companyId], references: [id])
+  userId    String?  @db.Uuid
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  resource  String
+  resourceId String?
+  ipAddress String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+}
+
+model OnboardingStep {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @db.Uuid
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key         String
+  label       String
+  completedAt DateTime?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([userId, key])
+}

@@ -1,0 +1,55 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 210 50% 99%;
+  --foreground: 214 52% 13%;
+  --border: 211 31% 88%;
+  --input: 211 31% 88%;
+  --ring: 207 86% 29%;
+  --primary: 207 86% 21%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 357 72% 49%;
+  --accent-foreground: 0 0% 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(220, 31, 42, 0.06), transparent 28%),
+    radial-gradient(circle at 86% 10%, rgba(11, 79, 138, 0.08), transparent 30%),
+    hsl(var(--background));
+  color: hsl(var(--foreground));
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+.font-display {
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+::selection {
+  background: rgba(220, 31, 42, 0.16);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(7, 55, 99, 0.09);
+}
+
+.grid-paper {
+  background-image:
+    linear-gradient(rgba(7, 55, 99, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(7, 55, 99, 0.045) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
