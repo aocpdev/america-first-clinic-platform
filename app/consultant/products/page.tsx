@@ -31,7 +31,11 @@ export default async function ConsultantProductsPage() {
     },
     include: {
       category: true,
-      inventory: true
+      inventory: true,
+      images: {
+        orderBy: { sortOrder: "asc" },
+        take: 1
+      }
     },
     orderBy: [{ category: { name: "asc" } }, { title: "asc" }]
   });
@@ -52,6 +56,9 @@ export default async function ConsultantProductsPage() {
             const salesGuide = extractProductSalesGuide(product.metadata);
             return (
               <Card key={product.id} className="overflow-hidden">
+                {product.images[0] && (
+                  <img src={product.images[0].url} alt={product.images[0].alt ?? product.title} className="h-48 w-full object-cover" />
+                )}
                 <div className="border-b border-border bg-white p-5">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>

@@ -22,7 +22,11 @@ export default async function ShopPage() {
         },
         include: {
           category: true,
-          inventory: true
+          inventory: true,
+          images: {
+            orderBy: { sortOrder: "asc" },
+            take: 1
+          }
         },
         orderBy: { title: "asc" }
       })
@@ -42,9 +46,16 @@ export default async function ShopPage() {
         <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           {products.map((product) => (
             <Card key={product.slug} className="flex flex-col p-5">
-              <div className="rounded-xl bg-clinic-mist p-5">
+              <div className="overflow-hidden rounded-xl bg-clinic-mist">
+                {product.images[0] ? (
+                  <img src={product.images[0].url} alt={product.images[0].alt ?? product.title} className="h-40 w-full object-cover" />
+                ) : (
+                  <div className="h-40 w-full bg-clinic-mist" />
+                )}
+                <div className="p-5">
                 <Badge>{product.category.name}</Badge>
                 <p className="mt-8 text-3xl font-semibold text-clinic-navy">{formatCurrency(product.priceCents)}</p>
+                </div>
               </div>
               <h2 className="mt-5 text-lg font-semibold text-clinic-ink">{product.title}</h2>
               <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">{product.description}</p>

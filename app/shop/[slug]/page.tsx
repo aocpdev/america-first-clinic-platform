@@ -19,7 +19,11 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     },
     include: {
       category: true,
-      inventory: true
+      inventory: true,
+      images: {
+        orderBy: { sortOrder: "asc" },
+        take: 1
+      }
     }
   });
 
@@ -29,7 +33,13 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
     <>
       <MarketingHeader />
       <main className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:px-6 lg:grid-cols-[.9fr_1.1fr] lg:px-8">
-        <Card className="min-h-[420px] bg-clinic-mist p-6">
+        <Card className="min-h-[420px] overflow-hidden bg-clinic-mist">
+          {product.images[0] ? (
+            <img src={product.images[0].url} alt={product.images[0].alt ?? product.title} className="h-64 w-full object-cover" />
+          ) : (
+            <div className="h-64 bg-clinic-mist" />
+          )}
+          <div className="p-6">
           <Badge>{product.category.name}</Badge>
           <div className="mt-20 rounded-xl bg-white p-6 shadow-soft">
             <p className="text-sm font-semibold text-slate-500">Program price</p>
@@ -37,6 +47,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
             <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
               {product.supportsSubscription ? "Subscription ready" : "One-time checkout"}
             </p>
+          </div>
           </div>
         </Card>
         <div>

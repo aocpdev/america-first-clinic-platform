@@ -1,5 +1,11 @@
 import { Boxes, Download, Plus, Trash2 } from "lucide-react";
-import { createProduct, deleteProduct, updateProduct } from "@/app/admin/products/actions";
+import {
+  createProduct,
+  deleteProduct,
+  deleteProductImage,
+  updateProduct,
+  uploadProductImage
+} from "@/app/admin/products/actions";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +44,10 @@ export default async function AdminProductsPage() {
       include: {
         category: true,
         inventory: true,
+        images: {
+          orderBy: { sortOrder: "asc" },
+          take: 1
+        },
         _count: { select: { orderItems: true } }
       },
       orderBy: [{ active: "desc" }, { title: "asc" }]
@@ -182,9 +192,10 @@ export default async function AdminProductsPage() {
             <Boxes className="h-5 w-5 text-clinic-red" />
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1180px] text-left text-sm">
+            <table className="w-full min-w-[1320px] text-left text-sm">
               <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
                 <tr>
+                  <th className="px-5 py-3">Image</th>
                   <th className="px-5 py-3">Product</th>
                   <th className="px-5 py-3">SKU</th>
                   <th className="px-5 py-3">Category</th>
@@ -203,8 +214,37 @@ export default async function AdminProductsPage() {
                   const revenueCents = sales?._sum.totalCents ?? 0;
                   const units = sales?._sum.quantity ?? 0;
                   const salesGuide = extractProductSalesGuide(product.metadata);
+                  const primaryImage = product.images[0];
                   return (
                     <tr key={product.id} className={!product.active ? "bg-slate-50" : undefined}>
+                      <td className="px-5 py-4 align-top">
+                        <div className="w-36 space-y-3">
+                          <div className="flex h-24 w-36 items-center justify-center overflow-hidden rounded-lg border border-border bg-clinic-mist">
+                            {primaryImage ? (
+                              <img src={primaryImage.url} alt={primaryImage.alt ?? product.title} className="h-full w-full object-cover" />
+                            ) : (
+                              <span className="px-3 text-center text-xs font-semibold text-slate-500">No image</span>
+                            )}
+                          </div>
+                          <form action={uploadProductImage} className="space-y-2">
+                            <input type="hidden" name="productId" value={product.id} />
+                            <input
+                              name="image"
+                              type="file"
+                              accept="image/*"
+                              className="w-36 text-xs text-slate-600 file:mr-2 file:rounded-md file:border-0 file:bg-clinic-navy file:px-2 file:py-1.5 file:text-xs file:font-semibold file:text-white"
+                              required
+                            />
+                            <SubmitButton size="sm" variant="outline" pendingText="Uploading..." className="w-full">Upload</SubmitButton>
+                          </form>
+                          {primaryImage && (
+                            <form action={deleteProductImage}>
+                              <input type="hidden" name="imageId" value={primaryImage.id} />
+                              <SubmitButton size="sm" variant="ghost" pendingText="Removing..." className="w-full text-clinic-red">Remove</SubmitButton>
+                            </form>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-5 py-4">
                         <form id={`product-${product.id}`} action={updateProduct} className="space-y-2">
                           <input type="hidden" name="productId" value={product.id} />
@@ -312,7 +352,7 @@ export default async function AdminProductsPage() {
                 })}
                 {products.length === 0 && (
                   <tr>
-                    <td className="px-5 py-10 text-center text-slate-500" colSpan={10}>
+                    <td className="px-5 py-10 text-center text-slate-500" colSpan={11}>
                       No products yet. Add the first catalog item above, then import the spreadsheet once access is available.
                     </td>
                   </tr>

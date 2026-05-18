@@ -31,7 +31,11 @@ export default async function PartnerProductsPage() {
       where: { companyId },
       include: {
         category: true,
-        inventory: true
+        inventory: true,
+        images: {
+          orderBy: { sortOrder: "asc" },
+          take: 1
+        }
       },
       orderBy: [{ active: "desc" }, { title: "asc" }]
     }),
@@ -87,9 +91,10 @@ export default async function PartnerProductsPage() {
             </p>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[980px] text-left text-sm">
+            <table className="w-full min-w-[1100px] text-left text-sm">
               <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
                 <tr>
+                  <th className="px-5 py-3">Image</th>
                   <th className="px-5 py-3">Product</th>
                   <th className="px-5 py-3">SKU</th>
                   <th className="px-5 py-3">Category</th>
@@ -104,8 +109,18 @@ export default async function PartnerProductsPage() {
               <tbody className="divide-y divide-border bg-white">
                 {products.map((product) => {
                   const sales = salesMap.get(product.id);
+                  const primaryImage = product.images[0];
                   return (
                     <tr key={product.id}>
+                      <td className="px-5 py-4">
+                        <div className="flex h-16 w-24 items-center justify-center overflow-hidden rounded-lg border border-border bg-clinic-mist">
+                          {primaryImage ? (
+                            <img src={primaryImage.url} alt={primaryImage.alt ?? product.title} className="h-full w-full object-cover" />
+                          ) : (
+                            <span className="text-xs text-slate-500">No image</span>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-5 py-4">
                         <p className="font-semibold text-clinic-ink">{product.title}</p>
                         <p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">{product.description}</p>
@@ -130,7 +145,7 @@ export default async function PartnerProductsPage() {
                 })}
                 {products.length === 0 && (
                   <tr>
-                    <td className="px-5 py-10 text-center text-slate-500" colSpan={9}>
+                    <td className="px-5 py-10 text-center text-slate-500" colSpan={10}>
                       Products will appear here after the admin adds them to the catalog.
                     </td>
                   </tr>

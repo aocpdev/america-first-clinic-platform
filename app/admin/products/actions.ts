@@ -12,6 +12,7 @@ import {
   slugify
 } from "@/lib/products/catalog";
 import { prisma } from "@/lib/db/prisma";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 const productSchema = z.object({
   title: z.string().min(2),
@@ -200,4 +201,105 @@ export async function deleteProduct(formData: FormData) {
   revalidatePath("/admin/products");
   revalidatePath("/partner/products");
   revalidatePath("/shop");
+}
+
+export async function uploadProductImage(formData: FormData) {
+  const companyId = await requireAdminCompany();
+  const productId = String(formData.get("productId") || "");
+  const image = formData.get("image");
+
+  if (!(image instanceof File) || image.size === 0) {
+    redirect("/admin/products?error=missing_image");
+  }
+
+  if (!image.type.startsWith("image/")) {
+    redirect("/admin/products?error=invalid_image");
+  }
+
+  const product = await prisma.product.findUnique({
+    where: {
+      id: productId,
+      companyId
+    },
+    select: {
+      id: true,
+      title: true,
+      slug: true
+    }
+  });
+
+  if (!product) {
+    redirect("/admin/products?error=product_not_found");
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const bucket = "product-images";
+  const { data: buckets } = await supabase.storage.listBuckets();
+
+  if (!buckets?.some((item) => item.name === bucket)) {
+    await supabase.storage.createBucket(bucket, {
+      public: true,
+      fileSizeLimit: 5 * 1024 * 1024,
+      allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/gif"]
+    });
+  }
+
+  const extension = image.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${companyId}/${product.id}/${Date.now()}.${extension}`;
+  const bytes = await image.arrayBuffer();
+  const { error } = await supabase.storage.from(bucket).upload(path, bytes, {
+    contentType: image.type,
+    upsert: true
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const { data } = supabase.storage.from(bucket).getPublicUrl(path);
+  const nextSortOrder = await prisma.productImage.count({ where: { productId: product.id } });
+
+  await prisma.productImage.create({
+    data: {
+      productId: product.id,
+      url: data.publicUrl,
+      alt: product.title,
+      sortOrder: nextSortOrder
+    }
+  });
+
+  revalidatePath("/admin/products");
+  revalidatePath("/partner/products");
+  revalidatePath("/consultant/products");
+  revalidatePath("/shop");
+  revalidatePath(`/shop/${product.slug}`);
+}
+
+export async function deleteProductImage(formData: FormData) {
+  const companyId = await requireAdminCompany();
+  const imageId = String(formData.get("imageId") || "");
+
+  const image = await prisma.productImage.findFirst({
+    where: {
+      id: imageId,
+      product: { companyId }
+    },
+    include: {
+      product: {
+        select: { slug: true }
+      }
+    }
+  });
+
+  if (!image) {
+    redirect("/admin/products?error=image_not_found");
+  }
+
+  await prisma.productImage.delete({ where: { id: image.id } });
+
+  revalidatePath("/admin/products");
+  revalidatePath("/partner/products");
+  revalidatePath("/consultant/products");
+  revalidatePath("/shop");
+  revalidatePath(`/shop/${image.product.slug}`);
 }
