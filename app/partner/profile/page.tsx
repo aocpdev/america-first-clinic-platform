@@ -1,9 +1,9 @@
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { ProfileSettings } from "@/components/profile/profile-settings";
-import { consultantNav } from "@/lib/constants/navigation";
+import { partnerNav } from "@/lib/constants/navigation";
 import { requireUser } from "@/lib/auth/current-user";
 
-export default async function ConsultantProfilePage({
+export default async function PartnerProfilePage({
   searchParams
 }: {
   searchParams: Promise<{ error?: string; updated?: string }>;
@@ -12,11 +12,11 @@ export default async function ConsultantProfilePage({
   const params = await searchParams;
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Profile">
+    <SidebarShell nav={partnerNav} eyebrow="Partner" title="Profile">
       <ProfileSettings
         user={user}
-        title="Consultant profile"
-        description="Manage your seller profile, contact details, and profile photo used inside the CRM."
+        title="Partner profile"
+        description="Manage the partner identity used for assigned seller visibility, commission reporting, and internal activity."
         error={params.error}
         updated={params.updated}
       />

@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { Bell, Search } from "lucide-react";
 import { ClinicLogo } from "@/components/layout/logo";
+import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { profilePathForRole } from "@/lib/auth/profile-path";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -11,7 +14,7 @@ type NavItem = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-export function SidebarShell({
+export async function SidebarShell({
   nav,
   title,
   eyebrow,
@@ -22,6 +25,8 @@ export function SidebarShell({
   eyebrow: string;
   children: React.ReactNode;
 }) {
+  const user = await getCurrentUser();
+
   return (
     <div className="min-h-screen bg-clinic-mist">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-border bg-white lg:block">
@@ -62,6 +67,18 @@ export function SidebarShell({
               <Button size="icon" variant="outline" aria-label="Notifications">
                 <Bell className="h-4 w-4" />
               </Button>
+              {user ? (
+                <UserMenu
+                  user={{
+                    email: user.email,
+                    firstName: user.firstName,
+                    lastName: user.lastName,
+                    avatarUrl: user.avatarUrl,
+                    role: user.role
+                  }}
+                  profileHref={profilePathForRole(user.role)}
+                />
+              ) : null}
             </div>
           </div>
         </header>
