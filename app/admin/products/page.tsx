@@ -9,7 +9,13 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { centsToDollars, formatCurrency, formatPercentBps } from "@/lib/products/catalog";
+import {
+  centsToDollars,
+  extractProductSalesGuide,
+  formatCurrency,
+  formatPercentBps,
+  linesToTextarea
+} from "@/lib/products/catalog";
 
 export default async function AdminProductsPage() {
   const user = await requireRole("COMPANY_ADMIN");
@@ -131,6 +137,34 @@ export default async function AdminProductsPage() {
               <input type="hidden" name="healthcareCategory" value="wellness" />
               <input type="hidden" name="importSource" value="manual" />
             </div>
+            <div className="grid gap-3 rounded-lg border border-border bg-white p-4 lg:col-span-12">
+              <div>
+                <p className="text-sm font-semibold text-clinic-ink">Sales enablement guide</p>
+                <p className="mt-1 text-xs text-slate-500">One item per line. Consultants will use this during calls.</p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <textarea
+                  name="benefits"
+                  placeholder="Key benefits"
+                  className="min-h-24 rounded-lg border border-input bg-white px-3 py-2 text-sm text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                <textarea
+                  name="talkingPoints"
+                  placeholder="Call talking points"
+                  className="min-h-24 rounded-lg border border-input bg-white px-3 py-2 text-sm text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                <textarea
+                  name="commonObjections"
+                  placeholder="Common objections and responses"
+                  className="min-h-24 rounded-lg border border-input bg-white px-3 py-2 text-sm text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+                <textarea
+                  name="callNotes"
+                  placeholder="Compliance notes for the sales call"
+                  className="min-h-24 rounded-lg border border-input bg-white px-3 py-2 text-sm text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+            </div>
           </form>
           <datalist id="product-categories">
             {categories.map((category) => (
@@ -168,6 +202,7 @@ export default async function AdminProductsPage() {
                   const sales = salesMap.get(product.id);
                   const revenueCents = sales?._sum.totalCents ?? 0;
                   const units = sales?._sum.quantity ?? 0;
+                  const salesGuide = extractProductSalesGuide(product.metadata);
                   return (
                     <tr key={product.id} className={!product.active ? "bg-slate-50" : undefined}>
                       <td className="px-5 py-4">
@@ -182,6 +217,37 @@ export default async function AdminProductsPage() {
                           />
                           <input type="hidden" name="healthcareCategory" value="wellness" />
                           <input type="hidden" name="importSource" value="manual" />
+                          <details className="w-80 rounded-lg border border-border bg-clinic-mist p-3">
+                            <summary className="cursor-pointer text-xs font-bold uppercase tracking-[0.14em] text-clinic-navy">
+                              Sales guide
+                            </summary>
+                            <div className="mt-3 space-y-2">
+                              <textarea
+                                name="benefits"
+                                defaultValue={linesToTextarea(salesGuide.benefits)}
+                                placeholder="Benefits, one per line"
+                                className="min-h-20 w-full rounded-lg border border-input bg-white px-3 py-2 text-xs text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              />
+                              <textarea
+                                name="talkingPoints"
+                                defaultValue={linesToTextarea(salesGuide.talkingPoints)}
+                                placeholder="Talking points, one per line"
+                                className="min-h-20 w-full rounded-lg border border-input bg-white px-3 py-2 text-xs text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              />
+                              <textarea
+                                name="commonObjections"
+                                defaultValue={linesToTextarea(salesGuide.commonObjections)}
+                                placeholder="Objections, one per line"
+                                className="min-h-20 w-full rounded-lg border border-input bg-white px-3 py-2 text-xs text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              />
+                              <textarea
+                                name="callNotes"
+                                defaultValue={salesGuide.callNotes}
+                                placeholder="Call notes"
+                                className="min-h-20 w-full rounded-lg border border-input bg-white px-3 py-2 text-xs text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                              />
+                            </div>
+                          </details>
                         </form>
                       </td>
                       <td className="px-5 py-4">

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth/current-user";
 import {
@@ -115,6 +116,21 @@ export async function updateProduct(formData: FormData) {
   const priceCents = dollarsToCents(formData.get("price"));
   const internalCostCents = dollarsToCents(formData.get("internalCost"));
   const category = await upsertCategory(companyId, parsed.categoryName);
+  const existingProduct = await prisma.product.findUnique({
+    where: {
+      id: productId,
+      companyId
+    },
+    select: { metadata: true }
+  });
+  const existingMetadata =
+    typeof existingProduct?.metadata === "object" && existingProduct.metadata !== null && !Array.isArray(existingProduct.metadata)
+      ? existingProduct.metadata
+      : {};
+  const nextMetadata = {
+    ...existingMetadata,
+    ...(productMetadataFromForm(formData) as Record<string, unknown>)
+  } as Prisma.InputJsonObject;
 
   await prisma.product.update({
     where: {
@@ -133,7 +149,7 @@ export async function updateProduct(formData: FormData) {
       active: parsed.active,
       supportsSubscription: parsed.supportsSubscription,
       supportsRecurring: parsed.supportsRecurring,
-      metadata: productMetadataFromForm(formData),
+      metadata: nextMetadata,
       inventory: {
         upsert: {
           create: {

@@ -1,5 +1,12 @@
 import { Prisma } from "@prisma/client";
 
+export type ProductSalesGuide = {
+  benefits: string[];
+  talkingPoints: string[];
+  commonObjections: string[];
+  callNotes: string;
+};
+
 export function formatCurrency(cents: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -39,10 +46,53 @@ export function slugify(value: string) {
     .replace(/^-+|-+$/g, "");
 }
 
+function linesFromForm(formData: FormData, key: string) {
+  return String(formData.get(key) || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
 export function productMetadataFromForm(formData: FormData): Prisma.InputJsonValue {
   return {
     healthcareCategory: String(formData.get("healthcareCategory") || "wellness"),
     importSource: String(formData.get("importSource") || "manual"),
-    requiresConsult: formData.get("requiresConsult") === "on"
+    requiresConsult: formData.get("requiresConsult") === "on",
+    salesGuide: {
+      benefits: linesFromForm(formData, "benefits"),
+      talkingPoints: linesFromForm(formData, "talkingPoints"),
+      commonObjections: linesFromForm(formData, "commonObjections"),
+      callNotes: String(formData.get("callNotes") || "").trim()
+    }
   };
+}
+
+function isRecord(value: Prisma.JsonValue | unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
+}
+
+export function extractProductSalesGuide(metadata: Prisma.JsonValue | null | undefined): ProductSalesGuide {
+  if (!isRecord(metadata) || !isRecord(metadata.salesGuide)) {
+    return {
+      benefits: [],
+      talkingPoints: [],
+      commonObjections: [],
+      callNotes: ""
+    };
+  }
+
+  return {
+    benefits: stringArray(metadata.salesGuide.benefits),
+    talkingPoints: stringArray(metadata.salesGuide.talkingPoints),
+    commonObjections: stringArray(metadata.salesGuide.commonObjections),
+    callNotes: typeof metadata.salesGuide.callNotes === "string" ? metadata.salesGuide.callNotes : ""
+  };
+}
+
+export function linesToTextarea(lines: string[]) {
+  return lines.join("\n");
 }
