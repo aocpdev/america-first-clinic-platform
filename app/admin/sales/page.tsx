@@ -11,6 +11,10 @@ function personName(person: { firstName: string | null; lastName: string | null;
   return name || person.email || "Unassigned";
 }
 
+function grossMarginPerUnit(priceCents: number, internalCostCents: number) {
+  return Math.max(0, priceCents - internalCostCents);
+}
+
 export default async function AdminSalesPage({
   searchParams
 }: {
@@ -76,7 +80,7 @@ export default async function AdminSalesPage({
           title: product.title,
           categoryName: product.category.name,
           priceCents: product.priceCents,
-          estimatedCommissionCents: 0,
+          estimatedCommissionCents: grossMarginPerUnit(product.priceCents, product.internalCostCents),
           imageUrl: product.images[0]?.url ?? null,
           imageAlt: product.images[0]?.alt ?? null,
           supportsRecurring: product.supportsRecurring,
@@ -93,8 +97,9 @@ export default async function AdminSalesPage({
         }))}
         canCreateOrders
         createOrderAction={createAdminOrder}
-        commissionLabel="Commission generated"
-        commissionDetailLabel="Commission generated"
+        commissionLabel="Profit generated"
+        commissionDetailLabel="Profit generated"
+        productEstimateLabel="est. profit"
         successMessage="Order created successfully. No commission was generated for this admin sale."
         ownershipCopy="Admins can create orders for any company customer. Admin-created sales do not generate partner or consultant commission."
         createdOrderId={params.created}

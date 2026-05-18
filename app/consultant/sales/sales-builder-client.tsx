@@ -51,6 +51,7 @@ type SalesBuilderClientProps = {
   createOrderAction: (formData: FormData) => void | Promise<void>;
   commissionLabel?: string;
   commissionDetailLabel?: string;
+  productEstimateLabel?: string;
   successMessage?: string;
   ownershipCopy?: string;
 };
@@ -87,6 +88,7 @@ export function SalesBuilderClient({
   createOrderAction,
   commissionLabel = "Your estimated commission",
   commissionDetailLabel = "Estimated consultant commission",
+  productEstimateLabel = "est. commission",
   successMessage = "Order created successfully. Your commission is pending approval.",
   ownershipCopy = "You can only create orders for customers assigned to you. The operations team can reassign customers when the sales relationship changes."
 }: SalesBuilderClientProps) {
@@ -322,7 +324,7 @@ export function SalesBuilderClient({
                       <div>
                         <p className="text-lg font-semibold text-clinic-navy">{formatCurrency(product.priceCents)}</p>
                         <p className="text-xs font-semibold text-emerald-700">
-                          {formatCurrency(product.estimatedCommissionCents)} est. commission
+                          {formatCurrency(product.estimatedCommissionCents)} {productEstimateLabel}
                         </p>
                       </div>
                       <div className="flex items-center rounded-full border border-border bg-white p-1">

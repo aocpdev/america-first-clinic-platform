@@ -140,9 +140,10 @@ export default async function PartnerSalesPage({
             }))}
             canCreateOrders={Boolean(partnerProfile)}
             createOrderAction={createPartnerOrder}
-            commissionLabel="Partner estimated commission"
-            commissionDetailLabel="Estimated partner commission"
-            successMessage="Order created successfully. The partner commission is pending approval."
+            commissionLabel="Profit generated"
+            commissionDetailLabel="Profit generated"
+            productEstimateLabel="est. profit"
+            successMessage="Order created successfully. The partner profit is pending approval."
             ownershipCopy="Partner sales can be created for direct partner customers or customers owned by consultants assigned to this partner profile."
             createdOrderId={params.created}
             error={params.error}
