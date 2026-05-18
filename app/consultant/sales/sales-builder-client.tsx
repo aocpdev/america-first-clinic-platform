@@ -1,14 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, CircleDollarSign, Plus, Search, ShoppingBag, UserPlus } from "lucide-react";
+import { CheckCircle2, CircleDollarSign, Link2, Search, ShieldCheck, ShoppingBag, UserPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { formatCurrency } from "@/lib/products/catalog";
-import { CUSTOMER_PIPELINE_STAGES } from "@/lib/sales/pipeline";
 
 type CustomerOption = {
   id: string;
@@ -94,7 +92,7 @@ export function SalesBuilderClient({
 }: SalesBuilderClientProps) {
   const [customerMode, setCustomerMode] = useState<"existing" | "new">(customers.length > 0 ? "existing" : "new");
   const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id ?? "");
-  const [selectedStage, setSelectedStage] = useState("CART_BUILT");
+  const [paymentWorkflow, setPaymentWorkflow] = useState<"collect_payment" | "send_invoice">("collect_payment");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [priceRange, setPriceRange] = useState(priceRanges[0].label);
@@ -162,7 +160,7 @@ export function SalesBuilderClient({
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card className="p-5">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Selected total</p>
           <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(subtotalCents)}</p>
@@ -171,17 +169,12 @@ export function SalesBuilderClient({
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{commissionLabel}</p>
           <p className="mt-3 text-3xl font-semibold text-clinic-red">{formatCurrency(consultantCommissionCents)}</p>
         </Card>
-        <Card className="p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Pipeline stage</p>
-          <p className="mt-3 text-2xl font-semibold text-clinic-navy">
-            {CUSTOMER_PIPELINE_STAGES.find((stage) => stage.value === selectedStage)?.label}
-          </p>
-        </Card>
       </div>
 
       <form action={createOrderAction} className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <input type="hidden" name="customerMode" value={customerMode} />
-        <input type="hidden" name="pipelineStage" value={selectedStage} />
+        <input type="hidden" name="pipelineStage" value="PAYMENT_PENDING" />
+        <input type="hidden" name="paymentWorkflow" value={paymentWorkflow} />
         {products.map((product) => (
           <input key={product.id} type="hidden" name={`quantity:${product.id}`} value={quantities[product.id] ?? 0} />
         ))}
@@ -384,16 +377,34 @@ export function SalesBuilderClient({
             </div>
 
             <div className="mt-5">
-              <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Pipeline</label>
-              <select
-                value={selectedStage}
-                onChange={(event) => setSelectedStage(event.target.value)}
-                className="mt-2 h-11 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {CUSTOMER_PIPELINE_STAGES.map((stage) => (
-                  <option key={stage.value} value={stage.value}>{stage.label}</option>
-                ))}
-              </select>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Payment action</p>
+              <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl bg-clinic-mist p-1">
+                <button
+                  type="button"
+                  onClick={() => setPaymentWorkflow("collect_payment")}
+                  className={`flex min-h-14 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition ${
+                    paymentWorkflow === "collect_payment" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"
+                  }`}
+                >
+                  <ShieldCheck className="h-4 w-4" />
+                  Collect payment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentWorkflow("send_invoice")}
+                  className={`flex min-h-14 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition ${
+                    paymentWorkflow === "send_invoice" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"
+                  }`}
+                >
+                  <Link2 className="h-4 w-4" />
+                  Send invoice
+                </button>
+              </div>
+              <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-clinic-navy">
+                {paymentWorkflow === "collect_payment"
+                  ? "Prepared for Authorize.net Accept Hosted so card data is collected by Authorize.net, not stored in the CRM."
+                  : "Creates an invoice payment link placeholder and queues webhook metadata for the communication workflow."}
+              </div>
             </div>
 
             <div className="mt-4">
@@ -407,7 +418,7 @@ export function SalesBuilderClient({
 
             <SubmitButton className="mt-5 w-full" size="lg" pendingText="Creating order..." disabled={!canCreateOrders || selectedLines.length === 0}>
               <CheckCircle2 className="h-4 w-4" />
-              Create pending order
+              {paymentWorkflow === "collect_payment" ? "Collect payment" : "Send invoice"}
             </SubmitButton>
           </Card>
 
