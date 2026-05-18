@@ -73,6 +73,7 @@ export default async function PartnerPipelinePage() {
             email: customer.email,
             phone: customer.phone,
             consultantName: consultantName(customer.consultantProfile),
+            consultantAvatarUrl: customer.consultantProfile?.user.avatarUrl ?? null,
             pipelineStage: normalizeStage(customer.pipelineStage),
             pipelineUpdatedAt: customer.pipelineUpdatedAt?.toISOString() ?? null,
             lifetimeValueCents: customer.lifetimeValueCents,
