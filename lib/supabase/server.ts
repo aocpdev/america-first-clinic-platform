@@ -24,7 +24,12 @@ export async function createSupabaseServerClient() {
         },
         setAll(cookiesToSet: Array<{ name: string; value: string; options: CookieOptions }>) {
           cookiesToSet.forEach(({ name, value, options }) => {
-            cookieStore.set(name, value, options);
+            try {
+              cookieStore.set(name, value, options);
+            } catch {
+              // Server Components cannot mutate cookies. Auth actions and routes
+              // can still persist refreshed Supabase cookies through this client.
+            }
           });
         }
       }
