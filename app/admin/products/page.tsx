@@ -54,10 +54,7 @@ export default async function AdminProductsPage() {
   const salesMap = new Map(salesByProduct.map((row) => [row.productId, row]));
   const activeProducts = products.filter((product) => product.active).length;
   const totalRevenueCents = salesByProduct.reduce((sum, row) => sum + (row._sum.totalCents ?? 0), 0);
-  const lowStockCount = products.filter((product) => {
-    const inventory = product.inventory;
-    return inventory && inventory.quantityOnHand <= inventory.reorderPoint;
-  }).length;
+  const inactiveProducts = products.length - activeProducts;
 
   const productViews = products.map((product) => {
     const sales = salesMap.get(product.id);
@@ -101,7 +98,7 @@ export default async function AdminProductsPage() {
         categories={categories.map((category) => category.name)}
         activeProducts={activeProducts}
         totalRevenueCents={totalRevenueCents}
-        lowStockCount={lowStockCount}
+        inactiveProducts={inactiveProducts}
       />
     </SidebarShell>
   );

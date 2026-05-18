@@ -61,7 +61,7 @@ type ProductCatalogClientProps = {
   categories: string[];
   activeProducts: number;
   totalRevenueCents: number;
-  lowStockCount: number;
+  inactiveProducts: number;
 };
 
 function ProductModal({
@@ -152,15 +152,10 @@ function ProductFormFields({ product, categories }: { product?: ProductView; cat
         </div>
       </div>
 
+      <input type="hidden" name="quantityOnHand" value={product?.inventory?.quantityOnHand ?? 0} />
+      <input type="hidden" name="reorderPoint" value={product?.inventory?.reorderPoint ?? 10} />
+
       <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <FieldLabel>Stock</FieldLabel>
-          <Input name="quantityOnHand" type="number" min="0" defaultValue={product?.inventory?.quantityOnHand ?? 0} className="mt-2" />
-        </div>
-        <div>
-          <FieldLabel>Reorder alert</FieldLabel>
-          <Input name="reorderPoint" type="number" min="0" defaultValue={product?.inventory?.reorderPoint ?? 10} className="mt-2" />
-        </div>
         <label className="flex items-center gap-3 rounded-lg border border-border bg-clinic-mist px-4 py-3 text-sm font-semibold text-clinic-ink">
           <input name="active" type="checkbox" defaultChecked={product?.active ?? true} className="h-4 w-4" />
           Active in catalog
@@ -221,7 +216,7 @@ export function ProductCatalogClient({
   categories,
   activeProducts,
   totalRevenueCents,
-  lowStockCount
+  inactiveProducts
 }: ProductCatalogClientProps) {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [addingProduct, setAddingProduct] = useState(false);
@@ -242,8 +237,8 @@ export function ProductCatalogClient({
           <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(totalRevenueCents)}</p>
         </Card>
         <Card className="p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Inventory alerts</p>
-          <p className="mt-3 text-3xl font-semibold text-clinic-navy">{lowStockCount}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Inactive products</p>
+          <p className="mt-3 text-3xl font-semibold text-clinic-navy">{inactiveProducts}</p>
         </Card>
       </div>
 
@@ -267,8 +262,6 @@ export function ProductCatalogClient({
       {products.length > 0 ? (
         <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {products.map((product) => {
-            const lowStock = product.inventory && product.inventory.quantityOnHand <= product.inventory.reorderPoint;
-
             return (
               <Card key={product.id} className="group overflow-hidden rounded-2xl">
                 <div className="relative aspect-[4/3] bg-clinic-mist">
@@ -282,9 +275,8 @@ export function ProductCatalogClient({
                   )}
                   <div className="absolute left-3 top-3 flex gap-2">
                     <Badge className={product.active ? "border-emerald-200 bg-white/90 text-emerald-700" : "border-slate-200 bg-white/90 text-slate-600"}>
-                      {product.active ? "Active" : "Archived"}
+                      {product.active ? "Active" : "Inactive"}
                     </Badge>
-                    {lowStock && <Badge className="border-amber-200 bg-white/90 text-amber-700">Low stock</Badge>}
                   </div>
                 </div>
                 <div className="p-4">
