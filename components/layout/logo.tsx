@@ -16,7 +16,6 @@ export function ClinicLogo({ compact = false, className }: { compact?: boolean; 
       {!compact && (
         <div className="leading-tight">
           <p className="font-display text-xl font-semibold tracking-normal text-clinic-navy">America First Clinic</p>
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-clinic-red">Sales CRM</p>
         </div>
       )}
     </Link>

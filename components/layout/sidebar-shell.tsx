@@ -17,7 +17,6 @@ type NavItem = {
 export async function SidebarShell({
   nav,
   title,
-  eyebrow,
   children
 }: {
   nav: NavItem[];
@@ -56,8 +55,7 @@ export async function SidebarShell({
         <header className="sticky top-0 z-30 border-b border-border bg-white/88 backdrop-blur-xl">
           <div className="flex min-h-20 flex-col gap-3 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-clinic-red">{eyebrow}</p>
-              <h1 className="mt-1 text-2xl font-semibold text-clinic-ink">{title}</h1>
+              <h1 className="text-2xl font-semibold text-clinic-ink">{title}</h1>
             </div>
             <div className="flex items-center gap-3">
               <div className="relative hidden min-w-72 md:block">
