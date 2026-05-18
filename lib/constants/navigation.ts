@@ -16,6 +16,8 @@ import {
 
 export const adminNav = [
   { href: "/admin/dashboard", label: "Dashboard", icon: Gauge },
+  { href: "/admin/sales", label: "Sales", icon: ShoppingBag },
+  { href: "/admin/pipeline", label: "Pipeline", icon: Columns3 },
   { href: "/admin/orders", label: "Orders", icon: ClipboardList },
   { href: "/admin/products", label: "Products", icon: Boxes },
   { href: "/admin/customers", label: "Customers", icon: Users },

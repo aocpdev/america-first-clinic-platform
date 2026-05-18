@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from "react";
 import { CheckCircle2, CircleDollarSign, Plus, Search, ShoppingBag, UserPlus } from "lucide-react";
-import { createConsultantOrder } from "@/app/consultant/sales/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -24,7 +23,7 @@ type ProductOption = {
   title: string;
   categoryName: string;
   priceCents: number;
-  estimatedConsultantCommissionCents: number;
+  estimatedCommissionCents: number;
   imageUrl: string | null;
   imageAlt: string | null;
   supportsRecurring: boolean;
@@ -35,7 +34,7 @@ type RecentOrder = {
   id: string;
   customerName: string;
   totalCents: number;
-  consultantCommissionCents: number;
+  commissionCents: number;
   orderStatus: string;
   paymentStatus: string;
   createdAt: string;
@@ -49,6 +48,11 @@ type SalesBuilderClientProps = {
   setupMessage?: string;
   createdOrderId?: string;
   error?: string;
+  createOrderAction: (formData: FormData) => void | Promise<void>;
+  commissionLabel?: string;
+  commissionDetailLabel?: string;
+  successMessage?: string;
+  ownershipCopy?: string;
 };
 
 const errorCopy: Record<string, string> = {
@@ -79,7 +83,12 @@ export function SalesBuilderClient({
   canCreateOrders,
   setupMessage,
   createdOrderId,
-  error
+  error,
+  createOrderAction,
+  commissionLabel = "Your estimated commission",
+  commissionDetailLabel = "Estimated consultant commission",
+  successMessage = "Order created successfully. Your commission is pending approval.",
+  ownershipCopy = "You can only create orders for customers assigned to you. The operations team can reassign customers when the sales relationship changes."
 }: SalesBuilderClientProps) {
   const [customerMode, setCustomerMode] = useState<"existing" | "new">(customers.length > 0 ? "existing" : "new");
   const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id ?? "");
@@ -116,7 +125,7 @@ export function SalesBuilderClient({
 
   const subtotalCents = selectedLines.reduce((sum, line) => sum + line.product.priceCents * line.quantity, 0);
   const consultantCommissionCents = selectedLines.reduce(
-    (sum, line) => sum + line.product.estimatedConsultantCommissionCents * line.quantity,
+    (sum, line) => sum + line.product.estimatedCommissionCents * line.quantity,
     0
   );
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId);
@@ -137,7 +146,7 @@ export function SalesBuilderClient({
     <div className="space-y-6">
       {createdOrderId && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
-          Order created successfully. Your commission is pending approval.
+          {successMessage}
         </div>
       )}
       {error && (
@@ -157,7 +166,7 @@ export function SalesBuilderClient({
           <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(subtotalCents)}</p>
         </Card>
         <Card className="p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Your estimated commission</p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{commissionLabel}</p>
           <p className="mt-3 text-3xl font-semibold text-clinic-red">{formatCurrency(consultantCommissionCents)}</p>
         </Card>
         <Card className="p-5">
@@ -168,7 +177,7 @@ export function SalesBuilderClient({
         </Card>
       </div>
 
-      <form action={createConsultantOrder} className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      <form action={createOrderAction} className="grid gap-6 xl:grid-cols-[1fr_380px]">
         <input type="hidden" name="customerMode" value={customerMode} />
         <input type="hidden" name="pipelineStage" value={selectedStage} />
         {products.map((product) => (
@@ -313,7 +322,7 @@ export function SalesBuilderClient({
                       <div>
                         <p className="text-lg font-semibold text-clinic-navy">{formatCurrency(product.priceCents)}</p>
                         <p className="text-xs font-semibold text-emerald-700">
-                          {formatCurrency(product.estimatedConsultantCommissionCents)} est. commission
+                          {formatCurrency(product.estimatedCommissionCents)} est. commission
                         </p>
                       </div>
                       <div className="flex items-center rounded-full border border-border bg-white p-1">
@@ -367,7 +376,7 @@ export function SalesBuilderClient({
                 <span className="font-semibold text-clinic-ink">Pending</span>
               </div>
               <div className="rounded-xl bg-emerald-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Estimated consultant commission</p>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">{commissionDetailLabel}</p>
                 <p className="mt-2 text-3xl font-semibold text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
               </div>
             </div>
@@ -406,7 +415,7 @@ export function SalesBuilderClient({
               <h2 className="text-lg font-semibold text-clinic-ink">Ownership rule</h2>
             </div>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              You can only create orders for customers assigned to you. The operations team can reassign customers when the sales relationship changes.
+              {ownershipCopy}
             </p>
           </Card>
         </div>
@@ -426,7 +435,7 @@ export function SalesBuilderClient({
                   <p className="mt-1 text-xs text-slate-500">{new Date(order.createdAt).toLocaleDateString()}</p>
                 </div>
                 <p className="font-semibold text-clinic-navy">{formatCurrency(order.totalCents)}</p>
-                <p className="font-semibold text-emerald-700">{formatCurrency(order.consultantCommissionCents)}</p>
+                <p className="font-semibold text-emerald-700">{formatCurrency(order.commissionCents)}</p>
                 <div className="flex flex-wrap gap-2 md:justify-end">
                   <Badge>{order.orderStatus}</Badge>
                   <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{order.paymentStatus}</Badge>

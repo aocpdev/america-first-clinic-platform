@@ -39,14 +39,18 @@ export default async function PartnerPipelinePage() {
   const customers = await prisma.customer.findMany({
     where: {
       companyId: user.companyId ?? undefined,
-      consultantProfile: partnerProfile
-        ? {
-            partnerProfileId: partnerProfile.id
-          }
+      OR: partnerProfile
+        ? [
+            { partnerProfileId: partnerProfile.id },
+            { consultantProfile: { partnerProfileId: partnerProfile.id } }
+          ]
         : undefined
     },
     include: {
       consultantProfile: {
+        include: { user: true }
+      },
+      partnerProfile: {
         include: { user: true }
       },
       orders: {
@@ -63,7 +67,7 @@ export default async function PartnerPipelinePage() {
         <Card className="p-6">
           <h2 className="text-2xl font-semibold text-clinic-ink">Partner customer pipeline</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Monitor customers owned by consultants assigned to {partnerProfile?.companyName ?? partnerProfile?.displayName ?? "your partner profile"}.
+            Monitor direct partner customers and customers owned by consultants assigned to {partnerProfile?.companyName ?? partnerProfile?.displayName ?? "your partner profile"}.
           </p>
         </Card>
         <CustomerPipelineBoard
@@ -72,8 +76,8 @@ export default async function PartnerPipelinePage() {
             name: customerName(customer),
             email: customer.email,
             phone: customer.phone,
-            consultantName: consultantName(customer.consultantProfile),
-            consultantAvatarUrl: customer.consultantProfile?.user.avatarUrl ?? null,
+            consultantName: consultantName(customer.consultantProfile) ?? (customer.partnerProfile ? consultantName(customer.partnerProfile) : null),
+            consultantAvatarUrl: customer.consultantProfile?.user.avatarUrl ?? customer.partnerProfile?.user.avatarUrl ?? null,
             pipelineStage: normalizeStage(customer.pipelineStage),
             pipelineUpdatedAt: customer.pipelineUpdatedAt?.toISOString() ?? null,
             lifetimeValueCents: customer.lifetimeValueCents,

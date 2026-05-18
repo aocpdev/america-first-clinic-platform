@@ -1,4 +1,5 @@
 import { SalesBuilderClient } from "@/app/consultant/sales/sales-builder-client";
+import { createConsultantOrder } from "@/app/sales/actions";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Card } from "@/components/ui/card";
 import { requireApprovedConsultant } from "@/lib/auth/current-user";
@@ -96,7 +97,7 @@ export default async function ConsultantSalesPage({
           title: product.title,
           categoryName: product.category.name,
           priceCents: product.priceCents,
-          estimatedConsultantCommissionCents: consultantCommissionPerUnit(product.priceCents, product.internalCostCents),
+          estimatedCommissionCents: consultantCommissionPerUnit(product.priceCents, product.internalCostCents),
           imageUrl: product.images[0]?.url ?? null,
           imageAlt: product.images[0]?.alt ?? null,
           supportsRecurring: product.supportsRecurring,
@@ -106,12 +107,13 @@ export default async function ConsultantSalesPage({
           id: order.id,
           customerName: customerName(order.customer),
           totalCents: order.totalCents,
-          consultantCommissionCents: order.commissionSplits[0]?.amountCents ?? 0,
+          commissionCents: order.commissionSplits[0]?.amountCents ?? 0,
           orderStatus: order.orderStatus,
           paymentStatus: order.paymentStatus,
           createdAt: order.createdAt.toISOString()
         }))}
         canCreateOrders={canCreateOrders}
+        createOrderAction={createConsultantOrder}
         setupMessage={canCreateOrders ? undefined : "Commission setup must be completed before this account can create orders."}
         createdOrderId={params.created}
         error={params.error}

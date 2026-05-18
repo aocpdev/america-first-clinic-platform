@@ -171,6 +171,8 @@ model PartnerProfile {
   commissionBps   Int                 @default(1250)
   payoutResponsibility PayoutResponsibility @default(PARTNER)
   consultants     ConsultantProfile[]
+  customers       Customer[]
+  orders          Order[]
   commissionSplits CommissionSplit[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
@@ -186,6 +188,8 @@ model Customer {
   company             Company             @relation(fields: [companyId], references: [id])
   consultantProfileId String?             @db.Uuid
   consultantProfile   ConsultantProfile?  @relation(fields: [consultantProfileId], references: [id])
+  partnerProfileId    String?             @db.Uuid
+  partnerProfile      PartnerProfile?     @relation(fields: [partnerProfileId], references: [id])
   email               String
   firstName           String?
   lastName            String?
@@ -205,6 +209,7 @@ model Customer {
 
   @@unique([companyId, email])
   @@index([companyId, consultantProfileId])
+  @@index([partnerProfileId])
 }
 
 model ProductCategory {
@@ -277,6 +282,8 @@ model Order {
   customer            Customer            @relation(fields: [customerId], references: [id])
   consultantProfileId String?             @db.Uuid
   consultantProfile   ConsultantProfile?  @relation(fields: [consultantProfileId], references: [id])
+  partnerProfileId    String?             @db.Uuid
+  partnerProfile      PartnerProfile?     @relation(fields: [partnerProfileId], references: [id])
   subtotalCents        Int
   discountCents        Int                 @default(0)
   taxCents             Int                 @default(0)
@@ -301,6 +308,7 @@ model Order {
 
   @@index([companyId, customerId])
   @@index([consultantProfileId])
+  @@index([partnerProfileId])
 }
 
 model OrderItem {

@@ -28,6 +28,9 @@ export async function updateCustomerPipelineStage(formData: FormData) {
           id: true,
           partnerProfileId: true
         }
+      },
+      partnerProfile: {
+        select: { id: true }
       }
     }
   });
@@ -42,7 +45,7 @@ export async function updateCustomerPipelineStage(formData: FormData) {
     }
   } else if (user.role === "PARTNER") {
     const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: user.id } });
-    if (!partnerProfile || customer.consultantProfile?.partnerProfileId !== partnerProfile.id) {
+    if (!partnerProfile || (customer.partnerProfileId !== partnerProfile.id && customer.consultantProfile?.partnerProfileId !== partnerProfile.id)) {
       redirect("/login?error=access_denied");
     }
   } else if (user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN") {
@@ -71,5 +74,6 @@ export async function updateCustomerPipelineStage(formData: FormData) {
 
   revalidatePath("/consultant/pipeline");
   revalidatePath("/partner/pipeline");
+  revalidatePath("/admin/pipeline");
   revalidatePath("/admin/customers");
 }

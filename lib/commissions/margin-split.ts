@@ -30,11 +30,13 @@ export function calculateMarginCommissionSplit({
 export async function createMarginCommissionLedger({
   prisma,
   orderId,
-  status = CommissionStatus.PENDING
+  status = CommissionStatus.PENDING,
+  commissionMode = "CONSULTANT_PARTNER_SPLIT"
 }: {
   prisma: PrismaClient;
   orderId: string;
   status?: CommissionStatus;
+  commissionMode?: "CONSULTANT_PARTNER_SPLIT" | "PARTNER_DIRECT" | "ADMIN_DIRECT";
 }) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -44,12 +46,23 @@ export async function createMarginCommissionLedger({
       },
       consultantProfile: {
         include: { partnerProfile: true }
-      }
+      },
+      partnerProfile: true
     }
   });
 
-  if (!order?.consultantProfileId || !order.consultantProfile?.partnerProfileId) {
-    throw new Error("Order must have a consultant assigned to a partner before commissions can be calculated.");
+  if (!order) {
+    throw new Error("Order not found.");
+  }
+
+  const partnerProfileId = order.partnerProfileId ?? order.consultantProfile?.partnerProfileId ?? null;
+
+  if (commissionMode === "CONSULTANT_PARTNER_SPLIT" && (!order.consultantProfileId || !partnerProfileId)) {
+    throw new Error("Order must have a consultant assigned to a partner before split commissions can be calculated.");
+  }
+
+  if (commissionMode === "PARTNER_DIRECT" && !partnerProfileId) {
+    throw new Error("Order must have a partner assigned before partner direct commissions can be calculated.");
   }
 
   const internalCostCents = order.items.reduce(
@@ -71,6 +84,27 @@ export async function createMarginCommissionLedger({
       }
     });
 
+    if (commissionMode === "ADMIN_DIRECT") {
+      return;
+    }
+
+    if (commissionMode === "PARTNER_DIRECT") {
+      await tx.commissionSplit.create({
+        data: {
+          companyId: order.companyId,
+          orderId: order.id,
+          partnerProfileId,
+          participantRole: "PARTNER",
+          amountCents: split.commissionPoolCents,
+          grossMarginCents: split.grossMarginCents,
+          commissionPoolCents: split.commissionPoolCents,
+          status,
+          payoutResponsibility: "COMPANY"
+        }
+      });
+      return;
+    }
+
     await tx.commission.create({
       data: {
         companyId: order.companyId,
@@ -91,7 +125,7 @@ export async function createMarginCommissionLedger({
           companyId: order.companyId,
           orderId: order.id,
           consultantProfileId: order.consultantProfileId!,
-          partnerProfileId: order.consultantProfile!.partnerProfileId!,
+          partnerProfileId,
           participantRole: "PARTNER",
           amountCents: split.partnerAmountCents,
           grossMarginCents: split.grossMarginCents,
@@ -103,7 +137,7 @@ export async function createMarginCommissionLedger({
           companyId: order.companyId,
           orderId: order.id,
           consultantProfileId: order.consultantProfileId!,
-          partnerProfileId: order.consultantProfile!.partnerProfileId!,
+          partnerProfileId,
           participantRole: "CONSULTANT",
           amountCents: split.consultantAmountCents,
           grossMarginCents: split.grossMarginCents,

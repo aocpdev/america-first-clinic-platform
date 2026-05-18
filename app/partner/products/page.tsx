@@ -56,9 +56,10 @@ export default async function PartnerProductsPage() {
         ...(partnerProfile
           ? {
               order: {
-                consultantProfile: {
-                  partnerProfileId: partnerProfile.id
-                }
+                OR: [
+                  { partnerProfileId: partnerProfile.id },
+                  { consultantProfile: { partnerProfileId: partnerProfile.id } }
+                ]
               }
             }
           : {})

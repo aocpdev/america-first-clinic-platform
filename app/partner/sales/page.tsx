@@ -1,7 +1,10 @@
+import { SalesBuilderClient } from "@/app/consultant/sales/sales-builder-client";
+import { createPartnerOrder } from "@/app/sales/actions";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { requirePartner } from "@/lib/auth/current-user";
+import { DEFAULT_MARGIN_POOL_BPS } from "@/lib/commissions/margin-split";
 import { partnerNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { formatCurrency } from "@/lib/products/catalog";
@@ -11,19 +14,56 @@ function personName(person: { firstName: string | null; lastName: string | null;
   return name || person.email || "Unassigned";
 }
 
-export default async function PartnerSalesPage() {
+function commissionPoolPerUnit(priceCents: number, internalCostCents: number) {
+  const grossMarginCents = Math.max(0, priceCents - internalCostCents);
+  return Math.round((grossMarginCents * DEFAULT_MARGIN_POOL_BPS) / 10000);
+}
+
+export default async function PartnerSalesPage({
+  searchParams
+}: {
+  searchParams: Promise<{ created?: string; error?: string }>;
+}) {
+  const params = await searchParams;
   const user = await requirePartner();
   const partnerProfile = await prisma.partnerProfile.findUnique({
     where: { userId: user.id },
     select: { id: true, displayName: true }
   });
 
-  const orders = partnerProfile
-    ? await prisma.order.findMany({
+  const [customers, products, orders] = partnerProfile
+    ? await Promise.all([
+        prisma.customer.findMany({
+          where: {
+            companyId: user.companyId!,
+            OR: [
+              { partnerProfileId: partnerProfile.id },
+              { consultantProfile: { partnerProfileId: partnerProfile.id } }
+            ]
+          },
+          orderBy: [{ lastPurchaseAt: "desc" }, { createdAt: "desc" }],
+          take: 120
+        }),
+        prisma.product.findMany({
+          where: {
+            companyId: user.companyId!,
+            active: true
+          },
+          include: {
+            category: true,
+            images: {
+              orderBy: { sortOrder: "asc" },
+              take: 1
+            }
+          },
+          orderBy: [{ category: { name: "asc" } }, { title: "asc" }]
+        }),
+        prisma.order.findMany({
         where: {
-          consultantProfile: {
-            partnerProfileId: partnerProfile.id
-          }
+          OR: [
+            { partnerProfileId: partnerProfile.id },
+            { consultantProfile: { partnerProfileId: partnerProfile.id } }
+          ]
         },
         include: {
           customer: true,
@@ -43,8 +83,9 @@ export default async function PartnerSalesPage() {
         },
         orderBy: { createdAt: "desc" },
         take: 100
-      })
-    : [];
+        })
+      ])
+    : [[], [], []];
 
   const totalRevenueCents = orders.reduce((sum, order) => sum + order.totalCents, 0);
   const partnerCommissionCents = orders.reduce(
@@ -66,6 +107,48 @@ export default async function PartnerSalesPage() {
           </Card>
         )}
 
+        {partnerProfile && (
+          <SalesBuilderClient
+            customers={customers.map((customer) => ({
+              id: customer.id,
+              name: personName(customer),
+              email: customer.email,
+              phone: customer.phone,
+              lifetimeValueCents: customer.lifetimeValueCents
+            }))}
+            products={products.map((product) => ({
+              id: product.id,
+              title: product.title,
+              categoryName: product.category.name,
+              priceCents: product.priceCents,
+              estimatedCommissionCents: commissionPoolPerUnit(product.priceCents, product.internalCostCents),
+              imageUrl: product.images[0]?.url ?? null,
+              imageAlt: product.images[0]?.alt ?? null,
+              supportsRecurring: product.supportsRecurring,
+              supportsSubscription: product.supportsSubscription
+            }))}
+            recentOrders={orders.slice(0, 8).map((order) => ({
+              id: order.id,
+              customerName: personName(order.customer),
+              totalCents: order.totalCents,
+              commissionCents: order.commissionSplits
+                .filter((split) => split.participantRole === "PARTNER")
+                .reduce((sum, split) => sum + split.amountCents, 0),
+              orderStatus: order.orderStatus,
+              paymentStatus: order.paymentStatus,
+              createdAt: order.createdAt.toISOString()
+            }))}
+            canCreateOrders={Boolean(partnerProfile)}
+            createOrderAction={createPartnerOrder}
+            commissionLabel="Partner estimated commission"
+            commissionDetailLabel="Estimated partner commission"
+            successMessage="Order created successfully. The partner commission is pending approval."
+            ownershipCopy="Partner sales can be created for direct partner customers or customers owned by consultants assigned to this partner profile."
+            createdOrderId={params.created}
+            error={params.error}
+          />
+        )}
+
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Attributed revenue</p>
@@ -84,9 +167,9 @@ export default async function PartnerSalesPage() {
         <Card className="overflow-hidden">
           <div className="border-b border-border p-5">
             <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">Partner-attributed only</Badge>
-            <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Sales from assigned consultants</h2>
+            <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Partner sales workspace</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              This list only includes orders created by consultants assigned to this partner profile.
+              This list includes orders created directly by this partner and orders created by consultants assigned to this partner profile.
             </p>
           </div>
 

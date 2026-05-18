@@ -19,9 +19,10 @@ export async function getPartnerMetrics(partnerProfileId: string) {
     }),
     prisma.order.aggregate({
       where: {
-        consultantProfile: {
-          partnerProfileId
-        }
+        OR: [
+          { partnerProfileId },
+          { consultantProfile: { partnerProfileId } }
+        ]
       },
       _count: { id: true },
       _sum: { totalCents: true }
