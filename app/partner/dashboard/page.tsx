@@ -34,9 +34,9 @@ export default async function PartnerDashboardPage() {
   return (
     <SidebarShell nav={partnerNav} eyebrow="Partner" title="Partner performance">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Partner commission" value={currency(metrics.partnerCommissionCents / 100)} change="50% of the 25% margin pool" />
-        <MetricCard label="Consultant payouts" value={currency(metrics.consultantPayoutsByStatus.PENDING / 100)} change="Pending partner-paid payouts" tone="red" />
-        <MetricCard label="Gross margin tracked" value={currency(metrics.grossMarginCents / 100)} change="Across attributed sales" tone="green" />
+        <MetricCard label="Attributed revenue" value={currency(metrics.attributedRevenueCents / 100)} change={`${metrics.attributedOrderCount} partner-linked orders`} />
+        <MetricCard label="Partner commission" value={currency(metrics.partnerCommissionCents / 100)} change="From your attributed sales" />
+        <MetricCard label="Consultant payouts" value={currency(metrics.consultantPayoutsByStatus.PENDING / 100)} change="Pending seller payouts" tone="red" />
         <MetricCard label="Assigned consultants" value={`${metrics.consultants.length}`} change="Active seller network" />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_1fr]">
@@ -52,8 +52,8 @@ export default async function PartnerDashboardPage() {
           <CardHeader><CardTitle>Partner payout responsibility</CardTitle></CardHeader>
           <CardContent>
             <p className="text-sm leading-6 text-slate-600">
-              The owner can see the full split. The partner sees total partner commission and the consultant
-              payout queue because the partner is responsible for paying assigned sellers.
+              This workspace only includes sales created by consultants assigned to this partner profile.
+              Sales from other partner groups are excluded from revenue, commissions, and payout queues.
             </p>
           </CardContent>
         </Card>

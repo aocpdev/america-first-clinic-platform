@@ -1,0 +1,405 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { CheckCircle2, CircleDollarSign, Plus, Search, ShoppingBag, UserPlus } from "lucide-react";
+import { createConsultantOrder } from "@/app/consultant/sales/actions";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { formatCurrency } from "@/lib/products/catalog";
+import { CUSTOMER_PIPELINE_STAGES } from "@/lib/sales/pipeline";
+
+type CustomerOption = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  lifetimeValueCents: number;
+};
+
+type ProductOption = {
+  id: string;
+  title: string;
+  categoryName: string;
+  priceCents: number;
+  estimatedConsultantCommissionCents: number;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  supportsRecurring: boolean;
+  supportsSubscription: boolean;
+};
+
+type RecentOrder = {
+  id: string;
+  customerName: string;
+  totalCents: number;
+  consultantCommissionCents: number;
+  orderStatus: string;
+  paymentStatus: string;
+  createdAt: string;
+};
+
+type SalesBuilderClientProps = {
+  customers: CustomerOption[];
+  products: ProductOption[];
+  recentOrders: RecentOrder[];
+  canCreateOrders: boolean;
+  setupMessage?: string;
+  createdOrderId?: string;
+  error?: string;
+};
+
+const errorCopy: Record<string, string> = {
+  consultant_profile_required: "Your consultant profile is not ready yet.",
+  commission_setup_required: "Commission setup must be completed before orders can be created.",
+  empty_order: "Select at least one product before creating an order.",
+  invalid_customer: "Customer information is incomplete.",
+  customer_not_assigned: "That customer is not assigned to your consultant account.",
+  invalid_products: "One or more selected products are no longer active."
+};
+
+function customerDisplayName(customer: CustomerOption) {
+  return customer.name || customer.email;
+}
+
+export function SalesBuilderClient({
+  customers,
+  products,
+  recentOrders,
+  canCreateOrders,
+  setupMessage,
+  createdOrderId,
+  error
+}: SalesBuilderClientProps) {
+  const [customerMode, setCustomerMode] = useState<"existing" | "new">(customers.length > 0 ? "existing" : "new");
+  const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id ?? "");
+  const [selectedStage, setSelectedStage] = useState("CART_BUILT");
+  const [query, setQuery] = useState("");
+  const [quantities, setQuantities] = useState<Record<string, number>>({});
+
+  const filteredProducts = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return products;
+    return products.filter((product) =>
+      `${product.title} ${product.categoryName}`.toLowerCase().includes(normalized)
+    );
+  }, [products, query]);
+
+  const selectedLines = useMemo(() => {
+    return products
+      .map((product) => ({
+        product,
+        quantity: quantities[product.id] ?? 0
+      }))
+      .filter((line) => line.quantity > 0);
+  }, [products, quantities]);
+
+  const subtotalCents = selectedLines.reduce((sum, line) => sum + line.product.priceCents * line.quantity, 0);
+  const consultantCommissionCents = selectedLines.reduce(
+    (sum, line) => sum + line.product.estimatedConsultantCommissionCents * line.quantity,
+    0
+  );
+  const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId);
+
+  function setQuantity(productId: string, value: number) {
+    setQuantities((current) => {
+      const next = { ...current };
+      if (value <= 0) {
+        delete next[productId];
+      } else {
+        next[productId] = value;
+      }
+      return next;
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      {createdOrderId && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+          Order created successfully. Your commission is pending approval.
+        </div>
+      )}
+      {error && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
+          {errorCopy[error] ?? "Something went wrong while creating the order."}
+        </div>
+      )}
+      {!canCreateOrders && setupMessage && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+          {setupMessage}
+        </div>
+      )}
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Selected total</p>
+          <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(subtotalCents)}</p>
+        </Card>
+        <Card className="p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Your estimated commission</p>
+          <p className="mt-3 text-3xl font-semibold text-clinic-red">{formatCurrency(consultantCommissionCents)}</p>
+        </Card>
+        <Card className="p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Pipeline stage</p>
+          <p className="mt-3 text-2xl font-semibold text-clinic-navy">
+            {CUSTOMER_PIPELINE_STAGES.find((stage) => stage.value === selectedStage)?.label}
+          </p>
+        </Card>
+      </div>
+
+      <form action={createConsultantOrder} className="grid gap-6 xl:grid-cols-[1fr_380px]">
+        <input type="hidden" name="customerMode" value={customerMode} />
+        <input type="hidden" name="pipelineStage" value={selectedStage} />
+        {products.map((product) => (
+          <input key={product.id} type="hidden" name={`quantity:${product.id}`} value={quantities[product.id] ?? 0} />
+        ))}
+
+        <div className="space-y-6">
+          <Card className="overflow-hidden rounded-2xl">
+            <div className="border-b border-border p-5">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Customer</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Assign this sale</h2>
+                </div>
+                <div className="grid grid-cols-2 rounded-xl bg-clinic-mist p-1">
+                  <button
+                    type="button"
+                    onClick={() => setCustomerMode("existing")}
+                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${customerMode === "existing" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"}`}
+                    disabled={customers.length === 0}
+                  >
+                    Existing
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCustomerMode("new")}
+                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${customerMode === "new" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"}`}
+                  >
+                    New
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-5">
+              {customerMode === "existing" ? (
+                <div className="grid gap-4 md:grid-cols-[1fr_240px]">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Assigned customer</label>
+                    <select
+                      name="customerId"
+                      value={selectedCustomerId}
+                      onChange={(event) => setSelectedCustomerId(event.target.value)}
+                      className="mt-2 h-11 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      required={customerMode === "existing"}
+                    >
+                      {customers.map((customer) => (
+                        <option key={customer.id} value={customer.id}>
+                          {customerDisplayName(customer)}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="rounded-xl border border-border bg-clinic-mist p-4">
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Customer value</p>
+                    <p className="mt-2 text-xl font-semibold text-clinic-navy">
+                      {selectedCustomer ? formatCurrency(selectedCustomer.lifetimeValueCents) : "$0.00"}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">First name</label>
+                    <Input name="firstName" placeholder="First name" className="mt-2" required={customerMode === "new"} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Last name</label>
+                    <Input name="lastName" placeholder="Last name" className="mt-2" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Email</label>
+                    <Input name="email" type="email" placeholder="customer@email.com" className="mt-2" required={customerMode === "new"} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Phone</label>
+                    <Input name="phone" placeholder="Phone" className="mt-2" />
+                  </div>
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden rounded-2xl">
+            <div className="border-b border-border p-5">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Products</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Build the order</h2>
+                </div>
+                <div className="relative w-full lg:w-80">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products..." className="pl-9" />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 p-5 md:grid-cols-2 2xl:grid-cols-3">
+              {filteredProducts.map((product) => {
+                const quantity = quantities[product.id] ?? 0;
+
+                return (
+                  <div key={product.id} className={`rounded-2xl border p-3 transition ${quantity > 0 ? "border-clinic-navy bg-blue-50/40" : "border-border bg-white"}`}>
+                    <div className="flex gap-3">
+                      <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-clinic-mist">
+                        {product.imageUrl ? (
+                          <img src={product.imageUrl} alt={product.imageAlt ?? product.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <ShoppingBag className="h-6 w-6 text-slate-300" />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="line-clamp-2 text-sm font-semibold leading-5 text-clinic-ink">{product.title}</p>
+                        <p className="mt-1 text-xs text-slate-500">{product.categoryName}</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {product.supportsRecurring && <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">Recurring</Badge>}
+                          {product.supportsSubscription && <Badge className="border-red-100 bg-clinic-blush text-clinic-red">Subscription</Badge>}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-4 flex items-end justify-between gap-3">
+                      <div>
+                        <p className="text-lg font-semibold text-clinic-navy">{formatCurrency(product.priceCents)}</p>
+                        <p className="text-xs font-semibold text-emerald-700">
+                          {formatCurrency(product.estimatedConsultantCommissionCents)} est. commission
+                        </p>
+                      </div>
+                      <div className="flex items-center rounded-full border border-border bg-white p-1">
+                        <button type="button" onClick={() => setQuantity(product.id, quantity - 1)} className="h-8 w-8 rounded-full text-lg font-semibold text-slate-500 hover:bg-clinic-mist">-</button>
+                        <input
+                          aria-label={`Quantity for ${product.title}`}
+                          value={quantity}
+                          onChange={(event) => setQuantity(product.id, Number(event.target.value))}
+                          className="h-8 w-10 border-0 bg-transparent text-center text-sm font-semibold text-clinic-ink focus:outline-none"
+                        />
+                        <button type="button" onClick={() => setQuantity(product.id, quantity + 1)} className="h-8 w-8 rounded-full text-lg font-semibold text-clinic-navy hover:bg-clinic-mist">+</button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        </div>
+
+        <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
+          <Card className="rounded-2xl p-5">
+            <div className="flex items-center gap-2">
+              <CircleDollarSign className="h-5 w-5 text-clinic-red" />
+              <h2 className="text-lg font-semibold text-clinic-ink">Order summary</h2>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {selectedLines.length > 0 ? (
+                selectedLines.map((line) => (
+                  <div key={line.product.id} className="flex items-start justify-between gap-3 text-sm">
+                    <div>
+                      <p className="font-semibold text-clinic-ink">{line.product.title}</p>
+                      <p className="mt-1 text-xs text-slate-500">Qty {line.quantity}</p>
+                    </div>
+                    <p className="font-semibold text-clinic-navy">{formatCurrency(line.product.priceCents * line.quantity)}</p>
+                  </div>
+                ))
+              ) : (
+                <p className="rounded-xl bg-clinic-mist p-4 text-sm text-slate-500">Select products to build the order.</p>
+              )}
+            </div>
+
+            <div className="mt-5 space-y-3 border-t border-border pt-5 text-sm">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Subtotal</span>
+                <span className="font-semibold text-clinic-ink">{formatCurrency(subtotalCents)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Payment status</span>
+                <span className="font-semibold text-clinic-ink">Pending</span>
+              </div>
+              <div className="rounded-xl bg-emerald-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Estimated consultant commission</p>
+                <p className="mt-2 text-3xl font-semibold text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
+              </div>
+            </div>
+
+            <div className="mt-5">
+              <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Pipeline</label>
+              <select
+                value={selectedStage}
+                onChange={(event) => setSelectedStage(event.target.value)}
+                className="mt-2 h-11 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {CUSTOMER_PIPELINE_STAGES.map((stage) => (
+                  <option key={stage.value} value={stage.value}>{stage.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="mt-4">
+              <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Order notes</label>
+              <textarea
+                name="notes"
+                placeholder="Add call context, next step, or payment notes..."
+                className="mt-2 min-h-24 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+
+            <SubmitButton className="mt-5 w-full" size="lg" pendingText="Creating order..." disabled={!canCreateOrders || selectedLines.length === 0}>
+              <CheckCircle2 className="h-4 w-4" />
+              Create pending order
+            </SubmitButton>
+          </Card>
+
+          <Card className="rounded-2xl p-5">
+            <div className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-clinic-red" />
+              <h2 className="text-lg font-semibold text-clinic-ink">Ownership rule</h2>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              You can only create orders for customers assigned to you. The operations team can reassign customers when the sales relationship changes.
+            </p>
+          </Card>
+        </div>
+      </form>
+
+      <Card className="overflow-hidden rounded-2xl">
+        <div className="border-b border-border p-5">
+          <h2 className="text-lg font-semibold text-clinic-ink">Recent orders</h2>
+          <p className="mt-1 text-sm text-slate-500">Your latest manually created sales and commission previews.</p>
+        </div>
+        <div className="divide-y divide-border">
+          {recentOrders.length > 0 ? (
+            recentOrders.map((order) => (
+              <div key={order.id} className="grid gap-3 p-5 text-sm md:grid-cols-5 md:items-center">
+                <div className="md:col-span-2">
+                  <p className="font-semibold text-clinic-ink">{order.customerName}</p>
+                  <p className="mt-1 text-xs text-slate-500">{new Date(order.createdAt).toLocaleDateString()}</p>
+                </div>
+                <p className="font-semibold text-clinic-navy">{formatCurrency(order.totalCents)}</p>
+                <p className="font-semibold text-emerald-700">{formatCurrency(order.consultantCommissionCents)}</p>
+                <div className="flex flex-wrap gap-2 md:justify-end">
+                  <Badge>{order.orderStatus}</Badge>
+                  <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{order.paymentStatus}</Badge>
+                </div>
+              </div>
+            ))
+          ) : (
+            <p className="p-8 text-center text-sm text-slate-500">No orders yet. Create the first pending order above.</p>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}

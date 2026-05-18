@@ -2,7 +2,7 @@ import { CommissionStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 export async function getPartnerMetrics(partnerProfileId: string) {
-  const [partnerSplits, consultantSplits, consultants] = await Promise.all([
+  const [partnerSplits, consultantSplits, consultants, orders] = await Promise.all([
     prisma.commissionSplit.aggregate({
       where: { partnerProfileId, participantRole: "PARTNER" },
       _sum: { amountCents: true, grossMarginCents: true, commissionPoolCents: true }
@@ -16,6 +16,15 @@ export async function getPartnerMetrics(partnerProfileId: string) {
       where: { partnerProfileId },
       include: { user: true },
       orderBy: { createdAt: "desc" }
+    }),
+    prisma.order.aggregate({
+      where: {
+        consultantProfile: {
+          partnerProfileId
+        }
+      },
+      _count: { id: true },
+      _sum: { totalCents: true }
     })
   ]);
 
@@ -34,6 +43,8 @@ export async function getPartnerMetrics(partnerProfileId: string) {
 
   return {
     partnerCommissionCents: partnerSplits._sum.amountCents ?? 0,
+    attributedRevenueCents: orders._sum.totalCents ?? 0,
+    attributedOrderCount: orders._count.id,
     grossMarginCents: partnerSplits._sum.grossMarginCents ?? 0,
     commissionPoolCents: partnerSplits._sum.commissionPoolCents ?? 0,
     consultantPayoutsByStatus,

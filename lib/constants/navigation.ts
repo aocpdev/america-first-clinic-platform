@@ -38,6 +38,7 @@ export const consultantNav = [
 
 export const partnerNav = [
   { href: "/partner/dashboard", label: "Dashboard", icon: Gauge },
+  { href: "/partner/sales", label: "Sales", icon: ClipboardList },
   { href: "/partner/consultants", label: "Consultants", icon: Users },
   { href: "/partner/products", label: "Products", icon: Boxes },
   { href: "/partner/commissions", label: "Commissions", icon: HandCoins },

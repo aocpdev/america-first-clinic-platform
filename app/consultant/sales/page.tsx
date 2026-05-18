@@ -1,7 +1,121 @@
-import { ModulePage } from "@/components/dashboard/module-page";
+import { SalesBuilderClient } from "@/app/consultant/sales/sales-builder-client";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
+import { Card } from "@/components/ui/card";
+import { requireApprovedConsultant } from "@/lib/auth/current-user";
+import { DEFAULT_MARGIN_POOL_BPS, DEFAULT_PARTNER_SPLIT_BPS } from "@/lib/commissions/margin-split";
 import { consultantNav } from "@/lib/constants/navigation";
+import { prisma } from "@/lib/db/prisma";
 
-export default function ConsultantSalesPage() {
-  return <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales"><ModulePage title="Sales workspace" description="Create manual sales, monitor checkout attribution, and review order progress without touching provider-specific payment code." items={["Manual sale", "Recent orders", "Payment status", "Referral source", "Customer attribution", "Renewal attribution"]} /></SidebarShell>;
+function customerName(customer: { firstName: string | null; lastName: string | null; email: string }) {
+  const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim();
+  return name || customer.email;
+}
+
+function consultantCommissionPerUnit(priceCents: number, internalCostCents: number) {
+  const grossMarginCents = Math.max(0, priceCents - internalCostCents);
+  const poolCents = Math.round((grossMarginCents * DEFAULT_MARGIN_POOL_BPS) / 10000);
+  const partnerAmountCents = Math.round((poolCents * DEFAULT_PARTNER_SPLIT_BPS) / 10000);
+  return poolCents - partnerAmountCents;
+}
+
+export default async function ConsultantSalesPage({
+  searchParams
+}: {
+  searchParams: Promise<{ created?: string; error?: string }>;
+}) {
+  const params = await searchParams;
+  const user = await requireApprovedConsultant();
+  const companyId = user.companyId;
+  const consultantProfileId = user.consultantProfile?.id;
+
+  if (!companyId || !consultantProfileId) {
+    return (
+      <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales">
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold text-clinic-ink">Consultant setup required</h2>
+          <p className="mt-2 text-slate-600">Your account needs an active consultant profile before orders can be created.</p>
+        </Card>
+      </SidebarShell>
+    );
+  }
+
+  const [customers, products, recentOrders] = await Promise.all([
+    prisma.customer.findMany({
+      where: {
+        companyId,
+        consultantProfileId
+      },
+      orderBy: [{ lastPurchaseAt: "desc" }, { createdAt: "desc" }],
+      take: 80
+    }),
+    prisma.product.findMany({
+      where: {
+        companyId,
+        active: true
+      },
+      include: {
+        category: true,
+        images: {
+          orderBy: { sortOrder: "asc" },
+          take: 1
+        }
+      },
+      orderBy: [{ category: { name: "asc" } }, { title: "asc" }]
+    }),
+    prisma.order.findMany({
+      where: {
+        companyId,
+        consultantProfileId
+      },
+      include: {
+        customer: true,
+        commissionSplits: {
+          where: { participantRole: "CONSULTANT" },
+          take: 1
+        }
+      },
+      orderBy: { createdAt: "desc" },
+      take: 8
+    })
+  ]);
+
+  const canCreateOrders = Boolean(user.consultantProfile?.partnerProfileId);
+
+  return (
+    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales">
+      <SalesBuilderClient
+        customers={customers.map((customer) => ({
+          id: customer.id,
+          name: customerName(customer),
+          email: customer.email,
+          phone: customer.phone,
+          lifetimeValueCents: customer.lifetimeValueCents
+        }))}
+        products={products.map((product) => ({
+          id: product.id,
+          title: product.title,
+          categoryName: product.category.name,
+          priceCents: product.priceCents,
+          estimatedConsultantCommissionCents: consultantCommissionPerUnit(product.priceCents, product.internalCostCents),
+          imageUrl: product.images[0]?.url ?? null,
+          imageAlt: product.images[0]?.alt ?? null,
+          supportsRecurring: product.supportsRecurring,
+          supportsSubscription: product.supportsSubscription
+        }))}
+        recentOrders={recentOrders.map((order) => ({
+          id: order.id,
+          customerName: customerName(order.customer),
+          totalCents: order.totalCents,
+          consultantCommissionCents: order.commissionSplits[0]?.amountCents ?? 0,
+          orderStatus: order.orderStatus,
+          paymentStatus: order.paymentStatus,
+          createdAt: order.createdAt.toISOString()
+        }))}
+        canCreateOrders={canCreateOrders}
+        setupMessage={canCreateOrders ? undefined : "Commission setup must be completed before this account can create orders."}
+        createdOrderId={params.created}
+        error={params.error}
+      />
+    </SidebarShell>
+  );
 }

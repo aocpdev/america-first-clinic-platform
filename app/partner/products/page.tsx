@@ -26,6 +26,17 @@ export default async function PartnerProductsPage() {
     select: { id: true, displayName: true }
   });
 
+  if (user.role === "PARTNER" && !partnerProfile) {
+    return (
+      <SidebarShell nav={partnerNav} eyebrow="Partner" title="Products">
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold text-clinic-ink">Partner profile not configured</h2>
+          <p className="mt-2 text-slate-600">An owner must create and assign your partner profile before sales visibility is available.</p>
+        </Card>
+      </SidebarShell>
+    );
+  }
+
   const [products, salesByProduct] = await Promise.all([
     prisma.product.findMany({
       where: { companyId },
@@ -43,7 +54,7 @@ export default async function PartnerProductsPage() {
       by: ["productId"],
       where: {
         product: { companyId },
-        ...(user.role === "PARTNER" && partnerProfile
+        ...(partnerProfile
           ? {
               order: {
                 consultantProfile: {
@@ -87,7 +98,7 @@ export default async function PartnerProductsPage() {
             <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">Read-only margin view</Badge>
             <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Product pricing and margin visibility</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Partners can view prices, internal cost, gross margin, inventory, and attributed sales, but only admins can create, edit, or delete catalog records.
+              Partners can view catalog pricing and margin details. Sales totals shown here only include orders from consultants assigned to this partner profile.
             </p>
           </div>
           <div className="overflow-x-auto">
