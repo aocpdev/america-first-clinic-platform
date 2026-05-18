@@ -60,6 +60,14 @@ const errorCopy: Record<string, string> = {
   invalid_products: "One or more selected products are no longer active."
 };
 
+const priceRanges = [
+  { label: "All prices", min: 0, max: Number.POSITIVE_INFINITY },
+  { label: "Under $100", min: 0, max: 10000 },
+  { label: "$100-$250", min: 10000, max: 25000 },
+  { label: "$250-$500", min: 25000, max: 50000 },
+  { label: "$500+", min: 50000, max: Number.POSITIVE_INFINITY }
+];
+
 function customerDisplayName(customer: CustomerOption) {
   return customer.name || customer.email;
 }
@@ -77,15 +85,25 @@ export function SalesBuilderClient({
   const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id ?? "");
   const [selectedStage, setSelectedStage] = useState("CART_BUILT");
   const [query, setQuery] = useState("");
+  const [category, setCategory] = useState("All");
+  const [priceRange, setPriceRange] = useState(priceRanges[0].label);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+
+  const categories = useMemo(() => {
+    return ["All", ...Array.from(new Set(products.map((product) => product.categoryName))).sort()];
+  }, [products]);
 
   const filteredProducts = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return products;
-    return products.filter((product) =>
-      `${product.title} ${product.categoryName}`.toLowerCase().includes(normalized)
-    );
-  }, [products, query]);
+    const selectedRange = priceRanges.find((range) => range.label === priceRange) ?? priceRanges[0];
+
+    return products.filter((product) => {
+      const matchesQuery = !normalized || `${product.title} ${product.categoryName}`.toLowerCase().includes(normalized);
+      const matchesCategory = category === "All" || product.categoryName === category;
+      const matchesPrice = product.priceCents >= selectedRange.min && product.priceCents < selectedRange.max;
+      return matchesQuery && matchesCategory && matchesPrice;
+    });
+  }, [products, query, category, priceRange]);
 
   const selectedLines = useMemo(() => {
     return products
@@ -241,9 +259,29 @@ export function SalesBuilderClient({
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Products</p>
                   <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Build the order</h2>
                 </div>
-                <div className="relative w-full lg:w-80">
+                <div className="grid w-full gap-3 lg:w-auto lg:grid-cols-[260px_190px_160px]">
+                <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products..." className="pl-9" />
+                </div>
+                <select
+                  value={category}
+                  onChange={(event) => setCategory(event.target.value)}
+                  className="h-11 rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {categories.map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
+                </select>
+                <select
+                  value={priceRange}
+                  onChange={(event) => setPriceRange(event.target.value)}
+                  className="h-11 rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {priceRanges.map((range) => (
+                    <option key={range.label} value={range.label}>{range.label}</option>
+                  ))}
+                </select>
                 </div>
               </div>
             </div>
