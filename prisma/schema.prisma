@@ -16,6 +16,13 @@ enum UserRole {
   CUSTOMER
 }
 
+enum UserStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  REJECTED
+  SUSPENDED
+}
+
 enum OrderStatus {
   DRAFT
   PENDING
@@ -63,12 +70,18 @@ model User {
   companyId         String?            @db.Uuid
   company           Company?           @relation(fields: [companyId], references: [id])
   role              UserRole           @default(CUSTOMER)
+  requestedRole     UserRole           @default(CUSTOMER)
+  status            UserStatus         @default(ACTIVE)
   email             String             @unique
   firstName         String?
   lastName          String?
   phone             String?
   isActive          Boolean            @default(true)
   emailVerifiedAt   DateTime?
+  approvedAt        DateTime?
+  approvedByUserId  String?            @db.Uuid
+  rejectedAt        DateTime?
+  rejectionReason   String?
   consultantProfile ConsultantProfile?
   customer          Customer?
   teamMemberships   TeamMember[]
@@ -80,6 +93,7 @@ model User {
   updatedAt         DateTime           @updatedAt
 
   @@index([companyId, role])
+  @@index([companyId, status, requestedRole])
 }
 
 model Company {
