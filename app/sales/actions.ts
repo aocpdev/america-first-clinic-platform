@@ -15,6 +15,15 @@ const newCustomerSchema = z.object({
   phone: z.string().trim().optional()
 });
 
+const shippingAddressSchema = z.object({
+  line1: z.string().trim().min(1),
+  line2: z.string().trim().optional(),
+  city: z.string().trim().min(1),
+  state: z.string().trim().min(1),
+  postalCode: z.string().trim().min(1),
+  country: z.string().trim().min(1).default("US")
+});
+
 function formString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
@@ -55,6 +64,7 @@ async function queueInvoiceWebhook(input: {
   totalCents: number;
   invoiceUrl: string;
   workspace: string;
+  shippingAddress: z.infer<typeof shippingAddressSchema>;
 }) {
   const webhookUrl = process.env.GHL_INVOICE_WEBHOOK_URL;
 
@@ -70,7 +80,8 @@ async function queueInvoiceWebhook(input: {
         totalCents: input.totalCents,
         provider: "authorize_net",
         workflow: "send_invoice",
-        destination: "gohighlevel"
+        destination: "gohighlevel",
+        shippingAddress: input.shippingAddress
       }
     }
   });
@@ -94,6 +105,7 @@ async function queueInvoiceWebhook(input: {
         amountCents: input.totalCents,
         currency: "USD",
         invoiceUrl: input.invoiceUrl,
+        shippingAddress: input.shippingAddress,
         source: input.workspace
       })
     });
@@ -131,7 +143,19 @@ async function createWorkspaceOrder(
   const pipelineStage = isCustomerPipelineStage(pipelineStageInput) ? pipelineStageInput : "CART_BUILT";
   const notes = formString(formData, "notes");
   const paymentWorkflow = paymentWorkflowFromForm(formData);
+  const shippingAddress = shippingAddressSchema.safeParse({
+    line1: formData.get("shippingAddressLine1"),
+    line2: formData.get("shippingAddressLine2"),
+    city: formData.get("shippingCity"),
+    state: formData.get("shippingState"),
+    postalCode: formData.get("shippingPostalCode"),
+    country: formData.get("shippingCountry") || "US"
+  });
   const selectedItems = selectedProductQuantities(formData);
+
+  if (!shippingAddress.success) {
+    redirect(`${redirectBasePath}?error=invalid_shipping_address`);
+  }
 
   if (selectedItems.length === 0) {
     redirect(`${redirectBasePath}?error=empty_order`);
@@ -275,6 +299,7 @@ async function createWorkspaceOrder(
         source: `${workspace}_sales_workspace`,
         commissionMode,
         paymentWorkflow,
+        shippingAddress: shippingAddress.data,
         provider: "authorize_net",
         authorizeNet: {
           integration: paymentWorkflow === "collect_payment" ? "accept_hosted" : "invoice_payment_link",
@@ -312,6 +337,7 @@ async function createWorkspaceOrder(
         source: `${workspace}_sales_workspace`,
         commissionMode,
         paymentWorkflow,
+        shippingAddress: shippingAddress.data,
         provider: "authorize_net",
         authorizeNet: {
           integration: paymentWorkflow === "collect_payment" ? "accept_hosted" : "invoice_payment_link",
@@ -338,7 +364,8 @@ async function createWorkspaceOrder(
         commissionMode,
         paymentWorkflow,
         provider: "authorize_net",
-        paymentUrl: invoiceUrl
+        paymentUrl: invoiceUrl,
+        shippingAddress: shippingAddress.data
       }
     }
   });
@@ -351,7 +378,8 @@ async function createWorkspaceOrder(
       orderId: order.id,
       totalCents: subtotalCents,
       invoiceUrl,
-      workspace
+      workspace,
+      shippingAddress: shippingAddress.data
     });
   }
 

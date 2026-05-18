@@ -60,7 +60,8 @@ const errorCopy: Record<string, string> = {
   empty_order: "Select at least one product before creating an order.",
   invalid_customer: "Customer information is incomplete.",
   customer_not_assigned: "That customer is not assigned to your consultant account.",
-  invalid_products: "One or more selected products are no longer active."
+  invalid_products: "One or more selected products are no longer active.",
+  invalid_shipping_address: "Shipping address is required before collecting payment or sending an invoice."
 };
 
 const priceRanges = [
@@ -253,6 +254,39 @@ export function SalesBuilderClient({
                   </div>
                 </div>
               )}
+            </div>
+          </Card>
+
+          <Card className="overflow-hidden rounded-2xl">
+            <div className="border-b border-border p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Shipping address</p>
+              <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Delivery details</h2>
+            </div>
+            <div className="grid gap-4 p-5 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 1</label>
+                <Input name="shippingAddressLine1" placeholder="Street address" className="mt-2" required />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 2</label>
+                <Input name="shippingAddressLine2" placeholder="Apt, suite, unit, optional" className="mt-2" />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">City</label>
+                <Input name="shippingCity" placeholder="City" className="mt-2" required />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">State</label>
+                <Input name="shippingState" placeholder="State" className="mt-2" required />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">ZIP code</label>
+                <Input name="shippingPostalCode" placeholder="ZIP code" className="mt-2" required />
+              </div>
+              <div>
+                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Country</label>
+                <Input name="shippingCountry" defaultValue="US" placeholder="Country" className="mt-2" required />
+              </div>
             </div>
           </Card>
 
