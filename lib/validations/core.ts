@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const roleSchema = z.enum(["SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER", "CONSULTANT", "CUSTOMER"]);
+export const roleSchema = z.enum(["SUPER_ADMIN", "COMPANY_ADMIN", "PARTNER", "MANAGER", "CONSULTANT", "CUSTOMER"]);
 
 export const productSchema = z.object({
   title: z.string().min(2),

@@ -35,3 +35,12 @@ export const consultantNav = [
   { href: "/consultant/referrals", label: "Referrals", icon: CreditCard },
   { href: "/consultant/profile", label: "Profile", icon: Settings }
 ];
+
+export const partnerNav = [
+  { href: "/partner/dashboard", label: "Dashboard", icon: Gauge },
+  { href: "/partner/consultants", label: "Consultants", icon: Users },
+  { href: "/partner/commissions", label: "Commissions", icon: HandCoins },
+  { href: "/partner/payouts", label: "Payouts", icon: CircleDollarSign },
+  { href: "/partner/reports", label: "Reports", icon: BarChart3 },
+  { href: "/partner/settings", label: "Settings", icon: Settings }
+];

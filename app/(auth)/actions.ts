@@ -135,6 +135,10 @@ export async function loginUser(formData: FormData) {
     redirect("/manager/dashboard");
   }
 
+  if (user.role === "PARTNER") {
+    redirect("/partner/dashboard");
+  }
+
   if (user.role === "CONSULTANT") {
     redirect("/consultant/dashboard");
   }
@@ -151,6 +155,7 @@ export async function logoutUser() {
 export async function approveConsultant(formData: FormData) {
   const admin = await requireRole("COMPANY_ADMIN");
   const userId = formValue(formData, "userId");
+  const partnerProfileId = formValue(formData, "partnerProfileId") || null;
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!user || user.requestedRole !== "CONSULTANT") {
@@ -189,10 +194,11 @@ export async function approveConsultant(formData: FormData) {
 
     await tx.consultantProfile.upsert({
       where: { userId: user.id },
-      update: { companyId: company.id },
+      update: { companyId: company.id, partnerProfileId },
       create: {
         userId: user.id,
         companyId: company.id,
+        partnerProfileId,
         referralSlug,
         referralCode,
         onboardingDone: false

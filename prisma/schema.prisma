@@ -11,6 +11,7 @@ datasource db {
 enum UserRole {
   SUPER_ADMIN
   COMPANY_ADMIN
+  PARTNER
   MANAGER
   CONSULTANT
   CUSTOMER
@@ -64,6 +65,16 @@ enum CommissionRuleType {
   VOLUME_TIER
 }
 
+enum CommissionParticipantRole {
+  PARTNER
+  CONSULTANT
+}
+
+enum PayoutResponsibility {
+  COMPANY
+  PARTNER
+}
+
 model User {
   id                String             @id @default(uuid()) @db.Uuid
   authUserId        String             @unique
@@ -83,6 +94,7 @@ model User {
   rejectedAt        DateTime?
   rejectionReason   String?
   consultantProfile ConsultantProfile?
+  partnerProfile    PartnerProfile?
   customer          Customer?
   teamMemberships   TeamMember[]
   activityLogs      ActivityLog[]
@@ -110,6 +122,7 @@ model Company {
   orders            Order[]
   commissionRules   CommissionRule[]
   paymentProviders  PaymentProvider[]
+  partnerProfiles   PartnerProfile[]
   teams             Team[]
   leads             Lead[]
   activityLogs      ActivityLog[]
@@ -123,6 +136,8 @@ model ConsultantProfile {
   userId         String         @unique @db.Uuid
   user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   companyId      String         @db.Uuid
+  partnerProfileId String?      @db.Uuid
+  partnerProfile PartnerProfile? @relation(fields: [partnerProfileId], references: [id])
   referralSlug   String         @unique
   referralCode   String         @unique
   bio            String?
@@ -132,11 +147,30 @@ model ConsultantProfile {
   customers      Customer[]
   orders         Order[]
   commissions    Commission[]
+  commissionSplits CommissionSplit[]
   referralLinks  ReferralLink[]
   leads          Lead[]
   teamMembers    TeamMember[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+
+  @@index([companyId])
+  @@index([partnerProfileId])
+}
+
+model PartnerProfile {
+  id              String              @id @default(uuid()) @db.Uuid
+  userId          String              @unique @db.Uuid
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId       String              @db.Uuid
+  company         Company             @relation(fields: [companyId], references: [id])
+  displayName     String
+  commissionBps   Int                 @default(1250)
+  payoutResponsibility PayoutResponsibility @default(PARTNER)
+  consultants     ConsultantProfile[]
+  commissionSplits CommissionSplit[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
 
   @@index([companyId])
 }
@@ -243,6 +277,8 @@ model Order {
   taxCents             Int                 @default(0)
   shippingCents        Int                 @default(0)
   totalCents           Int
+  grossMarginCents     Int                 @default(0)
+  commissionPoolCents  Int                 @default(0)
   paymentProviderCode  String
   paymentStatus        PaymentStatus       @default(PENDING)
   orderStatus          OrderStatus         @default(PENDING)
@@ -252,6 +288,7 @@ model Order {
   referralMetadata     Json?
   items                OrderItem[]
   commissions          Commission[]
+  commissionSplits     CommissionSplit[]
   paymentTransactions  PaymentTransaction[]
   subscriptions        Subscription[]
   createdAt            DateTime            @default(now())
@@ -283,6 +320,10 @@ model Commission {
   ruleId              String?            @db.Uuid
   rule                CommissionRule?    @relation(fields: [ruleId], references: [id])
   amountCents         Int
+  grossMarginCents    Int                @default(0)
+  commissionPoolCents Int                @default(0)
+  partnerAmountCents  Int                @default(0)
+  consultantAmountCents Int              @default(0)
   status              CommissionStatus   @default(PENDING)
   approvedAt          DateTime?
   paidAt              DateTime?
@@ -292,6 +333,31 @@ model Commission {
   updatedAt           DateTime           @updatedAt
 
   @@index([companyId, consultantProfileId, status])
+}
+
+model CommissionSplit {
+  id                  String                    @id @default(uuid()) @db.Uuid
+  companyId           String                    @db.Uuid
+  orderId             String                    @db.Uuid
+  order               Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  consultantProfileId String?                   @db.Uuid
+  consultantProfile   ConsultantProfile?        @relation(fields: [consultantProfileId], references: [id])
+  partnerProfileId    String?                   @db.Uuid
+  partnerProfile      PartnerProfile?           @relation(fields: [partnerProfileId], references: [id])
+  participantRole     CommissionParticipantRole
+  amountCents         Int
+  grossMarginCents    Int
+  commissionPoolCents Int
+  status              CommissionStatus          @default(PENDING)
+  payoutResponsibility PayoutResponsibility     @default(PARTNER)
+  paidAt              DateTime?
+  createdAt           DateTime                  @default(now())
+  updatedAt           DateTime                  @updatedAt
+
+  @@index([companyId, participantRole, status])
+  @@index([partnerProfileId, status])
+  @@index([consultantProfileId, status])
+  @@unique([orderId, participantRole])
 }
 
 model CommissionRule {

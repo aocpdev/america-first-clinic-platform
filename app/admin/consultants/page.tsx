@@ -7,7 +7,7 @@ import { adminNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 
 export default async function AdminConsultantsPage() {
-  const [pendingConsultants, activeConsultants] = await Promise.all([
+  const [pendingConsultants, activeConsultants, partners] = await Promise.all([
     prisma.user.findMany({
       where: {
         requestedRole: "CONSULTANT",
@@ -16,9 +16,13 @@ export default async function AdminConsultantsPage() {
       orderBy: { createdAt: "desc" }
     }),
     prisma.consultantProfile.findMany({
-      include: { user: true },
+      include: { user: true, partnerProfile: true },
       orderBy: { createdAt: "desc" },
       take: 12
+    }),
+    prisma.partnerProfile.findMany({
+      include: { user: true },
+      orderBy: { createdAt: "desc" }
     })
   ]);
 
@@ -77,6 +81,16 @@ export default async function AdminConsultantsPage() {
                         </form>
                         <form action={approveConsultant}>
                           <input type="hidden" name="userId" value={user.id} />
+                          <select
+                            name="partnerProfileId"
+                            className="mr-2 h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                            defaultValue={partners[0]?.id ?? ""}
+                          >
+                            <option value="">No partner</option>
+                            {partners.map((partner) => (
+                              <option key={partner.id} value={partner.id}>{partner.displayName}</option>
+                            ))}
+                          </select>
                           <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
                         </form>
                       </div>
@@ -114,6 +128,7 @@ export default async function AdminConsultantsPage() {
                 <div className="mt-4 rounded-lg bg-clinic-mist p-3 text-sm">
                   <p className="font-semibold text-clinic-navy">/c/{profile.referralSlug}</p>
                   <p className="mt-1 text-slate-500">Code: {profile.referralCode}</p>
+                  <p className="mt-1 text-slate-500">Partner: {profile.partnerProfile?.displayName ?? "Unassigned"}</p>
                 </div>
               </div>
             ))}

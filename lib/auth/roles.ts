@@ -1,8 +1,9 @@
-export type Role = "SUPER_ADMIN" | "COMPANY_ADMIN" | "MANAGER" | "CONSULTANT" | "CUSTOMER";
+export type Role = "SUPER_ADMIN" | "COMPANY_ADMIN" | "PARTNER" | "MANAGER" | "CONSULTANT" | "CUSTOMER";
 
 const roleRank: Record<Role, number> = {
   CUSTOMER: 1,
   CONSULTANT: 2,
+  PARTNER: 3,
   MANAGER: 3,
   COMPANY_ADMIN: 4,
   SUPER_ADMIN: 5

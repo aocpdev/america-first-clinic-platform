@@ -46,3 +46,11 @@ export async function requireApprovedConsultant() {
   }
   return user;
 }
+
+export async function requirePartner() {
+  const user = await requireUser();
+  if (user.role !== "PARTNER" && user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN") {
+    redirect("/login?error=access_denied");
+  }
+  return user;
+}
