@@ -63,13 +63,7 @@ export default async function PartnerPipelinePage() {
 
   return (
     <SidebarShell nav={partnerNav} eyebrow="Partner" title="Sales pipeline">
-      <div className="space-y-6">
-        <Card className="p-6">
-          <h2 className="text-2xl font-semibold text-clinic-ink">Partner customer pipeline</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Monitor direct partner customers and customers owned by consultants assigned to {partnerProfile?.companyName ?? partnerProfile?.displayName ?? "your partner profile"}.
-          </p>
-        </Card>
+      <div>
         <CustomerPipelineBoard
           customers={customers.map((customer) => ({
             id: customer.id,
