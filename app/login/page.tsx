@@ -4,6 +4,9 @@ import { ClinicLogo } from "@/components/layout/logo";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { getCurrentUser } from "@/lib/auth/current-user";
+import { dashboardPathForRole } from "@/lib/auth/redirects";
+import { redirect } from "next/navigation";
 
 const errorMessages: Record<string, string> = {
   invalid_credentials: "The email or password is incorrect.",
@@ -18,6 +21,11 @@ export default async function LoginPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+  const user = await getCurrentUser();
+
+  if (user && !error) {
+    redirect(dashboardPathForRole(user.role));
+  }
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-12">

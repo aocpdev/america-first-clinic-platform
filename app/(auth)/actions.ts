@@ -8,6 +8,7 @@ import { createReferralCode, createReferralSlug } from "@/lib/auth/slug";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
 import { roleSchema } from "@/lib/validations/core";
 import { requireRole } from "@/lib/auth/current-user";
+import { dashboardPathForRole } from "@/lib/auth/redirects";
 
 function formValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -127,23 +128,7 @@ export async function loginUser(formData: FormData) {
     redirect("/pending-approval");
   }
 
-  if (user.role === "SUPER_ADMIN" || user.role === "COMPANY_ADMIN") {
-    redirect("/admin/dashboard");
-  }
-
-  if (user.role === "MANAGER") {
-    redirect("/manager/dashboard");
-  }
-
-  if (user.role === "PARTNER") {
-    redirect("/partner/dashboard");
-  }
-
-  if (user.role === "CONSULTANT") {
-    redirect("/consultant/dashboard");
-  }
-
-  redirect("/shop");
+  redirect(dashboardPathForRole(user.role));
 }
 
 export async function logoutUser() {
