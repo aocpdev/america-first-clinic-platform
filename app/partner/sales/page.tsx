@@ -88,7 +88,7 @@ export default async function PartnerSalesPage({
     : [[], [], []];
 
   const totalRevenueCents = orders.reduce((sum, order) => sum + order.totalCents, 0);
-  const partnerCommissionCents = orders.reduce(
+  const partnerProfitCents = orders.reduce(
     (sum, order) => sum + order.commissionSplits.filter((split) => split.participantRole === "PARTNER").reduce((splitSum, split) => splitSum + split.amountCents, 0),
     0
   );
@@ -156,8 +156,8 @@ export default async function PartnerSalesPage({
             <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(totalRevenueCents)}</p>
           </Card>
           <Card className="p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner commission</p>
-            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(partnerCommissionCents)}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner profit</p>
+            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(partnerProfitCents)}</p>
           </Card>
           <Card className="p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Consultant payouts</p>
@@ -182,7 +182,7 @@ export default async function PartnerSalesPage({
                   <th className="px-5 py-3">Consultant</th>
                   <th className="px-5 py-3">Products</th>
                   <th className="px-5 py-3">Total</th>
-                  <th className="px-5 py-3">Partner commission</th>
+                  <th className="px-5 py-3">Partner profit</th>
                   <th className="px-5 py-3">Consultant payout</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Created</th>
@@ -190,7 +190,7 @@ export default async function PartnerSalesPage({
               </thead>
               <tbody className="divide-y divide-border bg-white">
                 {orders.map((order) => {
-                  const partnerCommission = order.commissionSplits
+                  const partnerProfit = order.commissionSplits
                     .filter((split) => split.participantRole === "PARTNER")
                     .reduce((sum, split) => sum + split.amountCents, 0);
                   const consultantPayout = order.commissionSplits
@@ -212,7 +212,7 @@ export default async function PartnerSalesPage({
                         </p>
                       </td>
                       <td className="px-5 py-4 font-semibold text-clinic-ink">{formatCurrency(order.totalCents)}</td>
-                      <td className="px-5 py-4 font-semibold text-clinic-navy">{formatCurrency(partnerCommission)}</td>
+                      <td className="px-5 py-4 font-semibold text-clinic-navy">{formatCurrency(partnerProfit)}</td>
                       <td className="px-5 py-4 font-semibold text-clinic-red">{formatCurrency(consultantPayout)}</td>
                       <td className="px-5 py-4">
                         <div className="flex flex-wrap gap-2">

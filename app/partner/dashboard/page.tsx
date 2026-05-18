@@ -23,7 +23,7 @@ export default async function PartnerDashboardPage() {
       <SidebarShell nav={partnerNav} eyebrow="Partner" title="Partner dashboard">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Partner profile not configured</h2>
-          <p className="mt-2 text-slate-600">An owner must create and assign your partner profile before commissions appear here.</p>
+          <p className="mt-2 text-slate-600">An owner must create and assign your partner profile before profit appears here.</p>
         </Card>
       </SidebarShell>
     );
@@ -35,17 +35,17 @@ export default async function PartnerDashboardPage() {
     <SidebarShell nav={partnerNav} eyebrow="Partner" title="Partner performance">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Attributed revenue" value={currency(metrics.attributedRevenueCents / 100)} change={`${metrics.attributedOrderCount} partner-linked orders`} />
-        <MetricCard label="Partner commission" value={currency(metrics.partnerCommissionCents / 100)} change="From your attributed sales" />
+        <MetricCard label="Partner profit" value={currency(metrics.partnerCommissionCents / 100)} change="25% of margin in dollars" />
         <MetricCard label="Consultant payouts" value={currency(metrics.consultantPayoutsByStatus.PENDING / 100)} change="Pending seller payouts" tone="red" />
         <MetricCard label="Assigned consultants" value={`${metrics.consultants.length}`} change="Active seller network" />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_1fr]">
         <Card>
-          <CardHeader><CardTitle>Commission formula</CardTitle></CardHeader>
+          <CardHeader><CardTitle>Profit formula</CardTitle></CardHeader>
           <CardContent className="space-y-3 text-sm text-slate-600">
             <div className="rounded-lg bg-clinic-mist p-4 font-semibold text-clinic-ink">Margin = sale price - internal cost</div>
-            <div className="rounded-lg bg-clinic-mist p-4 font-semibold text-clinic-ink">Commission pool = 25% of margin</div>
-            <div className="rounded-lg bg-clinic-blush p-4 font-semibold text-clinic-red">Partner 50% / Consultant 50%</div>
+            <div className="rounded-lg bg-clinic-mist p-4 font-semibold text-clinic-ink">Partner profit = 25% of margin</div>
+            <div className="rounded-lg bg-clinic-blush p-4 font-semibold text-clinic-red">Consultant payout is tracked separately</div>
           </CardContent>
         </Card>
         <Card>
@@ -53,7 +53,7 @@ export default async function PartnerDashboardPage() {
           <CardContent>
             <p className="text-sm leading-6 text-slate-600">
               This workspace only includes sales created by consultants assigned to this partner profile.
-              Sales from other partner groups are excluded from revenue, commissions, and payout queues.
+              Sales from other partner groups are excluded from revenue, partner profit, and payout queues.
             </p>
           </CardContent>
         </Card>
