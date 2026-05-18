@@ -3,9 +3,31 @@ import { MarketingHeader } from "@/components/layout/marketing-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { products } from "@/lib/mock-data";
+import { prisma } from "@/lib/db/prisma";
+import { formatCurrency } from "@/lib/products/catalog";
 
-export default function ShopPage() {
+export const dynamic = "force-dynamic";
+
+export default async function ShopPage() {
+  const company = await prisma.company.findUnique({
+    where: { slug: "america-first-clinic" },
+    select: { id: true }
+  });
+
+  const products = company
+    ? await prisma.product.findMany({
+        where: {
+          companyId: company.id,
+          active: true
+        },
+        include: {
+          category: true,
+          inventory: true
+        },
+        orderBy: { title: "asc" }
+      })
+    : [];
+
   return (
     <>
       <MarketingHeader />
@@ -21,17 +43,27 @@ export default function ShopPage() {
           {products.map((product) => (
             <Card key={product.slug} className="flex flex-col p-5">
               <div className="rounded-xl bg-clinic-mist p-5">
-                <Badge>{product.category}</Badge>
-                <p className="mt-8 text-3xl font-semibold text-clinic-navy">${product.price}</p>
+                <Badge>{product.category.name}</Badge>
+                <p className="mt-8 text-3xl font-semibold text-clinic-navy">{formatCurrency(product.priceCents)}</p>
               </div>
               <h2 className="mt-5 text-lg font-semibold text-clinic-ink">{product.title}</h2>
               <p className="mt-3 flex-1 text-sm leading-6 text-slate-600">{product.description}</p>
+              <div className="mt-5 flex items-center justify-between text-xs font-semibold text-slate-500">
+                <span>{product.supportsRecurring ? "Recurring ready" : "One-time purchase"}</span>
+                <span>{product.inventory?.quantityOnHand ?? 0} available</span>
+              </div>
               <Link href={`/shop/${product.slug}`} className="mt-5">
                 <Button className="w-full" variant="accent">View product</Button>
               </Link>
             </Card>
           ))}
         </div>
+        {products.length === 0 && (
+          <Card className="mt-8 p-8 text-center">
+            <h2 className="text-xl font-semibold text-clinic-ink">The catalog is being prepared</h2>
+            <p className="mt-2 text-slate-600">Products added by the admin will appear here automatically.</p>
+          </Card>
+        )}
       </main>
     </>
   );
