@@ -190,6 +190,8 @@ model Customer {
   firstName           String?
   lastName            String?
   phone               String?
+  pipelineStage       String              @default("NEW_LEAD")
+  pipelineUpdatedAt   DateTime?
   tags                String[]
   notes               String?
   lifetimeValueCents  Int                 @default(0)

@@ -94,6 +94,8 @@ export async function createConsultantOrder(formData: FormData) {
         where: { id: existingCustomer.id },
         data: {
           consultantProfileId,
+          pipelineStage,
+          pipelineUpdatedAt: new Date(),
           firstName: parsed.data.firstName,
           lastName: parsed.data.lastName || null,
           phone: parsed.data.phone || null,
@@ -105,6 +107,8 @@ export async function createConsultantOrder(formData: FormData) {
           companyId,
           consultantProfileId,
           email,
+          pipelineStage,
+          pipelineUpdatedAt: new Date(),
           firstName: parsed.data.firstName,
           lastName: parsed.data.lastName || null,
           phone: parsed.data.phone || null,
@@ -126,6 +130,15 @@ export async function createConsultantOrder(formData: FormData) {
   if (!customer) {
     redirect("/consultant/sales?error=customer_not_assigned");
   }
+
+  await prisma.customer.update({
+    where: { id: customer.id },
+    data: {
+      pipelineStage,
+      pipelineUpdatedAt: new Date(),
+      notes: notes || customer.notes
+    }
+  });
 
   const productIds = selectedItems.map((item) => item.productId);
   const products = await prisma.product.findMany({

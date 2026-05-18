@@ -3,6 +3,7 @@ import {
   Boxes,
   BriefcaseBusiness,
   CircleDollarSign,
+  Columns3,
   ClipboardList,
   CreditCard,
   Gauge,
@@ -28,6 +29,7 @@ export const adminNav = [
 export const consultantNav = [
   { href: "/consultant/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/consultant/customers", label: "Customers", icon: Users },
+  { href: "/consultant/pipeline", label: "Pipeline", icon: Columns3 },
   { href: "/consultant/sales", label: "Sales", icon: ShoppingBag },
   { href: "/consultant/commissions", label: "Commissions", icon: HandCoins },
   { href: "/consultant/products", label: "Products", icon: Boxes },
@@ -39,6 +41,7 @@ export const consultantNav = [
 export const partnerNav = [
   { href: "/partner/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/partner/sales", label: "Sales", icon: ClipboardList },
+  { href: "/partner/pipeline", label: "Pipeline", icon: Columns3 },
   { href: "/partner/consultants", label: "Consultants", icon: Users },
   { href: "/partner/products", label: "Products", icon: Boxes },
   { href: "/partner/commissions", label: "Commissions", icon: HandCoins },
