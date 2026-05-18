@@ -7,12 +7,14 @@ import { SubmitButton } from "@/components/ui/submit-button";
 const errors: Record<string, string> = {
   missing_avatar: "Choose an image before uploading.",
   invalid_avatar: "Upload a JPG, PNG, WebP, or GIF image.",
-  avatar_too_large: "Avatar images must be 3 MB or smaller."
+  avatar_too_large: "Avatar images must be 3 MB or smaller.",
+  missing_company_name: "Enter a company name before saving."
 };
 
 const updatedMessages: Record<string, string> = {
   profile: "Profile details updated.",
-  avatar: "Profile photo updated."
+  avatar: "Profile photo updated.",
+  company: "Partner company updated."
 };
 
 function initials(user: Pick<User, "firstName" | "lastName" | "email">) {
@@ -26,13 +28,15 @@ export function ProfileSettings({
   title,
   description,
   error,
-  updated
+  updated,
+  children
 }: {
   user: Pick<User, "email" | "firstName" | "lastName" | "phone" | "avatarUrl" | "role">;
   title: string;
   description: string;
   error?: string;
   updated?: string;
+  children?: React.ReactNode;
 }) {
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "Account";
 
@@ -130,6 +134,7 @@ export function ProfileSettings({
           </div>
         </form>
       </section>
+      {children}
     </div>
   );
 }

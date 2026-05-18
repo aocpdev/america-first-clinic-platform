@@ -82,6 +82,7 @@ model User {
   company           Company?           @relation(fields: [companyId], references: [id])
   role              UserRole           @default(CUSTOMER)
   requestedRole     UserRole           @default(CUSTOMER)
+  requestedPartnerProfileId String?    @db.Uuid
   status            UserStatus         @default(ACTIVE)
   email             String             @unique
   firstName         String?
@@ -166,6 +167,7 @@ model PartnerProfile {
   companyId       String              @db.Uuid
   company         Company             @relation(fields: [companyId], references: [id])
   displayName     String
+  companyName     String?
   commissionBps   Int                 @default(1250)
   payoutResponsibility PayoutResponsibility @default(PARTNER)
   consultants     ConsultantProfile[]

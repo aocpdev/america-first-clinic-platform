@@ -88,3 +88,26 @@ export async function uploadAvatar(formData: FormData) {
   await revalidateUserProfilePaths(user.role);
   redirect(`${profilePathForRole(user.role)}?updated=avatar`);
 }
+
+export async function updatePartnerCompany(formData: FormData) {
+  const user = await requireUser();
+  if (user.role !== "PARTNER" && user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN") {
+    redirect("/login?error=access_denied");
+  }
+
+  const companyName = textValue(formData, "companyName");
+  if (!companyName) {
+    redirect(`${profilePathForRole(user.role)}?error=missing_company_name`);
+  }
+
+  await prisma.partnerProfile.update({
+    where: { userId: user.id },
+    data: { companyName }
+  });
+
+  revalidatePath("/register");
+  revalidatePath("/partner/profile");
+  revalidatePath("/partner/consultants");
+  revalidatePath("/admin/consultants");
+  redirect(`${profilePathForRole(user.role)}?updated=company`);
+}
