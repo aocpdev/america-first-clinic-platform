@@ -42,32 +42,6 @@ async function main() {
     }
   });
 
-  const consultantUser = await prisma.user.upsert({
-    where: { email: "consultant@americafirstclinic.com" },
-    update: {},
-    create: {
-      authUserId: "seed-consultant",
-      companyId: company.id,
-      role: UserRole.CONSULTANT,
-      email: "consultant@americafirstclinic.com",
-      firstName: "Avery",
-      lastName: "Johnson"
-    }
-  });
-
-  await prisma.consultantProfile.upsert({
-    where: { userId: consultantUser.id },
-    update: {},
-    create: {
-      userId: consultantUser.id,
-      companyId: company.id,
-      referralSlug: "avery-johnson",
-      referralCode: "AVERY123",
-      monthlyGoal: 3500000,
-      onboardingDone: true
-    }
-  });
-
   const weightLoss = categories.find((category) => category.name === "Weight Loss") ?? categories[0];
   await prisma.product.upsert({
     where: { companyId_slug: { companyId: company.id, slug: "medical-weight-loss-program" } },

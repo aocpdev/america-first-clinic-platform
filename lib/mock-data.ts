@@ -55,14 +55,13 @@ export const revenueSeries = [
 ];
 
 export const consultants = [
-  { name: "Avery Johnson", rank: 1, revenue: 28400, commissions: 4260, conversion: "18.4%", status: "Elite" },
-  { name: "Maya Rivera", rank: 2, revenue: 24150, commissions: 3622, conversion: "16.7%", status: "Pro" },
-  { name: "Noah Bennett", rank: 3, revenue: 19720, commissions: 2958, conversion: "14.8%", status: "Rising" },
-  { name: "Sophia Clark", rank: 4, revenue: 16300, commissions: 2445, conversion: "13.6%", status: "Rising" }
+  { name: "Maya Rivera", rank: 1, revenue: 24150, commissions: 3622, conversion: "16.7%", status: "Pro" },
+  { name: "Noah Bennett", rank: 2, revenue: 19720, commissions: 2958, conversion: "14.8%", status: "Rising" },
+  { name: "Sophia Clark", rank: 3, revenue: 16300, commissions: 2445, conversion: "13.6%", status: "Rising" }
 ];
 
 export const activity = [
-  "New order attributed to Avery Johnson",
+  "New consultant application submitted",
   "Commission approved for GLP-1 Support Program",
   "Inventory alert: Vitamin Injection Visit",
   "ACH provider webhook queued for verification",
