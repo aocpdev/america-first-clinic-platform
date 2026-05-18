@@ -51,6 +51,12 @@ npm install
 cp .env.example .env.local
 ```
 
+You can also use the environment-specific template:
+
+```bash
+cp .env.local.example .env.local
+```
+
 3. Add Supabase database URLs and service keys.
 
 4. Generate Prisma client:
@@ -95,3 +101,9 @@ npm run dev
 - Resend account/domain
 - PostHog project
 - Payment processor accounts: NMI, Authorize.net, Stripe, ACH/Plaid/Dwolla as selected
+
+## Local vs Production
+
+Environment setup is documented in [docs/environments.md](/Users/axel/Documents/New%20project%2015/docs/environments.md).
+
+Use `.env.local` for local development and Vercel environment variables for production. Do not commit real secrets.
