@@ -33,6 +33,7 @@ export const consultantNav = [
   { href: "/consultant/customers", label: "Customers", icon: Users },
   { href: "/consultant/pipeline", label: "Pipeline", icon: Columns3 },
   { href: "/consultant/sales", label: "Sales", icon: ShoppingBag },
+  { href: "/consultant/orders", label: "Orders", icon: ClipboardList },
   { href: "/consultant/commissions", label: "Commissions", icon: HandCoins },
   { href: "/consultant/products", label: "Products", icon: Boxes },
   { href: "/consultant/performance", label: "Performance", icon: LineChart },
@@ -43,6 +44,7 @@ export const consultantNav = [
 export const partnerNav = [
   { href: "/partner/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/partner/sales", label: "Sales", icon: ClipboardList },
+  { href: "/partner/orders", label: "Orders", icon: ShoppingBag },
   { href: "/partner/pipeline", label: "Pipeline", icon: Columns3 },
   { href: "/partner/consultants", label: "Consultants", icon: Users },
   { href: "/partner/products", label: "Products", icon: Boxes },
@@ -55,6 +57,7 @@ export const partnerNav = [
 export const groupLeaderNav = [
   { href: "/partner/consultants", label: "Team", icon: Users },
   { href: "/partner/sales", label: "Sales", icon: ClipboardList },
+  { href: "/partner/orders", label: "Orders", icon: ShoppingBag },
   { href: "/partner/pipeline", label: "Pipeline", icon: Columns3 },
   { href: "/partner/products", label: "Products", icon: Boxes },
   { href: "/partner/commissions", label: "Commissions", icon: HandCoins },
