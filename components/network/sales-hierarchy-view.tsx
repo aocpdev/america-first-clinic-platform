@@ -191,7 +191,7 @@ function DetailPanel({ node, onClose }: { node: HierarchyNode | null; onClose: (
 
 export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: SalesHierarchyTree; title?: string }) {
   const [selectedId, setSelectedId] = useState(tree.partner.id);
-  const [zoom, setZoom] = useState(92);
+  const [zoom, setZoom] = useState(80);
   const [query, setQuery] = useState("");
 
   const nodes = useMemo(
@@ -228,24 +228,46 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
               className="h-10 w-full rounded-xl border border-border bg-white pl-9 pr-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10 sm:w-64"
             />
           </label>
-          <div className="flex items-center gap-2 rounded-xl border border-border bg-clinic-mist px-3 py-2">
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-clinic-mist px-3 py-2">
             <ZoomOut className="h-4 w-4 text-slate-500" />
             <input
               type="range"
-              min="70"
-              max="120"
+              min="20"
+              max="140"
+              step="5"
               value={zoom}
               onChange={(event) => setZoom(Number(event.target.value))}
-              className="w-28 accent-clinic-navy"
+              className="w-32 accent-clinic-navy"
               aria-label="Zoom hierarchy"
             />
+            <span className="w-12 text-center text-xs font-bold tabular-nums text-clinic-navy">{zoom}%</span>
             <ZoomIn className="h-4 w-4 text-slate-500" />
+          </div>
+          <div className="flex items-center gap-1 rounded-xl border border-border bg-white p-1">
+            {[
+              { label: "Fit", value: 25 },
+              { label: "50%", value: 50 },
+              { label: "100%", value: 100 }
+            ].map((preset) => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => setZoom(preset.value)}
+                className={`h-8 rounded-lg px-3 text-xs font-bold transition ${
+                  zoom === preset.value
+                    ? "bg-clinic-navy text-white"
+                    : "text-slate-600 hover:bg-clinic-mist hover:text-clinic-ink"
+                }`}
+              >
+                {preset.label}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
       <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="overflow-auto rounded-3xl bg-slate-50 p-6">
+        <div className="min-h-[620px] overflow-auto rounded-3xl bg-slate-50 p-6 xl:max-h-[72vh]">
           <div
             className="min-w-max origin-top-left transition-transform"
             style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}
