@@ -12,6 +12,7 @@ enum UserRole {
   SUPER_ADMIN
   COMPANY_ADMIN
   PARTNER
+  GROUP_LEADER
   MANAGER
   CONSULTANT
   CUSTOMER
@@ -67,6 +68,7 @@ enum CommissionRuleType {
 
 enum CommissionParticipantRole {
   PARTNER
+  GROUP_LEADER
   CONSULTANT
 }
 
@@ -97,6 +99,7 @@ model User {
   rejectionReason   String?
   consultantProfile ConsultantProfile?
   partnerProfile    PartnerProfile?
+  groupLeaderProfile GroupLeaderProfile?
   customer          Customer?
   teamMemberships   TeamMember[]
   activityLogs      ActivityLog[]
@@ -125,6 +128,7 @@ model Company {
   commissionRules   CommissionRule[]
   paymentProviders  PaymentProvider[]
   partnerProfiles   PartnerProfile[]
+  groupLeaderProfiles GroupLeaderProfile[]
   teams             Team[]
   leads             Lead[]
   activityLogs      ActivityLog[]
@@ -140,8 +144,11 @@ model ConsultantProfile {
   companyId      String         @db.Uuid
   partnerProfileId String?      @db.Uuid
   partnerProfile PartnerProfile? @relation(fields: [partnerProfileId], references: [id])
+  groupLeaderProfileId String? @db.Uuid
+  groupLeaderProfile GroupLeaderProfile? @relation(fields: [groupLeaderProfileId], references: [id])
   referralSlug   String         @unique
   referralCode   String         @unique
+  commissionBps  Int            @default(1250)
   bio            String?
   rank           Int?
   monthlyGoal    Int            @default(0)
@@ -158,6 +165,7 @@ model ConsultantProfile {
 
   @@index([companyId])
   @@index([partnerProfileId])
+  @@index([groupLeaderProfileId])
 }
 
 model PartnerProfile {
@@ -171,6 +179,7 @@ model PartnerProfile {
   commissionBps   Int                 @default(1250)
   payoutResponsibility PayoutResponsibility @default(PARTNER)
   consultants     ConsultantProfile[]
+  groupLeaders    GroupLeaderProfile[]
   customers       Customer[]
   orders          Order[]
   commissionSplits CommissionSplit[]
@@ -178,6 +187,27 @@ model PartnerProfile {
   updatedAt       DateTime            @updatedAt
 
   @@index([companyId])
+}
+
+model GroupLeaderProfile {
+  id              String              @id @default(uuid()) @db.Uuid
+  userId          String              @unique @db.Uuid
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId       String              @db.Uuid
+  company         Company             @relation(fields: [companyId], references: [id])
+  partnerProfileId String             @db.Uuid
+  partnerProfile  PartnerProfile      @relation(fields: [partnerProfileId], references: [id])
+  displayName     String
+  commissionBps   Int                 @default(625)
+  consultants     ConsultantProfile[]
+  customers       Customer[]
+  orders          Order[]
+  commissionSplits CommissionSplit[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@index([companyId])
+  @@index([partnerProfileId])
 }
 
 model Customer {
@@ -190,6 +220,8 @@ model Customer {
   consultantProfile   ConsultantProfile?  @relation(fields: [consultantProfileId], references: [id])
   partnerProfileId    String?             @db.Uuid
   partnerProfile      PartnerProfile?     @relation(fields: [partnerProfileId], references: [id])
+  groupLeaderProfileId String?            @db.Uuid
+  groupLeaderProfile  GroupLeaderProfile? @relation(fields: [groupLeaderProfileId], references: [id])
   email               String
   firstName           String?
   lastName            String?
@@ -210,6 +242,7 @@ model Customer {
   @@unique([companyId, email])
   @@index([companyId, consultantProfileId])
   @@index([partnerProfileId])
+  @@index([groupLeaderProfileId])
 }
 
 model ProductCategory {
@@ -284,6 +317,8 @@ model Order {
   consultantProfile   ConsultantProfile?  @relation(fields: [consultantProfileId], references: [id])
   partnerProfileId    String?             @db.Uuid
   partnerProfile      PartnerProfile?     @relation(fields: [partnerProfileId], references: [id])
+  groupLeaderProfileId String?            @db.Uuid
+  groupLeaderProfile  GroupLeaderProfile? @relation(fields: [groupLeaderProfileId], references: [id])
   subtotalCents        Int
   discountCents        Int                 @default(0)
   taxCents             Int                 @default(0)
@@ -309,6 +344,7 @@ model Order {
   @@index([companyId, customerId])
   @@index([consultantProfileId])
   @@index([partnerProfileId])
+  @@index([groupLeaderProfileId])
 }
 
 model OrderItem {
@@ -357,6 +393,8 @@ model CommissionSplit {
   consultantProfile   ConsultantProfile?        @relation(fields: [consultantProfileId], references: [id])
   partnerProfileId    String?                   @db.Uuid
   partnerProfile      PartnerProfile?           @relation(fields: [partnerProfileId], references: [id])
+  groupLeaderProfileId String?                  @db.Uuid
+  groupLeaderProfile  GroupLeaderProfile?       @relation(fields: [groupLeaderProfileId], references: [id])
   participantRole     CommissionParticipantRole
   amountCents         Int
   grossMarginCents    Int
@@ -369,6 +407,7 @@ model CommissionSplit {
 
   @@index([companyId, participantRole, status])
   @@index([partnerProfileId, status])
+  @@index([groupLeaderProfileId, status])
   @@index([consultantProfileId, status])
   @@unique([orderId, participantRole])
 }

@@ -1,4 +1,4 @@
-import { approveConsultant, createPartnerByAdmin, rejectConsultant } from "@/app/(auth)/actions";
+import { approveConsultant, createGroupLeader, createPartnerByAdmin, rejectConsultant } from "@/app/(auth)/actions";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -12,7 +12,7 @@ export default async function AdminConsultantsPage({
   searchParams: Promise<{ error?: string; updated?: string }>;
 }) {
   const params = await searchParams;
-  const [pendingConsultants, activeConsultants, partners] = await Promise.all([
+  const [pendingConsultants, activeConsultants, partners, groupLeaders] = await Promise.all([
     prisma.user.findMany({
       where: {
         requestedRole: "CONSULTANT",
@@ -21,16 +21,26 @@ export default async function AdminConsultantsPage({
       orderBy: { createdAt: "desc" }
     }),
     prisma.consultantProfile.findMany({
-      include: { user: true, partnerProfile: true },
+      include: { user: true, partnerProfile: true, groupLeaderProfile: true },
       orderBy: { createdAt: "desc" },
       take: 12
     }),
     prisma.partnerProfile.findMany({
       include: { user: true },
       orderBy: { createdAt: "desc" }
+    }),
+    prisma.groupLeaderProfile.findMany({
+      include: { user: true, partnerProfile: true },
+      orderBy: { createdAt: "desc" }
     })
   ]);
   const partnerById = new Map(partners.map((partner) => [partner.id, partner]));
+  const leadersByPartnerId = new Map<string, typeof groupLeaders>();
+  groupLeaders.forEach((leader) => {
+    const leaders = leadersByPartnerId.get(leader.partnerProfileId) ?? [];
+    leaders.push(leader);
+    leadersByPartnerId.set(leader.partnerProfileId, leaders);
+  });
 
   return (
     <SidebarShell nav={adminNav} eyebrow="Admin" title="Consultants">
@@ -38,6 +48,11 @@ export default async function AdminConsultantsPage({
         {params.updated === "partner_created" ? (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
             Partner account created.
+          </div>
+        ) : null}
+        {params.updated === "group_leader_created" ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+            Group leader account created.
           </div>
         ) : null}
         {params.error ? (
@@ -54,7 +69,7 @@ export default async function AdminConsultantsPage({
               Partners are created only by administrators. Consultants can then select the partner company during registration.
             </p>
           </div>
-          <form action={createPartnerByAdmin} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <form action={createPartnerByAdmin} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
             <input
               name="firstName"
               placeholder="First name"
@@ -88,8 +103,45 @@ export default async function AdminConsultantsPage({
               className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
               required
             />
-            <div className="md:col-span-2 xl:col-span-5">
+            <input
+              name="commissionPercent"
+              type="number"
+              min="0"
+              max="100"
+              step="0.01"
+              placeholder="Partner % of margin"
+              defaultValue="12.5"
+              className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+              required
+            />
+            <div className="md:col-span-2 xl:col-span-6">
               <SubmitButton variant="accent" pendingText="Creating partner...">Create partner</SubmitButton>
+            </div>
+          </form>
+        </Card>
+
+        <Card className="p-6">
+          <div>
+            <Badge>Partner hierarchy</Badge>
+            <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Create group leader</h2>
+            <p className="mt-2 max-w-3xl text-slate-600">
+              Group leaders sit under a partner and can have consultants assigned under them.
+            </p>
+          </div>
+          <form action={createGroupLeader} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+            <input name="firstName" placeholder="First name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
+            <input name="lastName" placeholder="Last name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
+            <input name="email" type="email" placeholder="Leader email" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
+            <input name="password" type="password" minLength={8} placeholder="Temporary password" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
+            <select name="partnerProfileId" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required defaultValue="">
+              <option value="" disabled>Partner company</option>
+              {partners.map((partner) => (
+                <option key={partner.id} value={partner.id}>{partner.companyName || partner.displayName}</option>
+              ))}
+            </select>
+            <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="Leader % of margin" defaultValue="6.25" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
+            <div className="md:col-span-2 xl:col-span-6">
+              <SubmitButton variant="accent" pendingText="Creating leader...">Create group leader</SubmitButton>
             </div>
           </form>
         </Card>
@@ -121,7 +173,7 @@ export default async function AdminConsultantsPage({
                 <p className="font-semibold text-clinic-ink">{partner.companyName || partner.displayName}</p>
                 <p className="mt-1 text-sm text-slate-500">{partner.user.email}</p>
                 <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                  Contact: {partner.displayName}
+                  Contact: {partner.displayName} · {partner.commissionBps / 100}% margin
                 </p>
               </div>
             ))}
@@ -182,6 +234,28 @@ export default async function AdminConsultantsPage({
                               <option key={partner.id} value={partner.id}>{partner.companyName || partner.displayName}</option>
                             ))}
                           </select>
+                          <select
+                            name="groupLeaderProfileId"
+                            className="mr-2 h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                            defaultValue=""
+                          >
+                            <option value="">No leader</option>
+                            {groupLeaders.map((leader) => (
+                              <option key={leader.id} value={leader.id}>
+                                {leader.displayName} · {leader.partnerProfile.companyName || leader.partnerProfile.displayName}
+                              </option>
+                            ))}
+                          </select>
+                          <input
+                            name="consultantCommissionPercent"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            defaultValue="12.5"
+                            className="mr-2 h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                            aria-label="Consultant percent of margin"
+                          />
                           <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
                         </form>
                       </div>
@@ -220,6 +294,8 @@ export default async function AdminConsultantsPage({
                   <p className="font-semibold text-clinic-navy">/c/{profile.referralSlug}</p>
                   <p className="mt-1 text-slate-500">Code: {profile.referralCode}</p>
                   <p className="mt-1 text-slate-500">Partner: {profile.partnerProfile?.companyName ?? profile.partnerProfile?.displayName ?? "Unassigned"}</p>
+                  <p className="mt-1 text-slate-500">Leader: {profile.groupLeaderProfile?.displayName ?? "Unassigned"}</p>
+                  <p className="mt-1 text-slate-500">Consultant commission: {profile.commissionBps / 100}% of margin</p>
                 </div>
               </div>
             ))}

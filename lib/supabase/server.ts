@@ -11,6 +11,16 @@ function requireEnv(name: string) {
   return value;
 }
 
+function supabaseCookieOptions(): CookieOptions {
+  const isProductionUrl = process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://") ?? process.env.NODE_ENV === "production";
+
+  return {
+    path: "/",
+    sameSite: isProductionUrl ? "none" : "lax",
+    secure: isProductionUrl
+  };
+}
+
 export async function createSupabaseServerClient() {
   const cookieStore = await cookies();
 
@@ -18,6 +28,7 @@ export async function createSupabaseServerClient() {
     requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
     {
+      cookieOptions: supabaseCookieOptions(),
       cookies: {
         getAll() {
           return cookieStore.getAll();

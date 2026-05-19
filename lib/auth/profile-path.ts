@@ -1,7 +1,7 @@
 import type { UserRole } from "@prisma/client";
 
 export function profilePathForRole(role: UserRole) {
-  if (role === "PARTNER") {
+  if (role === "PARTNER" || role === "GROUP_LEADER") {
     return "/partner/profile";
   }
 

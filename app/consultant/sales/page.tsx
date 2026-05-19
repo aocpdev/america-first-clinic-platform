@@ -3,7 +3,6 @@ import { createConsultantOrder } from "@/app/sales/actions";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Card } from "@/components/ui/card";
 import { requireApprovedConsultant } from "@/lib/auth/current-user";
-import { DEFAULT_MARGIN_POOL_BPS, DEFAULT_PARTNER_SPLIT_BPS } from "@/lib/commissions/margin-split";
 import { consultantNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 
@@ -12,11 +11,9 @@ function customerName(customer: { firstName: string | null; lastName: string | n
   return name || customer.email;
 }
 
-function consultantCommissionPerUnit(priceCents: number, internalCostCents: number) {
+function consultantCommissionPerUnit(priceCents: number, internalCostCents: number, commissionBps: number) {
   const grossMarginCents = Math.max(0, priceCents - internalCostCents);
-  const poolCents = Math.round((grossMarginCents * DEFAULT_MARGIN_POOL_BPS) / 10000);
-  const partnerAmountCents = Math.round((poolCents * DEFAULT_PARTNER_SPLIT_BPS) / 10000);
-  return poolCents - partnerAmountCents;
+  return Math.round((grossMarginCents * commissionBps) / 10000);
 }
 
 export default async function ConsultantSalesPage({
@@ -97,7 +94,11 @@ export default async function ConsultantSalesPage({
           title: product.title,
           categoryName: product.category.name,
           priceCents: product.priceCents,
-          estimatedCommissionCents: consultantCommissionPerUnit(product.priceCents, product.internalCostCents),
+          estimatedCommissionCents: consultantCommissionPerUnit(
+            product.priceCents,
+            product.internalCostCents,
+            user.consultantProfile?.commissionBps ?? 1250
+          ),
           imageUrl: product.images[0]?.url ?? null,
           imageAlt: product.images[0]?.alt ?? null,
           supportsRecurring: product.supportsRecurring,

@@ -7,6 +7,8 @@ export function dashboardPathForRole(role: Role) {
       return "/admin/dashboard";
     case "PARTNER":
       return "/partner/dashboard";
+    case "GROUP_LEADER":
+      return "/partner/consultants";
     case "MANAGER":
       return "/manager/dashboard";
     case "CONSULTANT":

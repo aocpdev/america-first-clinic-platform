@@ -134,10 +134,11 @@ async function createWorkspaceOrder(
     actorUserId: string;
     consultantProfileId?: string | null;
     partnerProfileId?: string | null;
+    groupLeaderProfileId?: string | null;
     redirectBasePath: string;
   }
 ) {
-  const { workspace, companyId, actorUserId, consultantProfileId = null, partnerProfileId = null, redirectBasePath } = context;
+  const { workspace, companyId, actorUserId, consultantProfileId = null, partnerProfileId = null, groupLeaderProfileId = null, redirectBasePath } = context;
   const customerMode = formString(formData, "customerMode") || "existing";
   const pipelineStageInput = formString(formData, "pipelineStage");
   const pipelineStage = isCustomerPipelineStage(pipelineStageInput) ? pipelineStageInput : "CART_BUILT";
@@ -181,7 +182,8 @@ async function createWorkspaceOrder(
       select: {
         id: true,
         consultantProfileId: true,
-        partnerProfileId: true
+        partnerProfileId: true,
+        groupLeaderProfileId: true
       }
     });
 
@@ -199,6 +201,7 @@ async function createWorkspaceOrder(
           data: {
             consultantProfileId: workspace === "consultant" ? consultantProfileId : existingCustomer.consultantProfileId,
             partnerProfileId: workspace === "partner" ? partnerProfileId : existingCustomer.partnerProfileId,
+            groupLeaderProfileId: workspace === "consultant" ? groupLeaderProfileId : existingCustomer.groupLeaderProfileId,
             pipelineStage,
             pipelineUpdatedAt: new Date(),
             firstName: parsed.data.firstName,
@@ -212,6 +215,7 @@ async function createWorkspaceOrder(
             companyId,
             consultantProfileId: workspace === "consultant" ? consultantProfileId : null,
             partnerProfileId: workspace === "partner" ? partnerProfileId : null,
+            groupLeaderProfileId: workspace === "consultant" ? groupLeaderProfileId : null,
             email,
             pipelineStage,
             pipelineUpdatedAt: new Date(),
@@ -286,6 +290,7 @@ async function createWorkspaceOrder(
       customerId: customer.id,
       consultantProfileId: workspace === "consultant" ? consultantProfileId : null,
       partnerProfileId: workspace === "partner" ? partnerProfileId : null,
+      groupLeaderProfileId: workspace === "consultant" ? groupLeaderProfileId : null,
       subtotalCents,
       totalCents: subtotalCents,
       paymentProviderCode: "authorize_net",
@@ -415,6 +420,7 @@ export async function createConsultantOrder(formData: FormData) {
     actorUserId: user.id,
     consultantProfileId,
     partnerProfileId: user.consultantProfile.partnerProfileId,
+    groupLeaderProfileId: user.consultantProfile.groupLeaderProfileId,
     redirectBasePath: "/consultant/sales"
   });
 }

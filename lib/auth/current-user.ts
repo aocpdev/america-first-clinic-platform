@@ -16,7 +16,7 @@ export async function getCurrentUser() {
 
   return prisma.user.findUnique({
     where: { authUserId: user.id },
-    include: { consultantProfile: true, company: true }
+    include: { consultantProfile: true, partnerProfile: true, groupLeaderProfile: true, company: true }
   });
 }
 
@@ -49,7 +49,7 @@ export async function requireApprovedConsultant() {
 
 export async function requirePartner() {
   const user = await requireUser();
-  if (user.role !== "PARTNER" && user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN") {
+  if (user.role !== "PARTNER" && user.role !== "GROUP_LEADER" && user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN") {
     redirect("/login?error=access_denied");
   }
   return user;
