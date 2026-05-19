@@ -2,12 +2,12 @@ import Link from "next/link";
 import {
   approveConsultant,
   createGroupLeader,
-  createPartnerByAdmin,
   rejectConsultant,
   updateConsultantCommercials,
   updateGroupLeaderProfile,
   updatePartnerProfileByAdmin
 } from "@/app/(auth)/actions";
+import { CreatePartnerModal } from "@/app/admin/consultants/create-partner-modal";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { SalesHierarchyView } from "@/components/network/sales-hierarchy-view";
 import { Badge } from "@/components/ui/badge";
@@ -134,28 +134,7 @@ export default async function AdminConsultantsPage({
           </Card>
         </div>
 
-        <Card className="p-6">
-          <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <Badge>Admin only</Badge>
-              <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Create partner</h2>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                The admin sets the Partner pool as a percentage of margin. Leaders and consultants then receive a share of that Partner pool.
-              </p>
-            </div>
-          </div>
-          <form action={createPartnerByAdmin} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <input name="firstName" placeholder="First name" className={inputClass()} required />
-            <input name="lastName" placeholder="Last name" className={inputClass()} required />
-            <input name="email" type="email" placeholder="Partner email" className={inputClass()} required />
-            <input name="password" type="password" minLength={8} placeholder="Temporary password" className={inputClass()} required />
-            <input name="companyName" placeholder="Partner company" className={inputClass()} required />
-            <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="% margin pool" defaultValue="25" className={inputClass()} required />
-            <div className="md:col-span-2 xl:col-span-6">
-              <SubmitButton variant="accent" pendingText="Creating partner...">Create partner</SubmitButton>
-            </div>
-          </form>
-        </Card>
+        <CreatePartnerModal />
 
         <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
           <Card className="overflow-hidden">
