@@ -27,6 +27,15 @@ function inputClass(extra = "") {
   return `h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10 ${extra}`;
 }
 
+function initialsFromName(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
+
 const partnerSections = [
   { id: "hierarchy", label: "Hierarchy" },
   { id: "workspace", label: "Partner workspace" },
@@ -154,9 +163,15 @@ export default async function AdminConsultantsPage({
                     className="group rounded-3xl border border-border bg-white p-5 shadow-line transition hover:-translate-y-0.5 hover:border-clinic-navy/30 hover:shadow-soft"
                   >
                     <div className="flex items-start justify-between gap-4">
-                      <div className="min-w-0">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
+                          className="grid size-12 shrink-0 place-items-center rounded-2xl border border-border bg-clinic-mist bg-cover bg-center text-sm font-bold text-clinic-navy"
+                          style={partner.user.avatarUrl ? { backgroundImage: `url(${partner.user.avatarUrl})` } : undefined}
+                          aria-label={`${partner.companyName || partner.displayName} avatar`}
+                        >
+                          {partner.user.avatarUrl ? null : initialsFromName(partner.companyName || partner.displayName)}
+                        </div>
                         <p className="truncate text-lg font-semibold text-clinic-ink">{partner.companyName || partner.displayName}</p>
-                        <p className="mt-1 truncate text-sm text-slate-500">{partner.user.email}</p>
                       </div>
                       <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{percentLabel(partner.commissionBps)}</Badge>
                     </div>
