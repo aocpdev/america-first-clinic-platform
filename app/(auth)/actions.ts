@@ -42,6 +42,7 @@ export async function registerUser(formData: FormData) {
   const password = formValue(formData, "password");
   const requestedRole = roleSchema.extract(["CONSULTANT"]).catch("CONSULTANT").parse("CONSULTANT");
   const requestedPartnerProfileId = formValue(formData, "requestedPartnerProfileId");
+  const requestedGroupLeaderProfileId = formValue(formData, "requestedGroupLeaderProfileId") || null;
 
   if (!firstName || !lastName || !email || password.length < 8 || !requestedPartnerProfileId) {
     redirect("/register?error=invalid_registration");
@@ -60,6 +61,20 @@ export async function registerUser(formData: FormData) {
     redirect("/register?error=invalid_partner");
   }
 
+  if (requestedGroupLeaderProfileId) {
+    const selectedLeader = await prisma.groupLeaderProfile.findFirst({
+      where: {
+        id: requestedGroupLeaderProfileId,
+        partnerProfileId: selectedPartner.id
+      },
+      select: { id: true }
+    });
+
+    if (!selectedLeader) {
+      redirect("/register?error=invalid_group_leader");
+    }
+  }
+
   const status = UserStatus.PENDING_APPROVAL;
   const role = UserRole.CONSULTANT;
   const supabase = await createSupabaseServerClient();
@@ -73,6 +88,7 @@ export async function registerUser(formData: FormData) {
         last_name: lastName,
         requested_role: requestedRole,
         requested_partner_profile_id: selectedPartner.id,
+        requested_group_leader_profile_id: requestedGroupLeaderProfileId,
         status
       }
     }
@@ -88,6 +104,7 @@ export async function registerUser(formData: FormData) {
       companyId: company.id,
       requestedRole,
       requestedPartnerProfileId: selectedPartner.id,
+      requestedGroupLeaderProfileId,
       role,
       status,
       firstName,
@@ -99,6 +116,7 @@ export async function registerUser(formData: FormData) {
       companyId: company.id,
       requestedRole,
       requestedPartnerProfileId: selectedPartner.id,
+      requestedGroupLeaderProfileId,
       role,
       status,
       email,
@@ -154,7 +172,7 @@ export async function approveConsultant(formData: FormData) {
   const userId = formValue(formData, "userId");
   const requestedFormPartnerProfileId = formValue(formData, "partnerProfileId") || null;
   const requestedGroupLeaderProfileId = formValue(formData, "groupLeaderProfileId") || null;
-  const consultantCommissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 1250);
+  const consultantCommissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!user || user.requestedRole !== "CONSULTANT") {
@@ -163,7 +181,7 @@ export async function approveConsultant(formData: FormData) {
 
   const company = await getAmericaFirstClinic();
   let partnerProfileId = requestedFormPartnerProfileId || user.requestedPartnerProfileId;
-  let groupLeaderProfileId = requestedGroupLeaderProfileId;
+  let groupLeaderProfileId = requestedGroupLeaderProfileId || user.requestedGroupLeaderProfileId;
 
   if (approver.role === "PARTNER") {
     const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: approver.id } });
@@ -312,7 +330,7 @@ export async function createPartnerByAdmin(formData: FormData) {
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
   const companyName = formValue(formData, "companyName");
-  const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 1250);
+  const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
 
   if (!firstName || !lastName || !email || password.length < 8 || !companyName) {
     redirect("/admin/consultants?error=invalid_partner");
@@ -403,7 +421,7 @@ export async function createGroupLeader(formData: FormData) {
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
   const selectedPartnerProfileId = formValue(formData, "partnerProfileId");
-  const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 625);
+  const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
 
   if (!firstName || !lastName || !email || password.length < 8) {
     redirect(actor.role === "PARTNER" ? "/partner/consultants?error=invalid_group_leader" : "/admin/consultants?error=invalid_group_leader");
@@ -507,4 +525,118 @@ export async function createGroupLeader(formData: FormData) {
   revalidatePath("/admin/consultants");
   revalidatePath("/partner/consultants");
   redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=group_leader_created" : "/admin/consultants?updated=group_leader_created");
+}
+
+export async function updatePartnerProfileByAdmin(formData: FormData) {
+  const admin = await requireRole("COMPANY_ADMIN");
+  const partnerProfileId = formValue(formData, "partnerProfileId");
+  const companyName = formValue(formData, "companyName");
+  const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
+
+  if (!partnerProfileId || !companyName) {
+    redirect("/admin/consultants?error=invalid_partner");
+  }
+
+  await prisma.partnerProfile.update({
+    where: { id: partnerProfileId },
+    data: { companyName, commissionBps }
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      companyId: admin.companyId,
+      userId: admin.id,
+      action: "PARTNER_UPDATED",
+      resource: "PartnerProfile",
+      resourceId: partnerProfileId,
+      metadata: { companyName, commissionBps }
+    }
+  });
+
+  revalidatePath("/admin/consultants");
+  revalidatePath("/partner/consultants");
+  redirect(`/admin/consultants?partnerId=${partnerProfileId}&updated=partner_updated`);
+}
+
+export async function updateGroupLeaderProfile(formData: FormData) {
+  const actor = await requireUser();
+  const groupLeaderProfileId = formValue(formData, "groupLeaderProfileId");
+  const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
+
+  const leader = await prisma.groupLeaderProfile.findUnique({
+    where: { id: groupLeaderProfileId },
+    include: { partnerProfile: true }
+  });
+
+  if (!leader) {
+    redirect(actor.role === "PARTNER" ? "/partner/consultants?error=invalid_group_leader" : "/admin/consultants?error=invalid_group_leader");
+  }
+
+  if (actor.role === "PARTNER") {
+    const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: actor.id } });
+    if (!partnerProfile || partnerProfile.id !== leader.partnerProfileId) {
+      redirect("/partner/consultants?error=access_denied");
+    }
+  } else if (actor.role !== "COMPANY_ADMIN" && actor.role !== "SUPER_ADMIN") {
+    redirect("/login?error=access_denied");
+  }
+
+  await prisma.groupLeaderProfile.update({
+    where: { id: leader.id },
+    data: { commissionBps }
+  });
+
+  revalidatePath("/admin/consultants");
+  revalidatePath("/partner/consultants");
+  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=leader_updated" : `/admin/consultants?partnerId=${leader.partnerProfileId}&updated=leader_updated`);
+}
+
+export async function updateConsultantCommercials(formData: FormData) {
+  const actor = await requireUser();
+  const consultantProfileId = formValue(formData, "consultantProfileId");
+  const partnerProfileId = formValue(formData, "partnerProfileId") || null;
+  const groupLeaderProfileId = formValue(formData, "groupLeaderProfileId") || null;
+  const commissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
+
+  const consultant = await prisma.consultantProfile.findUnique({
+    where: { id: consultantProfileId },
+    include: { partnerProfile: true }
+  });
+
+  if (!consultant) {
+    redirect("/admin/consultants?error=consultant_not_found");
+  }
+
+  if (actor.role === "PARTNER") {
+    const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: actor.id } });
+    if (!partnerProfile || partnerProfile.id !== consultant.partnerProfileId) {
+      redirect("/partner/consultants?error=access_denied");
+    }
+  } else if (actor.role !== "COMPANY_ADMIN" && actor.role !== "SUPER_ADMIN") {
+    redirect("/login?error=access_denied");
+  }
+
+  if (groupLeaderProfileId) {
+    const leader = await prisma.groupLeaderProfile.findFirst({
+      where: { id: groupLeaderProfileId, partnerProfileId: partnerProfileId ?? consultant.partnerProfileId ?? undefined },
+      select: { id: true }
+    });
+
+    if (!leader) {
+      redirect("/admin/consultants?error=invalid_group_leader");
+    }
+  }
+
+  await prisma.consultantProfile.update({
+    where: { id: consultant.id },
+    data: {
+      ...(partnerProfileId ? { partnerProfileId } : {}),
+      groupLeaderProfileId,
+      commissionBps
+    }
+  });
+
+  revalidatePath("/admin/consultants");
+  revalidatePath("/partner/consultants");
+  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=consultant_updated" : `/admin/consultants?partnerId=${partnerProfileId ?? consultant.partnerProfileId ?? ""}&updated=consultant_updated`);
 }

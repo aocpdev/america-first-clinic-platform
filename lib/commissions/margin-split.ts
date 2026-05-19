@@ -2,40 +2,41 @@ import { CommissionStatus, type PrismaClient } from "@prisma/client";
 
 export const DEFAULT_MARGIN_POOL_BPS = 2500;
 export const DEFAULT_PARTNER_SPLIT_BPS = 5000;
-export const DEFAULT_GROUP_LEADER_BPS = 625;
-export const DEFAULT_CONSULTANT_BPS = 1250;
+export const DEFAULT_GROUP_LEADER_SHARE_BPS = 2500;
+export const DEFAULT_CONSULTANT_SHARE_BPS = 5000;
 
 export function calculateMarginCommissionSplit({
   subtotalCents,
   internalCostCents,
   poolBps = DEFAULT_MARGIN_POOL_BPS,
   partnerSplitBps = DEFAULT_PARTNER_SPLIT_BPS,
-  partnerBps,
-  groupLeaderBps = 0,
-  consultantBps
+  partnerPoolBps,
+  groupLeaderShareBps = 0,
+  consultantShareBps
 }: {
   subtotalCents: number;
   internalCostCents: number;
   poolBps?: number;
   partnerSplitBps?: number;
-  partnerBps?: number;
-  groupLeaderBps?: number;
-  consultantBps?: number;
+  partnerPoolBps?: number;
+  groupLeaderShareBps?: number;
+  consultantShareBps?: number;
 }) {
   const grossMarginCents = Math.max(0, subtotalCents - internalCostCents);
-  const commissionPoolCents = Math.round((grossMarginCents * poolBps) / 10000);
-  const partnerAmountCents = partnerBps == null
-    ? Math.round((commissionPoolCents * partnerSplitBps) / 10000)
-    : Math.round((grossMarginCents * partnerBps) / 10000);
-  const groupLeaderAmountCents = Math.round((grossMarginCents * groupLeaderBps) / 10000);
-  const consultantAmountCents = consultantBps == null
-    ? commissionPoolCents - partnerAmountCents
-    : Math.round((grossMarginCents * consultantBps) / 10000);
-  const configuredPoolCents = partnerAmountCents + groupLeaderAmountCents + consultantAmountCents;
+  const effectivePoolBps = partnerPoolBps ?? poolBps;
+  const commissionPoolCents = Math.round((grossMarginCents * effectivePoolBps) / 10000);
+  const legacyPartnerAmountCents = Math.round((commissionPoolCents * partnerSplitBps) / 10000);
+  const groupLeaderAmountCents = Math.round((commissionPoolCents * groupLeaderShareBps) / 10000);
+  const consultantAmountCents = consultantShareBps == null
+    ? commissionPoolCents - legacyPartnerAmountCents
+    : Math.round((commissionPoolCents * consultantShareBps) / 10000);
+  const partnerAmountCents = partnerPoolBps == null && consultantShareBps == null && groupLeaderShareBps === 0
+    ? legacyPartnerAmountCents
+    : Math.max(0, commissionPoolCents - groupLeaderAmountCents - consultantAmountCents);
 
   return {
     grossMarginCents,
-    commissionPoolCents: partnerBps == null && consultantBps == null && groupLeaderBps === 0 ? commissionPoolCents : configuredPoolCents,
+    commissionPoolCents,
     partnerAmountCents,
     groupLeaderAmountCents,
     consultantAmountCents
@@ -51,7 +52,7 @@ export async function createMarginCommissionLedger({
   prisma: PrismaClient;
   orderId: string;
   status?: CommissionStatus;
-  commissionMode?: "CONSULTANT_PARTNER_SPLIT" | "PARTNER_DIRECT" | "ADMIN_DIRECT";
+  commissionMode?: "CONSULTANT_PARTNER_SPLIT" | "PARTNER_DIRECT" | "GROUP_LEADER_DIRECT" | "ADMIN_DIRECT";
 }) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -84,6 +85,10 @@ export async function createMarginCommissionLedger({
     throw new Error("Order must have a partner assigned before partner direct commissions can be calculated.");
   }
 
+  if (commissionMode === "GROUP_LEADER_DIRECT" && (!partnerProfileId || !groupLeaderProfileId)) {
+    throw new Error("Order must have a group leader assigned before leader direct commissions can be calculated.");
+  }
+
   const internalCostCents = order.items.reduce(
     (total, item) => total + item.product.internalCostCents * item.quantity,
     0
@@ -91,9 +96,9 @@ export async function createMarginCommissionLedger({
   const split = calculateMarginCommissionSplit({
     subtotalCents: order.subtotalCents,
     internalCostCents,
-    partnerBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" ? partnerProfile?.commissionBps : undefined,
-    groupLeaderBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" ? groupLeaderProfile?.commissionBps ?? 0 : 0,
-    consultantBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" ? order.consultantProfile?.commissionBps ?? DEFAULT_CONSULTANT_BPS : undefined
+    partnerPoolBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" || commissionMode === "GROUP_LEADER_DIRECT" ? partnerProfile?.commissionBps : undefined,
+    groupLeaderShareBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" || commissionMode === "GROUP_LEADER_DIRECT" ? groupLeaderProfile?.commissionBps ?? 0 : 0,
+    consultantShareBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" ? order.consultantProfile?.commissionBps ?? DEFAULT_CONSULTANT_SHARE_BPS : undefined
   });
 
   await prisma.$transaction(async (tx) => {
@@ -123,6 +128,39 @@ export async function createMarginCommissionLedger({
           status,
           payoutResponsibility: "COMPANY"
         }
+      });
+      return;
+    }
+
+    if (commissionMode === "GROUP_LEADER_DIRECT") {
+      await tx.commissionSplit.createMany({
+        data: [
+          {
+            companyId: order.companyId,
+            orderId: order.id,
+            partnerProfileId,
+            groupLeaderProfileId,
+            participantRole: "PARTNER",
+            amountCents: split.partnerAmountCents,
+            grossMarginCents: split.grossMarginCents,
+            commissionPoolCents: split.commissionPoolCents,
+            status,
+            payoutResponsibility: "COMPANY"
+          },
+          {
+            companyId: order.companyId,
+            orderId: order.id,
+            partnerProfileId,
+            groupLeaderProfileId,
+            participantRole: "GROUP_LEADER",
+            amountCents: split.groupLeaderAmountCents,
+            grossMarginCents: split.grossMarginCents,
+            commissionPoolCents: split.commissionPoolCents,
+            status,
+            payoutResponsibility: "PARTNER"
+          }
+        ],
+        skipDuplicates: true
       });
       return;
     }

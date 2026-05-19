@@ -1,4 +1,13 @@
-import { approveConsultant, createGroupLeader, createPartnerByAdmin, rejectConsultant } from "@/app/(auth)/actions";
+import Link from "next/link";
+import {
+  approveConsultant,
+  createGroupLeader,
+  createPartnerByAdmin,
+  rejectConsultant,
+  updateConsultantCommercials,
+  updateGroupLeaderProfile,
+  updatePartnerProfileByAdmin
+} from "@/app/(auth)/actions";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -6,13 +15,25 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { adminNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 
+function percent(bps: number) {
+  return `${bps / 100}%`;
+}
+
+function displayUserName(user: { firstName: string | null; lastName: string | null; email: string }) {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+}
+
+function inputClass(extra = "") {
+  return `h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10 ${extra}`;
+}
+
 export default async function AdminConsultantsPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; updated?: string }>;
+  searchParams: Promise<{ error?: string; updated?: string; partnerId?: string }>;
 }) {
   const params = await searchParams;
-  const [pendingConsultants, activeConsultants, partners, groupLeaders] = await Promise.all([
+  const [pendingConsultants, partners] = await Promise.all([
     prisma.user.findMany({
       where: {
         requestedRole: "CONSULTANT",
@@ -20,39 +41,35 @@ export default async function AdminConsultantsPage({
       },
       orderBy: { createdAt: "desc" }
     }),
-    prisma.consultantProfile.findMany({
-      include: { user: true, partnerProfile: true, groupLeaderProfile: true },
-      orderBy: { createdAt: "desc" },
-      take: 12
-    }),
     prisma.partnerProfile.findMany({
-      include: { user: true },
-      orderBy: { createdAt: "desc" }
-    }),
-    prisma.groupLeaderProfile.findMany({
-      include: { user: true, partnerProfile: true },
-      orderBy: { createdAt: "desc" }
+      include: {
+        user: true,
+        groupLeaders: {
+          include: { user: true },
+          orderBy: { displayName: "asc" }
+        },
+        consultants: {
+          include: { user: true, groupLeaderProfile: true },
+          orderBy: { createdAt: "desc" }
+        }
+      },
+      orderBy: [{ companyName: "asc" }, { displayName: "asc" }]
     })
   ]);
-  const partnerById = new Map(partners.map((partner) => [partner.id, partner]));
-  const leadersByPartnerId = new Map<string, typeof groupLeaders>();
-  groupLeaders.forEach((leader) => {
-    const leaders = leadersByPartnerId.get(leader.partnerProfileId) ?? [];
-    leaders.push(leader);
-    leadersByPartnerId.set(leader.partnerProfileId, leaders);
-  });
+
+  const selectedPartner = partners.find((partner) => partner.id === params.partnerId) ?? partners[0] ?? null;
+  const selectedPending = selectedPartner
+    ? pendingConsultants.filter((user) => user.requestedPartnerProfileId === selectedPartner.id)
+    : [];
+  const totalLeaders = partners.reduce((sum, partner) => sum + partner.groupLeaders.length, 0);
+  const totalConsultants = partners.reduce((sum, partner) => sum + partner.consultants.length, 0);
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Consultants">
+    <SidebarShell nav={adminNav} eyebrow="Admin" title="Partner network">
       <div className="space-y-6">
-        {params.updated === "partner_created" ? (
+        {params.updated ? (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-            Partner account created.
-          </div>
-        ) : null}
-        {params.updated === "group_leader_created" ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
-            Group leader account created.
+            Network updated successfully.
           </div>
         ) : null}
         {params.error ? (
@@ -61,249 +78,264 @@ export default async function AdminConsultantsPage({
           </div>
         ) : null}
 
+        <div className="grid gap-4 md:grid-cols-4">
+          <Card className="p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partners</p>
+            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{partners.length}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Group leaders</p>
+            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{totalLeaders}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Consultants</p>
+            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{totalConsultants}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Pending</p>
+            <p className="mt-3 text-3xl font-semibold text-clinic-red">{pendingConsultants.length}</p>
+          </Card>
+        </div>
+
         <Card className="p-6">
-          <div>
-            <Badge>Admin only</Badge>
-            <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Create partner company</h2>
-            <p className="mt-2 max-w-3xl text-slate-600">
-              Partners are created only by administrators. Consultants can then select the partner company during registration.
-            </p>
+          <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <Badge>Admin only</Badge>
+              <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Create partner</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                The admin sets the Partner pool as a percentage of margin. Leaders and consultants then receive a share of that Partner pool.
+              </p>
+            </div>
           </div>
           <form action={createPartnerByAdmin} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <input
-              name="firstName"
-              placeholder="First name"
-              className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
-              required
-            />
-            <input
-              name="lastName"
-              placeholder="Last name"
-              className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
-              required
-            />
-            <input
-              name="email"
-              type="email"
-              placeholder="Partner email"
-              className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
-              required
-            />
-            <input
-              name="password"
-              type="password"
-              minLength={8}
-              placeholder="Temporary password"
-              className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
-              required
-            />
-            <input
-              name="companyName"
-              placeholder="Partner company"
-              className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
-              required
-            />
-            <input
-              name="commissionPercent"
-              type="number"
-              min="0"
-              max="100"
-              step="0.01"
-              placeholder="Partner % of margin"
-              defaultValue="12.5"
-              className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
-              required
-            />
+            <input name="firstName" placeholder="First name" className={inputClass()} required />
+            <input name="lastName" placeholder="Last name" className={inputClass()} required />
+            <input name="email" type="email" placeholder="Partner email" className={inputClass()} required />
+            <input name="password" type="password" minLength={8} placeholder="Temporary password" className={inputClass()} required />
+            <input name="companyName" placeholder="Partner company" className={inputClass()} required />
+            <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="% margin pool" defaultValue="25" className={inputClass()} required />
             <div className="md:col-span-2 xl:col-span-6">
               <SubmitButton variant="accent" pendingText="Creating partner...">Create partner</SubmitButton>
             </div>
           </form>
         </Card>
 
-        <Card className="p-6">
-          <div>
-            <Badge>Partner hierarchy</Badge>
-            <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Create group leader</h2>
-            <p className="mt-2 max-w-3xl text-slate-600">
-              Group leaders sit under a partner and can have consultants assigned under them.
-            </p>
-          </div>
-          <form action={createGroupLeader} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-            <input name="firstName" placeholder="First name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-            <input name="lastName" placeholder="Last name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-            <input name="email" type="email" placeholder="Leader email" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-            <input name="password" type="password" minLength={8} placeholder="Temporary password" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-            <select name="partnerProfileId" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required defaultValue="">
-              <option value="" disabled>Partner company</option>
-              {partners.map((partner) => (
-                <option key={partner.id} value={partner.id}>{partner.companyName || partner.displayName}</option>
-              ))}
-            </select>
-            <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="Leader % of margin" defaultValue="6.25" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-            <div className="md:col-span-2 xl:col-span-6">
-              <SubmitButton variant="accent" pendingText="Creating leader...">Create group leader</SubmitButton>
+        <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
+          <Card className="overflow-hidden">
+            <div className="border-b border-border p-5">
+              <h3 className="text-lg font-semibold text-clinic-ink">Partners</h3>
+              <p className="mt-1 text-sm text-slate-500">Open a partner to manage its leaders, consultants, and commission structure.</p>
             </div>
-          </form>
-        </Card>
+            <div className="divide-y divide-border">
+              {partners.map((partner) => {
+                const isSelected = selectedPartner?.id === partner.id;
 
-        <Card className="p-6">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <Badge>Approval workflow</Badge>
-              <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Pending consultant applications</h2>
-              <p className="mt-2 max-w-3xl text-slate-600">
-                Consultants can register, but seller access remains locked until a company admin approves them.
-                Approval creates their consultant profile, referral slug, and seller permissions.
-              </p>
+                return (
+                  <Link
+                    key={partner.id}
+                    href={`/admin/consultants?partnerId=${partner.id}`}
+                    className={`block p-5 transition hover:bg-clinic-mist/70 ${isSelected ? "bg-clinic-mist" : "bg-white"}`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-semibold text-clinic-ink">{partner.companyName || partner.displayName}</p>
+                        <p className="mt-1 text-sm text-slate-500">{partner.user.email}</p>
+                      </div>
+                      <Badge className={isSelected ? "border-blue-100 bg-blue-50 text-clinic-navy" : ""}>
+                        {percent(partner.commissionBps)}
+                      </Badge>
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-semibold text-slate-500">
+                      <div className="rounded-xl bg-white/80 px-2 py-2">
+                        <p className="text-lg text-clinic-navy">{partner.groupLeaders.length}</p>
+                        <p>Leaders</p>
+                      </div>
+                      <div className="rounded-xl bg-white/80 px-2 py-2">
+                        <p className="text-lg text-clinic-navy">{partner.consultants.length}</p>
+                        <p>Sellers</p>
+                      </div>
+                      <div className="rounded-xl bg-white/80 px-2 py-2">
+                        <p className="text-lg text-clinic-red">{pendingConsultants.filter((user) => user.requestedPartnerProfileId === partner.id).length}</p>
+                        <p>Pending</p>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+              {partners.length === 0 && <p className="p-5 text-sm text-slate-500">Create the first partner to start building the sales network.</p>}
             </div>
-            <div className="rounded-xl bg-clinic-mist px-4 py-3 text-center">
-              <p className="text-3xl font-semibold text-clinic-navy">{pendingConsultants.length}</p>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Pending</p>
-            </div>
-          </div>
-        </Card>
+          </Card>
 
-        <Card className="overflow-hidden">
-          <div className="border-b border-border p-5">
-            <h3 className="text-lg font-semibold text-clinic-ink">Partner companies</h3>
-          </div>
-          <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
-            {partners.map((partner) => (
-              <div key={partner.id} className="rounded-xl border border-border p-4">
-                <p className="font-semibold text-clinic-ink">{partner.companyName || partner.displayName}</p>
-                <p className="mt-1 text-sm text-slate-500">{partner.user.email}</p>
-                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                  Contact: {partner.displayName} · {partner.commissionBps / 100}% margin
-                </p>
-              </div>
-            ))}
-            {partners.length === 0 && <p className="text-sm text-slate-500">Partner companies will appear here.</p>}
-          </div>
-        </Card>
+          {selectedPartner ? (
+            <div className="space-y-6">
+              <Card className="p-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <Badge>Partner workspace</Badge>
+                    <h2 className="mt-4 text-3xl font-semibold text-clinic-ink">
+                      {selectedPartner.companyName || selectedPartner.displayName}
+                    </h2>
+                    <p className="mt-2 text-sm text-slate-500">{selectedPartner.user.email}</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="rounded-2xl bg-clinic-mist px-4 py-3">
+                      <p className="text-2xl font-semibold text-clinic-navy">{percent(selectedPartner.commissionBps)}</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Margin pool</p>
+                    </div>
+                    <div className="rounded-2xl bg-clinic-mist px-4 py-3">
+                      <p className="text-2xl font-semibold text-clinic-navy">{selectedPartner.groupLeaders.length}</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Leaders</p>
+                    </div>
+                    <div className="rounded-2xl bg-clinic-mist px-4 py-3">
+                      <p className="text-2xl font-semibold text-clinic-navy">{selectedPartner.consultants.length}</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Sellers</p>
+                    </div>
+                  </div>
+                </div>
 
-        <Card className="overflow-hidden">
-          <div className="border-b border-border p-5">
-            <h3 className="text-lg font-semibold text-clinic-ink">Applications queue</h3>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
-              <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
-                <tr>
-                  <th className="px-5 py-3">Applicant</th>
-                  <th className="px-5 py-3">Email</th>
-                  <th className="px-5 py-3">Partner company</th>
-                  <th className="px-5 py-3">Requested</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border bg-white">
-                {pendingConsultants.map((user) => (
-                  <tr key={user.id}>
-                    <td className="px-5 py-4 font-semibold text-clinic-ink">
-                      {[user.firstName, user.lastName].filter(Boolean).join(" ") || "Unnamed applicant"}
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">{user.email}</td>
-                    <td className="px-5 py-4 text-slate-600">
-                      {user.requestedPartnerProfileId
-                        ? partnerById.get(user.requestedPartnerProfileId)?.companyName ||
-                          partnerById.get(user.requestedPartnerProfileId)?.displayName ||
-                          "Unknown partner"
-                        : "Not selected"}
-                    </td>
-                    <td className="px-5 py-4 text-slate-600">{new Intl.DateTimeFormat("en-US").format(user.createdAt)}</td>
-                    <td className="px-5 py-4">
-                      <Badge className="border-amber-200 bg-amber-50 text-amber-700">Pending approval</Badge>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex justify-end gap-2">
+                <form action={updatePartnerProfileByAdmin} className="mt-6 grid gap-3 md:grid-cols-[1fr_180px_auto]">
+                  <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
+                  <input name="companyName" defaultValue={selectedPartner.companyName ?? selectedPartner.displayName} className={inputClass()} required />
+                  <input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={selectedPartner.commissionBps / 100} className={inputClass()} required />
+                  <SubmitButton variant="outline" pendingText="Saving...">Save partner</SubmitButton>
+                </form>
+              </Card>
+
+              <Card className="p-6">
+                <div>
+                  <Badge>Leaders</Badge>
+                  <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Create group leader</h3>
+                  <p className="mt-2 text-sm text-slate-500">Leader and consultant percentages are shares of the Partner margin pool.</p>
+                </div>
+                <form action={createGroupLeader} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                  <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
+                  <input name="firstName" placeholder="First name" className={inputClass()} required />
+                  <input name="lastName" placeholder="Last name" className={inputClass()} required />
+                  <input name="email" type="email" placeholder="Leader email" className={inputClass()} required />
+                  <input name="password" type="password" minLength={8} placeholder="Temporary password" className={inputClass()} required />
+                  <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="% of partner pool" defaultValue="25" className={inputClass()} required />
+                  <div>
+                    <SubmitButton variant="accent" pendingText="Creating...">Create leader</SubmitButton>
+                  </div>
+                </form>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  {selectedPartner.groupLeaders.map((leader) => (
+                    <div key={leader.id} className="rounded-2xl border border-border bg-white p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-clinic-ink">{leader.displayName}</p>
+                          <p className="mt-1 text-sm text-slate-500">{leader.user.email}</p>
+                        </div>
+                        <Badge>{percent(leader.commissionBps)} pool share</Badge>
+                      </div>
+                      <form action={updateGroupLeaderProfile} className="mt-4 flex gap-2">
+                        <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
+                        <input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.commissionBps / 100} className={inputClass("min-w-0 flex-1")} required />
+                        <SubmitButton size="sm" variant="outline" pendingText="Saving...">Save</SubmitButton>
+                      </form>
+                    </div>
+                  ))}
+                  {selectedPartner.groupLeaders.length === 0 && <p className="text-sm text-slate-500">No leaders have been created for this partner yet.</p>}
+                </div>
+              </Card>
+
+              <Card className="overflow-hidden">
+                <div className="border-b border-border p-5">
+                  <Badge>Approval workflow</Badge>
+                  <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Pending applications</h3>
+                </div>
+                <div className="divide-y divide-border">
+                  {selectedPending.map((user) => (
+                    <div key={user.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+                      <div>
+                        <p className="font-semibold text-clinic-ink">{displayUserName(user)}</p>
+                        <p className="mt-1 text-sm text-slate-500">{user.email}</p>
+                      </div>
+                      <div className="flex flex-wrap justify-end gap-2">
                         <form action={rejectConsultant}>
                           <input type="hidden" name="userId" value={user.id} />
                           <input type="hidden" name="reason" value="Application rejected by company admin." />
                           <SubmitButton size="sm" variant="outline" pendingText="Rejecting...">Reject</SubmitButton>
                         </form>
-                        <form action={approveConsultant}>
+                        <form action={approveConsultant} className="flex flex-wrap justify-end gap-2">
                           <input type="hidden" name="userId" value={user.id} />
-                          <select
-                            name="partnerProfileId"
-                            className="mr-2 h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                            defaultValue={user.requestedPartnerProfileId ?? partners[0]?.id ?? ""}
-                          >
-                            <option value="">No partner</option>
-                            {partners.map((partner) => (
-                              <option key={partner.id} value={partner.id}>{partner.companyName || partner.displayName}</option>
+                          <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
+                          <select name="groupLeaderProfileId" className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" defaultValue={user.requestedGroupLeaderProfileId ?? ""}>
+                            <option value="">Direct partner</option>
+                            {selectedPartner.groupLeaders.map((leader) => (
+                              <option key={leader.id} value={leader.id}>{leader.displayName}</option>
                             ))}
                           </select>
-                          <select
-                            name="groupLeaderProfileId"
-                            className="mr-2 h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                            defaultValue=""
-                          >
-                            <option value="">No leader</option>
-                            {groupLeaders.map((leader) => (
-                              <option key={leader.id} value={leader.id}>
-                                {leader.displayName} · {leader.partnerProfile.companyName || leader.partnerProfile.displayName}
-                              </option>
-                            ))}
-                          </select>
-                          <input
-                            name="consultantCommissionPercent"
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            defaultValue="12.5"
-                            className="mr-2 h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                            aria-label="Consultant percent of margin"
-                          />
+                          <input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" className="h-9 w-28 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Consultant share of partner pool" />
                           <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
                         </form>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-                {pendingConsultants.length === 0 && (
-                  <tr>
-                    <td className="px-5 py-8 text-center text-slate-500" colSpan={6}>
-                      No consultant applications are waiting for approval.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+                    </div>
+                  ))}
+                  {selectedPending.length === 0 && <p className="p-5 text-sm text-slate-500">No pending consultants for this partner.</p>}
+                </div>
+              </Card>
 
-        <Card className="overflow-hidden">
-          <div className="border-b border-border p-5">
-            <h3 className="text-lg font-semibold text-clinic-ink">Approved consultants</h3>
-          </div>
-          <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
-            {activeConsultants.map((profile) => (
-              <div key={profile.id} className="rounded-xl border border-border p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-clinic-ink">
-                      {[profile.user.firstName, profile.user.lastName].filter(Boolean).join(" ")}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">{profile.user.email}</p>
-                  </div>
-                  <Badge className="border-emerald-200 bg-emerald-50 text-emerald-700">Active</Badge>
+              <Card className="overflow-hidden">
+                <div className="border-b border-border p-5">
+                  <Badge>Seller network</Badge>
+                  <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Consultants</h3>
                 </div>
-                <div className="mt-4 rounded-lg bg-clinic-mist p-3 text-sm">
-                  <p className="font-semibold text-clinic-navy">/c/{profile.referralSlug}</p>
-                  <p className="mt-1 text-slate-500">Code: {profile.referralCode}</p>
-                  <p className="mt-1 text-slate-500">Partner: {profile.partnerProfile?.companyName ?? profile.partnerProfile?.displayName ?? "Unassigned"}</p>
-                  <p className="mt-1 text-slate-500">Leader: {profile.groupLeaderProfile?.displayName ?? "Unassigned"}</p>
-                  <p className="mt-1 text-slate-500">Consultant commission: {profile.commissionBps / 100}% of margin</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[980px] text-left text-sm">
+                    <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
+                      <tr>
+                        <th className="px-5 py-3">Consultant</th>
+                        <th className="px-5 py-3">Leader</th>
+                        <th className="px-5 py-3">Referral</th>
+                        <th className="px-5 py-3">Pool share</th>
+                        <th className="px-5 py-3 text-right">Update</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border bg-white">
+                      {selectedPartner.consultants.map((profile) => (
+                        <tr key={profile.id}>
+                          <td className="px-5 py-4">
+                            <p className="font-semibold text-clinic-ink">{displayUserName(profile.user)}</p>
+                            <p className="mt-1 text-xs text-slate-500">{profile.user.email}</p>
+                          </td>
+                          <td className="px-5 py-4 text-slate-600">{profile.groupLeaderProfile?.displayName ?? "Direct partner"}</td>
+                          <td className="px-5 py-4 font-semibold text-clinic-navy">/c/{profile.referralSlug}</td>
+                          <td className="px-5 py-4">{percent(profile.commissionBps)} of partner pool</td>
+                          <td className="px-5 py-4">
+                            <form action={updateConsultantCommercials} className="flex justify-end gap-2">
+                              <input type="hidden" name="consultantProfileId" value={profile.id} />
+                              <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
+                              <select name="groupLeaderProfileId" className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" defaultValue={profile.groupLeaderProfileId ?? ""}>
+                                <option value="">Direct partner</option>
+                                {selectedPartner.groupLeaders.map((leader) => (
+                                  <option key={leader.id} value={leader.id}>{leader.displayName}</option>
+                                ))}
+                              </select>
+                              <input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={profile.commissionBps / 100} className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Consultant share of partner pool" />
+                              <SubmitButton size="sm" variant="outline" pendingText="Saving...">Save</SubmitButton>
+                            </form>
+                          </td>
+                        </tr>
+                      ))}
+                      {selectedPartner.consultants.length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="px-5 py-8 text-center text-slate-500">No consultants are assigned to this partner yet.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
-              </div>
-            ))}
-            {activeConsultants.length === 0 && (
-              <p className="text-sm text-slate-500">Approved consultants will appear here.</p>
-            )}
-          </div>
-        </Card>
+              </Card>
+            </div>
+          ) : (
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold text-clinic-ink">No partner selected</h2>
+              <p className="mt-2 text-slate-600">Create a partner to start building leaders and consultants.</p>
+            </Card>
+          )}
+        </div>
       </div>
     </SidebarShell>
   );

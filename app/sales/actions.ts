@@ -129,7 +129,7 @@ async function queueInvoiceWebhook(input: {
 async function createWorkspaceOrder(
   formData: FormData,
   context: {
-    workspace: "consultant" | "partner" | "admin";
+    workspace: "consultant" | "partner" | "group_leader" | "admin";
     companyId: string;
     actorUserId: string;
     consultantProfileId?: string | null;
@@ -195,13 +195,17 @@ async function createWorkspaceOrder(
       redirect(`${redirectBasePath}?error=customer_not_assigned`);
     }
 
+    if (workspace === "group_leader" && existingCustomer?.groupLeaderProfileId && existingCustomer.groupLeaderProfileId !== groupLeaderProfileId) {
+      redirect(`${redirectBasePath}?error=customer_not_assigned`);
+    }
+
     const customer = existingCustomer
       ? await prisma.customer.update({
           where: { id: existingCustomer.id },
           data: {
             consultantProfileId: workspace === "consultant" ? consultantProfileId : existingCustomer.consultantProfileId,
-            partnerProfileId: workspace === "partner" ? partnerProfileId : existingCustomer.partnerProfileId,
-            groupLeaderProfileId: workspace === "consultant" ? groupLeaderProfileId : existingCustomer.groupLeaderProfileId,
+            partnerProfileId: workspace === "partner" || workspace === "group_leader" ? partnerProfileId : existingCustomer.partnerProfileId,
+            groupLeaderProfileId: workspace === "consultant" || workspace === "group_leader" ? groupLeaderProfileId : existingCustomer.groupLeaderProfileId,
             pipelineStage,
             pipelineUpdatedAt: new Date(),
             firstName: parsed.data.firstName,
@@ -214,8 +218,8 @@ async function createWorkspaceOrder(
           data: {
             companyId,
             consultantProfileId: workspace === "consultant" ? consultantProfileId : null,
-            partnerProfileId: workspace === "partner" ? partnerProfileId : null,
-            groupLeaderProfileId: workspace === "consultant" ? groupLeaderProfileId : null,
+            partnerProfileId: workspace === "partner" || workspace === "group_leader" ? partnerProfileId : null,
+            groupLeaderProfileId: workspace === "consultant" || workspace === "group_leader" ? groupLeaderProfileId : null,
             email,
             pipelineStage,
             pipelineUpdatedAt: new Date(),
@@ -241,6 +245,15 @@ async function createWorkspaceOrder(
               { consultantProfile: { partnerProfileId } }
             ]
           }
+        : workspace === "group_leader"
+          ? {
+              id: customerId,
+              companyId,
+              OR: [
+                { groupLeaderProfileId },
+                { consultantProfile: { groupLeaderProfileId } }
+              ]
+            }
         : { id: customerId, companyId };
 
   const customer = await prisma.customer.findFirst({ where: customerWhere });
@@ -282,15 +295,17 @@ async function createWorkspaceOrder(
       ? "CONSULTANT_PARTNER_SPLIT"
       : workspace === "partner"
         ? "PARTNER_DIRECT"
-        : "ADMIN_DIRECT";
+        : workspace === "group_leader"
+          ? "GROUP_LEADER_DIRECT"
+          : "ADMIN_DIRECT";
 
   const order = await prisma.order.create({
     data: {
       companyId,
       customerId: customer.id,
       consultantProfileId: workspace === "consultant" ? consultantProfileId : null,
-      partnerProfileId: workspace === "partner" ? partnerProfileId : null,
-      groupLeaderProfileId: workspace === "consultant" ? groupLeaderProfileId : null,
+      partnerProfileId: workspace === "partner" || workspace === "group_leader" ? partnerProfileId : null,
+      groupLeaderProfileId: workspace === "consultant" || workspace === "group_leader" ? groupLeaderProfileId : null,
       subtotalCents,
       totalCents: subtotalCents,
       paymentProviderCode: "authorize_net",
@@ -428,16 +443,18 @@ export async function createConsultantOrder(formData: FormData) {
 export async function createPartnerOrder(formData: FormData) {
   const user = await requirePartner();
   const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: user.id } });
+  const groupLeaderProfile = await prisma.groupLeaderProfile.findUnique({ where: { userId: user.id } });
 
-  if (!user.companyId || !partnerProfile) {
+  if (!user.companyId || (!partnerProfile && !groupLeaderProfile)) {
     redirect("/partner/sales?error=partner_profile_required");
   }
 
   await createWorkspaceOrder(formData, {
-    workspace: "partner",
+    workspace: partnerProfile ? "partner" : "group_leader",
     companyId: user.companyId,
     actorUserId: user.id,
-    partnerProfileId: partnerProfile.id,
+    partnerProfileId: partnerProfile?.id ?? groupLeaderProfile!.partnerProfileId,
+    groupLeaderProfileId: groupLeaderProfile?.id ?? null,
     redirectBasePath: "/partner/sales"
   });
 }

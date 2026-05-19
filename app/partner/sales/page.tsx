@@ -4,7 +4,6 @@ import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { requirePartner } from "@/lib/auth/current-user";
-import { DEFAULT_MARGIN_POOL_BPS } from "@/lib/commissions/margin-split";
 import { partnerNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { formatCurrency } from "@/lib/products/catalog";
@@ -14,9 +13,10 @@ function personName(person: { firstName: string | null; lastName: string | null;
   return name || person.email || "Unassigned";
 }
 
-function commissionPoolPerUnit(priceCents: number, internalCostCents: number) {
+function commissionPoolPerUnit(priceCents: number, internalCostCents: number, poolBps: number, leaderShareBps?: number) {
   const grossMarginCents = Math.max(0, priceCents - internalCostCents);
-  return Math.round((grossMarginCents * DEFAULT_MARGIN_POOL_BPS) / 10000);
+  const poolCents = Math.round((grossMarginCents * poolBps) / 10000);
+  return leaderShareBps == null ? poolCents : Math.round((poolCents * leaderShareBps) / 10000);
 }
 
 export default async function PartnerSalesPage({
@@ -28,17 +28,24 @@ export default async function PartnerSalesPage({
   const user = await requirePartner();
   const partnerProfile = await prisma.partnerProfile.findUnique({
     where: { userId: user.id },
-    select: { id: true, displayName: true }
+    select: { id: true, displayName: true, commissionBps: true }
   });
+  const groupLeaderProfile = await prisma.groupLeaderProfile.findUnique({
+    where: { userId: user.id },
+    include: { partnerProfile: true }
+  });
+  const effectivePartnerProfileId = partnerProfile?.id ?? groupLeaderProfile?.partnerProfileId ?? null;
 
-  const [customers, products, orders] = partnerProfile
+  const [customers, products, orders] = effectivePartnerProfileId
     ? await Promise.all([
         prisma.customer.findMany({
           where: {
             companyId: user.companyId!,
             OR: [
-              { partnerProfileId: partnerProfile.id },
-              { consultantProfile: { partnerProfileId: partnerProfile.id } }
+              partnerProfile ? { partnerProfileId: partnerProfile.id } : { groupLeaderProfileId: groupLeaderProfile!.id },
+              partnerProfile
+                ? { consultantProfile: { partnerProfileId: partnerProfile.id } }
+                : { consultantProfile: { groupLeaderProfileId: groupLeaderProfile!.id } }
             ]
           },
           orderBy: [{ lastPurchaseAt: "desc" }, { createdAt: "desc" }],
@@ -61,8 +68,10 @@ export default async function PartnerSalesPage({
         prisma.order.findMany({
         where: {
           OR: [
-            { partnerProfileId: partnerProfile.id },
-            { consultantProfile: { partnerProfileId: partnerProfile.id } }
+            partnerProfile ? { partnerProfileId: partnerProfile.id } : { groupLeaderProfileId: groupLeaderProfile!.id },
+            partnerProfile
+              ? { consultantProfile: { partnerProfileId: partnerProfile.id } }
+              : { consultantProfile: { groupLeaderProfileId: groupLeaderProfile!.id } }
           ]
         },
         include: {
@@ -78,7 +87,7 @@ export default async function PartnerSalesPage({
             }
           },
           commissionSplits: {
-            where: { partnerProfileId: partnerProfile.id }
+            where: partnerProfile ? { partnerProfileId: partnerProfile.id } : { groupLeaderProfileId: groupLeaderProfile!.id }
           }
         },
         orderBy: { createdAt: "desc" },
@@ -100,14 +109,14 @@ export default async function PartnerSalesPage({
   return (
     <SidebarShell nav={partnerNav} eyebrow="Partner" title="Sales">
       <div className="space-y-6">
-        {!partnerProfile && (
+        {!effectivePartnerProfileId && (
           <Card className="p-6">
-            <h2 className="text-xl font-semibold text-clinic-ink">Partner profile not configured</h2>
-            <p className="mt-2 text-slate-600">An owner must create and assign your partner profile before sales appear here.</p>
+            <h2 className="text-xl font-semibold text-clinic-ink">Sales profile not configured</h2>
+            <p className="mt-2 text-slate-600">An owner must create and assign your partner or leader profile before sales appear here.</p>
           </Card>
         )}
 
-        {partnerProfile && (
+        {effectivePartnerProfileId && (
           <SalesBuilderClient
             customers={customers.map((customer) => ({
               id: customer.id,
@@ -121,7 +130,12 @@ export default async function PartnerSalesPage({
               title: product.title,
               categoryName: product.category.name,
               priceCents: product.priceCents,
-              estimatedCommissionCents: commissionPoolPerUnit(product.priceCents, product.internalCostCents),
+              estimatedCommissionCents: commissionPoolPerUnit(
+                product.priceCents,
+                product.internalCostCents,
+                partnerProfile?.commissionBps ?? groupLeaderProfile?.partnerProfile.commissionBps ?? 2500,
+                groupLeaderProfile?.commissionBps
+              ),
               imageUrl: product.images[0]?.url ?? null,
               imageAlt: product.images[0]?.alt ?? null,
               supportsRecurring: product.supportsRecurring,
@@ -132,19 +146,19 @@ export default async function PartnerSalesPage({
               customerName: personName(order.customer),
               totalCents: order.totalCents,
               commissionCents: order.commissionSplits
-                .filter((split) => split.participantRole === "PARTNER")
+                .filter((split) => split.participantRole === (groupLeaderProfile ? "GROUP_LEADER" : "PARTNER"))
                 .reduce((sum, split) => sum + split.amountCents, 0),
               orderStatus: order.orderStatus,
               paymentStatus: order.paymentStatus,
               createdAt: order.createdAt.toISOString()
             }))}
-            canCreateOrders={Boolean(partnerProfile)}
+            canCreateOrders={Boolean(effectivePartnerProfileId)}
             createOrderAction={createPartnerOrder}
             commissionLabel="Profit generated"
             commissionDetailLabel="Profit generated"
             productEstimateLabel="est. profit"
-            successMessage="Order created successfully. The partner profit is pending approval."
-            ownershipCopy="Partner sales can be created for direct partner customers or customers owned by consultants assigned to this partner profile."
+            successMessage="Order created successfully. The profit is pending approval."
+            ownershipCopy={groupLeaderProfile ? "Leader sales are attributed to your group and the assigned partner." : "Partner sales can be created for direct partner customers or customers owned by consultants assigned to this partner profile."}
             createdOrderId={params.created}
             error={params.error}
           />

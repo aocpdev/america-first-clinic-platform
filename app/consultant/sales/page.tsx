@@ -11,9 +11,15 @@ function customerName(customer: { firstName: string | null; lastName: string | n
   return name || customer.email;
 }
 
-function consultantCommissionPerUnit(priceCents: number, internalCostCents: number, commissionBps: number) {
+function consultantCommissionPerUnit(
+  priceCents: number,
+  internalCostCents: number,
+  partnerPoolBps: number,
+  consultantShareBps: number
+) {
   const grossMarginCents = Math.max(0, priceCents - internalCostCents);
-  return Math.round((grossMarginCents * commissionBps) / 10000);
+  const partnerPoolCents = Math.round((grossMarginCents * partnerPoolBps) / 10000);
+  return Math.round((partnerPoolCents * consultantShareBps) / 10000);
 }
 
 export default async function ConsultantSalesPage({
@@ -37,7 +43,11 @@ export default async function ConsultantSalesPage({
     );
   }
 
-  const [customers, products, recentOrders] = await Promise.all([
+  const [consultantProfile, customers, products, recentOrders] = await Promise.all([
+    prisma.consultantProfile.findUnique({
+      where: { id: consultantProfileId },
+      include: { partnerProfile: true }
+    }),
     prisma.customer.findMany({
       where: {
         companyId,
@@ -97,7 +107,8 @@ export default async function ConsultantSalesPage({
           estimatedCommissionCents: consultantCommissionPerUnit(
             product.priceCents,
             product.internalCostCents,
-            user.consultantProfile?.commissionBps ?? 1250
+            consultantProfile?.partnerProfile?.commissionBps ?? 2500,
+            consultantProfile?.commissionBps ?? 5000
           ),
           imageUrl: product.images[0]?.url ?? null,
           imageAlt: product.images[0]?.alt ?? null,

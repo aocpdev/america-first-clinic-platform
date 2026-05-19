@@ -13,14 +13,24 @@ export default async function RegisterPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
-  const partners = await prisma.partnerProfile.findMany({
-    where: {
-      company: { slug: "america-first-clinic" },
-      user: { isActive: true }
-    },
-    include: { user: true },
-    orderBy: [{ companyName: "asc" }, { displayName: "asc" }]
-  });
+  const [partners, groupLeaders] = await Promise.all([
+    prisma.partnerProfile.findMany({
+      where: {
+        company: { slug: "america-first-clinic" },
+        user: { isActive: true }
+      },
+      include: { user: true },
+      orderBy: [{ companyName: "asc" }, { displayName: "asc" }]
+    }),
+    prisma.groupLeaderProfile.findMany({
+      where: {
+        company: { slug: "america-first-clinic" },
+        user: { isActive: true }
+      },
+      include: { partnerProfile: true },
+      orderBy: [{ partnerProfile: { companyName: "asc" } }, { displayName: "asc" }]
+    })
+  ]);
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-12">
@@ -55,6 +65,31 @@ export default async function RegisterPage({
                     {partner.companyName || partner.displayName}
                   </option>
                 ))}
+              </select>
+            </label>
+            <label className="sm:col-span-2 text-sm font-semibold text-clinic-ink">
+              Group leader
+              <select
+                name="requestedGroupLeaderProfileId"
+                className="mt-2 h-11 w-full rounded-lg border border-input bg-white px-3 text-sm shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                defaultValue=""
+              >
+                <option value="">Direct to partner / not sure yet</option>
+                {partners.map((partner) => {
+                  const leaders = groupLeaders.filter((leader) => leader.partnerProfileId === partner.id);
+
+                  if (leaders.length === 0) {
+                    return null;
+                  }
+
+                  return (
+                    <optgroup key={partner.id} label={partner.companyName || partner.displayName}>
+                      {leaders.map((leader) => (
+                        <option key={leader.id} value={leader.id}>{leader.displayName}</option>
+                      ))}
+                    </optgroup>
+                  );
+                })}
               </select>
             </label>
             <input type="hidden" name="requestedRole" value="CONSULTANT" />

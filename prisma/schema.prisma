@@ -85,6 +85,7 @@ model User {
   role              UserRole           @default(CUSTOMER)
   requestedRole     UserRole           @default(CUSTOMER)
   requestedPartnerProfileId String?    @db.Uuid
+  requestedGroupLeaderProfileId String? @db.Uuid
   status            UserStatus         @default(ACTIVE)
   email             String             @unique
   firstName         String?
