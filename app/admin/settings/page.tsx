@@ -1,7 +1,34 @@
-import { ModulePage } from "@/components/dashboard/module-page";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
+import { PaymentProviderSettings } from "@/components/settings/payment-provider-settings";
+import { WebhookSettings } from "@/components/settings/webhook-settings";
+import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
+import { prisma } from "@/lib/db/prisma";
 
-export default function AdminSettingsPage() {
-  return <SidebarShell nav={adminNav} eyebrow="Admin" title="Settings"><ModulePage title="System settings" description="Configure roles, permissions, payment providers, PostHog, Resend, storage, webhooks, and security controls." items={["Role access", "Payment providers", "Webhook secrets", "Email settings", "Analytics", "Audit retention"]} /></SidebarShell>;
+export default async function AdminSettingsPage() {
+  const user = await requireRole("COMPANY_ADMIN");
+  const [activeProvider, endpoints] = user.companyId
+    ? await Promise.all([
+        prisma.paymentProvider.findFirst({
+          where: { companyId: user.companyId, isDefault: true },
+          orderBy: { updatedAt: "desc" }
+        }),
+        prisma.webhookEndpoint.findMany({
+          where: { companyId: user.companyId, partnerProfileId: null },
+          orderBy: { createdAt: "desc" }
+        })
+      ])
+    : [null, []];
+
+  return (
+    <SidebarShell nav={adminNav} eyebrow="Admin" title="Settings">
+      <div className="space-y-6">
+        <PaymentProviderSettings
+          activeProvider={activeProvider}
+          stripeConfigured={Boolean(process.env.STRIPE_SECRET_KEY && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)}
+        />
+        <WebhookSettings endpoints={endpoints} scope="admin" />
+      </div>
+    </SidebarShell>
+  );
 }

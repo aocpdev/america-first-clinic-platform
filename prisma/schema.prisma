@@ -128,6 +128,8 @@ model Company {
   orders            Order[]
   commissionRules   CommissionRule[]
   paymentProviders  PaymentProvider[]
+  webhookEndpoints  WebhookEndpoint[]
+  webhookDeliveries WebhookDelivery[]
   partnerProfiles   PartnerProfile[]
   groupLeaderProfiles GroupLeaderProfile[]
   teams             Team[]
@@ -184,6 +186,7 @@ model PartnerProfile {
   customers       Customer[]
   orders          Order[]
   commissionSplits CommissionSplit[]
+  webhookEndpoints WebhookEndpoint[]
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt
 
@@ -483,6 +486,7 @@ model PaymentMethod {
   customerId             String   @db.Uuid
   customer               Customer @relation(fields: [customerId], references: [id])
   providerCode           String
+  providerCustomerId     String?
   providerPaymentMethodId String
   type                   String
   last4                  String?
@@ -490,7 +494,12 @@ model PaymentMethod {
   expMonth               Int?
   expYear                Int?
   isDefault              Boolean  @default(false)
+  status                 String   @default("ACTIVE")
   createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@unique([companyId, providerCode, providerPaymentMethodId])
+  @@index([companyId, customerId, providerCode])
 }
 
 model PaymentProvider {
@@ -500,11 +509,52 @@ model PaymentProvider {
   code      String
   label     String
   active    Boolean  @default(false)
+  mode      String   @default("test")
+  isDefault Boolean  @default(false)
   config    Json?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([companyId, code])
+  @@index([companyId, active])
+}
+
+model WebhookEndpoint {
+  id               String            @id @default(uuid()) @db.Uuid
+  companyId        String            @db.Uuid
+  company          Company           @relation(fields: [companyId], references: [id])
+  partnerProfileId String?           @db.Uuid
+  partnerProfile   PartnerProfile?   @relation(fields: [partnerProfileId], references: [id])
+  name             String
+  url              String
+  secret           String
+  events           String[]
+  isActive         Boolean           @default(true)
+  deliveries       WebhookDelivery[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([companyId, partnerProfileId, isActive])
+}
+
+model WebhookDelivery {
+  id          String          @id @default(uuid()) @db.Uuid
+  companyId   String          @db.Uuid
+  company     Company         @relation(fields: [companyId], references: [id])
+  endpointId  String          @db.Uuid
+  endpoint    WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  eventType   String
+  payload     Json
+  status      String          @default("PENDING")
+  attempts    Int             @default(0)
+  lastResponse String?
+  nextRetryAt DateTime?
+  deliveredAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([companyId, eventType, status])
+  @@index([endpointId, status])
 }
 
 model ReferralLink {
