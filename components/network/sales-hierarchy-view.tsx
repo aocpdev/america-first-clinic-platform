@@ -190,7 +190,7 @@ function DetailPanel({ node, onClose }: { node: HierarchyNode | null; onClose: (
 }
 
 export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: SalesHierarchyTree; title?: string }) {
-  const [selectedId, setSelectedId] = useState(tree.partner.id);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(80);
   const [query, setQuery] = useState("");
 
@@ -202,7 +202,7 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
     ],
     [tree]
   );
-  const selectedNode = nodes.find((node) => node.id === selectedId) ?? tree.partner;
+  const selectedNode = selectedId ? nodes.find((node) => node.id === selectedId) ?? null : null;
   const normalizedQuery = query.trim().toLowerCase();
 
   function isVisible(node: HierarchyNode) {
@@ -246,7 +246,7 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
         </div>
       </div>
 
-      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div className={`mt-5 grid gap-5 ${selectedNode ? "xl:grid-cols-[minmax(0,1fr)_360px]" : "xl:grid-cols-1"}`}>
         <div className="min-h-[620px] overflow-auto rounded-3xl bg-slate-50 p-6 xl:max-h-[72vh]">
           <div
             className="min-w-max origin-top-left transition-transform"
@@ -315,7 +315,7 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
           </div>
         </div>
 
-        <DetailPanel node={selectedNode} onClose={() => setSelectedId(tree.partner.id)} />
+        <DetailPanel node={selectedNode} onClose={() => setSelectedId(null)} />
       </div>
     </section>
   );
