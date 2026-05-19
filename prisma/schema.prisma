@@ -200,6 +200,7 @@ model GroupLeaderProfile {
   partnerProfile  PartnerProfile      @relation(fields: [partnerProfileId], references: [id])
   displayName     String
   commissionBps   Int                 @default(625)
+  consultantOverrideBps Int           @default(0)
   consultants     ConsultantProfile[]
   customers       Customer[]
   orders          Order[]

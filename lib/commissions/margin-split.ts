@@ -93,12 +93,23 @@ export async function createMarginCommissionLedger({
     (total, item) => total + item.product.internalCostCents * item.quantity,
     0
   );
+  const isConsultantSale = commissionMode === "CONSULTANT_PARTNER_SPLIT";
+  const isGroupLeaderDirectSale = commissionMode === "GROUP_LEADER_DIRECT";
+  const groupLeaderShareBps = isConsultantSale
+    ? groupLeaderProfile?.consultantOverrideBps ?? 0
+    : isGroupLeaderDirectSale
+      ? groupLeaderProfile?.commissionBps ?? 0
+      : 0;
+  const consultantShareBps = isConsultantSale
+    ? Math.max(0, (order.consultantProfile?.commissionBps ?? DEFAULT_CONSULTANT_SHARE_BPS) - groupLeaderShareBps)
+    : undefined;
+
   const split = calculateMarginCommissionSplit({
     subtotalCents: order.subtotalCents,
     internalCostCents,
     partnerPoolBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" || commissionMode === "GROUP_LEADER_DIRECT" ? partnerProfile?.commissionBps : undefined,
-    groupLeaderShareBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" || commissionMode === "GROUP_LEADER_DIRECT" ? groupLeaderProfile?.commissionBps ?? 0 : 0,
-    consultantShareBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" ? order.consultantProfile?.commissionBps ?? DEFAULT_CONSULTANT_SHARE_BPS : undefined
+    groupLeaderShareBps,
+    consultantShareBps
   });
 
   await prisma.$transaction(async (tx) => {

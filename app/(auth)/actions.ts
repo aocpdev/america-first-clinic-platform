@@ -527,6 +527,7 @@ export async function createGroupLeader(formData: FormData) {
   const password = formValue(formData, "password");
   const selectedPartnerProfileId = formValue(formData, "partnerProfileId");
   const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
+  const consultantOverrideBps = bpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
 
   if (!firstName || !lastName || !email || password.length < 8) {
     redirect(actor.role === "PARTNER" ? "/partner/consultants?error=invalid_group_leader" : "/admin/consultants?error=invalid_group_leader");
@@ -605,13 +606,14 @@ export async function createGroupLeader(formData: FormData) {
 
     await tx.groupLeaderProfile.upsert({
       where: { userId: leaderUser.id },
-      update: { companyId: company.id, partnerProfileId: partnerProfile.id, displayName, commissionBps },
+      update: { companyId: company.id, partnerProfileId: partnerProfile.id, displayName, commissionBps, consultantOverrideBps },
       create: {
         userId: leaderUser.id,
         companyId: company.id,
         partnerProfileId: partnerProfile.id,
         displayName,
-        commissionBps
+        commissionBps,
+        consultantOverrideBps
       }
     });
 
@@ -622,7 +624,7 @@ export async function createGroupLeader(formData: FormData) {
         action: "GROUP_LEADER_CREATED",
         resource: "User",
         resourceId: leaderUser.id,
-        metadata: { partnerProfileId: partnerProfile.id, commissionBps }
+        metadata: { partnerProfileId: partnerProfile.id, commissionBps, consultantOverrideBps }
       }
     });
   });
@@ -827,6 +829,7 @@ export async function updateGroupLeaderProfile(formData: FormData) {
   const actor = await requireUser();
   const groupLeaderProfileId = formValue(formData, "groupLeaderProfileId");
   const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
+  const consultantOverrideBps = bpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
 
   const leader = await prisma.groupLeaderProfile.findUnique({
     where: { id: groupLeaderProfileId },
@@ -848,7 +851,7 @@ export async function updateGroupLeaderProfile(formData: FormData) {
 
   await prisma.groupLeaderProfile.update({
     where: { id: leader.id },
-    data: { commissionBps }
+    data: { commissionBps, consultantOverrideBps }
   });
 
   revalidatePath("/admin/consultants");

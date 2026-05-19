@@ -110,13 +110,14 @@ export default async function PartnerConsultantsPage() {
               <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Create group leader</h2>
               <p className="mt-2 max-w-3xl text-slate-600">Leaders manage a smaller group of consultants inside your partner organization.</p>
             </div>
-            <form action={createGroupLeader} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <form action={createGroupLeader} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
               <input name="firstName" placeholder="First name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="lastName" placeholder="Last name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="email" type="email" placeholder="Leader email" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="password" type="password" minLength={8} placeholder="Temporary password" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="% of partner pool" defaultValue="25" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <div className="md:col-span-2 xl:col-span-5">
+              <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="Direct sale %" defaultValue="25" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
+              <input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" placeholder="Consultant override %" defaultValue="0" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
+              <div className="md:col-span-2 xl:col-span-6">
                 <SubmitButton variant="accent" pendingText="Creating leader...">Create group leader</SubmitButton>
               </div>
             </form>
@@ -135,7 +136,7 @@ export default async function PartnerConsultantsPage() {
                   <p className="font-semibold text-clinic-ink">{leader.displayName}</p>
                   <p className="mt-1 text-sm text-slate-500">{leader.user.email}</p>
                   <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {leader.commissionBps / 100}% of partner pool
+                    {leader.commissionBps / 100}% direct sale · {leader.consultantOverrideBps / 100}% consultant override
                   </p>
                   <form action={startImpersonation} className="mt-4">
                     <input type="hidden" name="targetUserId" value={leader.userId} />

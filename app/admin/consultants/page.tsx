@@ -250,15 +250,18 @@ export default async function AdminConsultantsPage({
                 <div>
                   <Badge>Leaders</Badge>
                   <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Create group leader</h3>
-                  <p className="mt-2 text-sm text-slate-500">Leader and consultant percentages are shares of the Partner margin pool.</p>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Set what the leader earns on direct sales and optionally what they receive from consultants under them.
+                  </p>
                 </div>
-                <form action={createGroupLeader} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+                <form action={createGroupLeader} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
                   <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
                   <input name="firstName" placeholder="First name" className={inputClass()} required />
                   <input name="lastName" placeholder="Last name" className={inputClass()} required />
                   <input name="email" type="email" placeholder="Leader email" className={inputClass()} required />
                   <input name="password" type="password" minLength={8} placeholder="Temporary password" className={inputClass()} required />
-                  <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="% of partner pool" defaultValue="25" className={inputClass()} required />
+                  <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="Direct sale %" defaultValue="25" className={inputClass()} required />
+                  <input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" placeholder="Consultant override %" defaultValue="0" className={inputClass()} required />
                   <div>
                     <SubmitButton variant="accent" pendingText="Creating...">Create leader</SubmitButton>
                   </div>
@@ -273,7 +276,8 @@ export default async function AdminConsultantsPage({
                           <p className="mt-1 text-sm text-slate-500">{leader.user.email}</p>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                          <Badge>{percentLabel(leader.commissionBps)} pool share</Badge>
+                          <Badge>{percentLabel(leader.commissionBps)} direct</Badge>
+                          <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{percentLabel(leader.consultantOverrideBps)} override</Badge>
                           <form action={startImpersonation}>
                             <input type="hidden" name="targetUserId" value={leader.userId} />
                             <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as</SubmitButton>
@@ -283,6 +287,7 @@ export default async function AdminConsultantsPage({
                       <form action={updateGroupLeaderProfile} className="mt-4 flex gap-2">
                         <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
                         <input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.commissionBps / 100} className={inputClass("min-w-0 flex-1")} required />
+                        <input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.consultantOverrideBps / 100} className={inputClass("min-w-0 flex-1")} required />
                         <SubmitButton size="sm" variant="outline" pendingText="Saving...">Save</SubmitButton>
                       </form>
                     </div>
