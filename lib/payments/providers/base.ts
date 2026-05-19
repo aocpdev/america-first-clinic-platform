@@ -54,7 +54,7 @@ export abstract class BasePaymentProvider implements PaymentProvider {
     return this.placeholder("pending", { providerTransactionId: `${this.code}_ach_${input.orderId}` });
   }
 
-  async verifyWebhook() {
+  async verifyWebhook(_payload: string, _signature: string | null) {
     return true;
   }
 }

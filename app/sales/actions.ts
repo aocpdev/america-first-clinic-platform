@@ -6,7 +6,10 @@ import { z } from "zod";
 import { requireApprovedConsultant, requirePartner, requireRole } from "@/lib/auth/current-user";
 import { createMarginCommissionLedger } from "@/lib/commissions/margin-split";
 import { prisma } from "@/lib/db/prisma";
+import { getPaymentProvider } from "@/lib/payments/registry";
+import type { PaymentProviderCode } from "@/lib/payments/types";
 import { isCustomerPipelineStage } from "@/lib/sales/pipeline";
+import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 const newCustomerSchema = z.object({
   firstName: z.string().trim().min(1),
@@ -51,9 +54,26 @@ function paymentWorkflowFromForm(formData: FormData) {
   return workflow === "send_invoice" ? "send_invoice" : "collect_payment";
 }
 
-function orderPaymentUrl(orderId: string) {
+function orderPaymentUrl(orderId: string, providerCode: PaymentProviderCode) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  return `${appUrl.replace(/\/$/, "")}/checkout?orderId=${orderId}&provider=authorize_net`;
+  return `${appUrl.replace(/\/$/, "")}/checkout?orderId=${orderId}&provider=${providerCode}`;
+}
+
+async function activePaymentProviderCode(companyId: string): Promise<PaymentProviderCode> {
+  const provider = await prisma.paymentProvider.findFirst({
+    where: {
+      companyId,
+      isDefault: true,
+      active: true
+    },
+    select: { code: true }
+  });
+
+  if (provider?.code === "stripe" || provider?.code === "authorize_net" || provider?.code === "nmi" || provider?.code === "ach") {
+    return provider.code;
+  }
+
+  return "stripe";
 }
 
 async function queueInvoiceWebhook(input: {
@@ -63,6 +83,9 @@ async function queueInvoiceWebhook(input: {
   orderId: string;
   totalCents: number;
   invoiceUrl: string;
+  providerCode: PaymentProviderCode;
+  providerSessionId?: string | null;
+  partnerProfileId?: string | null;
   workspace: string;
   shippingAddress: z.infer<typeof shippingAddressSchema>;
 }) {
@@ -78,11 +101,32 @@ async function queueInvoiceWebhook(input: {
         orderId: input.orderId,
         invoiceUrl: input.invoiceUrl,
         totalCents: input.totalCents,
-        provider: "authorize_net",
+        provider: input.providerCode,
+        providerSessionId: input.providerSessionId,
         workflow: "send_invoice",
         destination: "gohighlevel",
         shippingAddress: input.shippingAddress
       }
+    }
+  });
+
+  await dispatchWebhookEvent({
+    companyId: input.companyId,
+    partnerProfileId: input.partnerProfileId,
+    eventType: "invoice.requested",
+    payload: {
+      provider: input.providerCode,
+      providerSessionId: input.providerSessionId,
+      orderId: input.orderId,
+      customerId: input.customer.id,
+      customerEmail: input.customer.email,
+      customerPhone: input.customer.phone,
+      customerName: [input.customer.firstName, input.customer.lastName].filter(Boolean).join(" ").trim() || input.customer.email,
+      amountCents: input.totalCents,
+      currency: "USD",
+      invoiceUrl: input.invoiceUrl,
+      shippingAddress: input.shippingAddress,
+      source: input.workspace
     }
   });
 
@@ -95,8 +139,9 @@ async function queueInvoiceWebhook(input: {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        event: "invoice.created",
-        provider: "authorize_net",
+        event: "invoice.requested",
+        provider: input.providerCode,
+        providerSessionId: input.providerSessionId,
         orderId: input.orderId,
         customerId: input.customer.id,
         customerEmail: input.customer.email,
@@ -153,6 +198,7 @@ async function createWorkspaceOrder(
     country: formData.get("shippingCountry") || "US"
   });
   const selectedItems = selectedProductQuantities(formData);
+  const providerCode = await activePaymentProviderCode(companyId);
 
   if (!shippingAddress.success) {
     redirect(`${redirectBasePath}?error=invalid_shipping_address`);
@@ -308,7 +354,7 @@ async function createWorkspaceOrder(
       groupLeaderProfileId: workspace === "consultant" || workspace === "group_leader" ? groupLeaderProfileId : null,
       subtotalCents,
       totalCents: subtotalCents,
-      paymentProviderCode: "authorize_net",
+      paymentProviderCode: providerCode,
       paymentStatus: "PENDING",
       orderStatus: "PENDING",
       commissionStatus: "PENDING",
@@ -320,14 +366,12 @@ async function createWorkspaceOrder(
         commissionMode,
         paymentWorkflow,
         shippingAddress: shippingAddress.data,
-        provider: "authorize_net",
-        authorizeNet: {
-          integration: paymentWorkflow === "collect_payment" ? "accept_hosted" : "invoice_payment_link",
-          transactionType: "authCaptureTransaction",
+        provider: providerCode,
+        paymentProvider: {
+          integration: paymentWorkflow === "collect_payment" ? "hosted_elements" : "checkout_session",
           amountCents: subtotalCents,
-          paymentUrl: orderPaymentUrl("ORDER_ID_PLACEHOLDER"),
-          requiredCredentials: ["AUTHORIZE_NET_API_LOGIN_ID", "AUTHORIZE_NET_TRANSACTION_KEY"],
-          webhookRoute: "/api/webhooks/authorize-net"
+          paymentUrl: orderPaymentUrl("ORDER_ID_PLACEHOLDER", providerCode),
+          webhookRoute: `/api/webhooks/${providerCode === "authorize_net" ? "authorize-net" : providerCode}`
         }
       },
       items: {
@@ -346,7 +390,35 @@ async function createWorkspaceOrder(
 
   await createMarginCommissionLedger({ prisma, orderId: order.id, commissionMode });
 
-  const invoiceUrl = orderPaymentUrl(order.id);
+  const fallbackInvoiceUrl = orderPaymentUrl(order.id, providerCode);
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const checkoutResult = paymentWorkflow === "send_invoice"
+    ? await getPaymentProvider(providerCode).createCheckoutSession({
+        companyId,
+        customerId: customer.id,
+        orderId: order.id,
+        successUrl: `${appUrl}/checkout/success?orderId=${order.id}`,
+        cancelUrl: `${appUrl}/checkout/cancel?orderId=${order.id}`,
+        lineItems: selectedItems.map((item) => {
+          const product = productMap.get(item.productId)!;
+          return {
+            name: product.title,
+            quantity: item.quantity,
+            unitAmount: { amount: product.priceCents, currency: "USD" as const }
+          };
+        }),
+        metadata: {
+          companyId,
+          orderId: order.id,
+          customerId: customer.id,
+          customerEmail: customer.email,
+          customerName: [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim() || customer.email,
+          workspace,
+          commissionMode
+        }
+      })
+    : null;
+  const invoiceUrl = checkoutResult?.redirectUrl ?? fallbackInvoiceUrl;
 
   await prisma.order.update({
     where: { id: order.id },
@@ -358,18 +430,33 @@ async function createWorkspaceOrder(
         commissionMode,
         paymentWorkflow,
         shippingAddress: shippingAddress.data,
-        provider: "authorize_net",
-        authorizeNet: {
-          integration: paymentWorkflow === "collect_payment" ? "accept_hosted" : "invoice_payment_link",
-          transactionType: "authCaptureTransaction",
+        provider: providerCode,
+        paymentProvider: {
+          integration: paymentWorkflow === "collect_payment" ? "hosted_elements" : "checkout_session",
           amountCents: subtotalCents,
           paymentUrl: invoiceUrl,
-          requiredCredentials: ["AUTHORIZE_NET_API_LOGIN_ID", "AUTHORIZE_NET_TRANSACTION_KEY"],
-          webhookRoute: "/api/webhooks/authorize-net"
+          providerSessionId: checkoutResult?.providerSessionId,
+          providerCustomerId: checkoutResult?.providerCustomerId,
+          webhookRoute: `/api/webhooks/${providerCode === "authorize_net" ? "authorize-net" : providerCode}`
         }
       }
     }
   });
+
+  if (checkoutResult?.providerSessionId) {
+    await prisma.paymentTransaction.create({
+      data: {
+        companyId,
+        orderId: order.id,
+        providerCode,
+        providerTransactionId: checkoutResult.providerSessionId,
+        amountCents: subtotalCents,
+        status: "PENDING",
+        eventType: "checkout.session.created",
+        rawEvent: checkoutResult.raw === undefined ? undefined : JSON.parse(JSON.stringify(checkoutResult.raw))
+      }
+    });
+  }
 
   await prisma.activityLog.create({
     data: {
@@ -383,7 +470,8 @@ async function createWorkspaceOrder(
         totalCents: subtotalCents,
         commissionMode,
         paymentWorkflow,
-        provider: "authorize_net",
+        provider: providerCode,
+        providerSessionId: checkoutResult?.providerSessionId,
         paymentUrl: invoiceUrl,
         shippingAddress: shippingAddress.data
       }
@@ -398,6 +486,9 @@ async function createWorkspaceOrder(
       orderId: order.id,
       totalCents: subtotalCents,
       invoiceUrl,
+      providerCode,
+      providerSessionId: checkoutResult?.providerSessionId,
+      partnerProfileId,
       workspace,
       shippingAddress: shippingAddress.data
     });
