@@ -27,10 +27,24 @@ function inputClass(extra = "") {
   return `h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10 ${extra}`;
 }
 
+const partnerSections = [
+  { id: "hierarchy", label: "Hierarchy" },
+  { id: "workspace", label: "Partner workspace" },
+  { id: "leaders", label: "Leaders" },
+  { id: "approval", label: "Approval workflow" },
+  { id: "network", label: "Seller Network" }
+] as const;
+
+type PartnerSection = (typeof partnerSections)[number]["id"];
+
+function getPartnerSection(section: string | undefined): PartnerSection {
+  return partnerSections.some((item) => item.id === section) ? (section as PartnerSection) : "hierarchy";
+}
+
 export default async function AdminConsultantsPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; updated?: string; partnerId?: string }>;
+  searchParams: Promise<{ error?: string; updated?: string; partnerId?: string; section?: string }>;
 }) {
   const params = await searchParams;
   const [pendingConsultants, partners] = await Promise.all([
@@ -102,8 +116,9 @@ export default async function AdminConsultantsPage({
   const selectedPending = selectedPartner
     ? pendingConsultants.filter((user) => user.requestedPartnerProfileId === selectedPartner.id)
     : [];
-  const totalLeaders = partners.reduce((sum, partner) => sum + partner.groupLeaders.length, 0);
-  const totalConsultants = partners.reduce((sum, partner) => sum + partner.consultants.length, 0);
+  const activeSection = getPartnerSection(params.section);
+  const sectionHref = (section: PartnerSection) =>
+    selectedPartner ? `/admin/consultants?partnerId=${selectedPartner.id}&section=${section}` : "/admin/consultants";
 
   return (
     <SidebarShell nav={adminNav} eyebrow="Admin" title="Partner network">
@@ -119,89 +134,102 @@ export default async function AdminConsultantsPage({
           </div>
         ) : null}
 
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card className="p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partners</p>
-            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{partners.length}</p>
-          </Card>
-          <Card className="p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Group leaders</p>
-            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{totalLeaders}</p>
-          </Card>
-          <Card className="p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Consultants</p>
-            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{totalConsultants}</p>
-          </Card>
-          <Card className="p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Pending</p>
-            <p className="mt-3 text-3xl font-semibold text-clinic-red">{pendingConsultants.length}</p>
-          </Card>
-        </div>
-
-        <CreatePartnerModal />
-
         {!selectedPartner ? (
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {partners.map((partner) => {
-              const partnerPendingCount = pendingConsultants.filter((user) => user.requestedPartnerProfileId === partner.id).length;
+          <div className="space-y-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-semibold text-clinic-ink">Partners</h2>
+                <p className="mt-1 text-sm text-slate-500">Open a partner workspace to manage leaders, approvals, and seller hierarchy.</p>
+              </div>
+              <CreatePartnerModal />
+            </div>
 
-              return (
-                <Card
-                  key={partner.id}
-                  className="group rounded-3xl border border-border bg-white p-5 shadow-line transition hover:-translate-y-0.5 hover:border-clinic-navy/30 hover:shadow-soft"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="truncate text-lg font-semibold text-clinic-ink">{partner.companyName || partner.displayName}</p>
-                      <p className="mt-1 truncate text-sm text-slate-500">{partner.user.email}</p>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {partners.map((partner) => {
+                const partnerPendingCount = pendingConsultants.filter((user) => user.requestedPartnerProfileId === partner.id).length;
+
+                return (
+                  <Card
+                    key={partner.id}
+                    className="group rounded-3xl border border-border bg-white p-5 shadow-line transition hover:-translate-y-0.5 hover:border-clinic-navy/30 hover:shadow-soft"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="truncate text-lg font-semibold text-clinic-ink">{partner.companyName || partner.displayName}</p>
+                        <p className="mt-1 truncate text-sm text-slate-500">{partner.user.email}</p>
+                      </div>
+                      <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{percentLabel(partner.commissionBps)}</Badge>
                     </div>
-                    <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{percentLabel(partner.commissionBps)}</Badge>
-                  </div>
-                  <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs font-semibold text-slate-500">
-                    <div className="rounded-2xl bg-clinic-mist px-2 py-3">
-                      <p className="text-2xl text-clinic-navy">{partner.groupLeaders.length}</p>
-                      <p className="mt-1">Leaders</p>
+                    <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs font-semibold text-slate-500">
+                      <div className="rounded-2xl bg-clinic-mist px-2 py-3">
+                        <p className="text-2xl text-clinic-navy">{partner.groupLeaders.length}</p>
+                        <p className="mt-1">Leaders</p>
+                      </div>
+                      <div className="rounded-2xl bg-clinic-mist px-2 py-3">
+                        <p className="text-2xl text-clinic-navy">{partner.consultants.length}</p>
+                        <p className="mt-1">Sellers</p>
+                      </div>
+                      <div className="rounded-2xl bg-red-50 px-2 py-3">
+                        <p className="text-2xl text-clinic-red">{partnerPendingCount}</p>
+                        <p className="mt-1">Pending</p>
+                      </div>
                     </div>
-                    <div className="rounded-2xl bg-clinic-mist px-2 py-3">
-                      <p className="text-2xl text-clinic-navy">{partner.consultants.length}</p>
-                      <p className="mt-1">Sellers</p>
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+                      <Link
+                        href={`/admin/consultants?partnerId=${partner.id}`}
+                        className="inline-flex h-9 items-center rounded-xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink transition hover:bg-clinic-mist"
+                      >
+                        Open workspace
+                      </Link>
+                      <form action={startImpersonation}>
+                        <input type="hidden" name="targetUserId" value={partner.userId} />
+                        <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as partner</SubmitButton>
+                      </form>
                     </div>
-                    <div className="rounded-2xl bg-red-50 px-2 py-3">
-                      <p className="text-2xl text-clinic-red">{partnerPendingCount}</p>
-                      <p className="mt-1">Pending</p>
-                    </div>
-                  </div>
-                  <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
-                    <Link
-                      href={`/admin/consultants?partnerId=${partner.id}`}
-                      className="inline-flex h-9 items-center rounded-xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink transition hover:bg-clinic-mist"
-                    >
-                      Open workspace
-                    </Link>
-                    <form action={startImpersonation}>
-                      <input type="hidden" name="targetUserId" value={partner.userId} />
-                      <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as partner</SubmitButton>
-                    </form>
-                  </div>
+                  </Card>
+                );
+              })}
+              {partners.length === 0 ? (
+                <Card className="p-6 md:col-span-2 xl:col-span-3">
+                  <h2 className="text-xl font-semibold text-clinic-ink">No partners yet</h2>
+                  <p className="mt-2 text-slate-600">Create the first partner to start building leaders and consultants.</p>
                 </Card>
-              );
-            })}
-            {partners.length === 0 ? (
-              <Card className="p-6 md:col-span-2 xl:col-span-3">
-                <h2 className="text-xl font-semibold text-clinic-ink">No partners yet</h2>
-                <p className="mt-2 text-slate-600">Create the first partner to start building leaders and consultants.</p>
-              </Card>
-            ) : null}
+              ) : null}
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
-            <Link
-              href="/admin/consultants"
-              className="inline-flex h-10 items-center rounded-xl border border-border bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line transition hover:bg-clinic-mist"
-            >
-              Back to partners
-            </Link>
+            <Card className="p-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <Link
+                  href="/admin/consultants"
+                  className="inline-flex h-10 items-center rounded-xl border border-border bg-white px-4 text-sm font-semibold text-clinic-ink transition hover:bg-clinic-mist"
+                >
+                  Back to partners
+                </Link>
+                <nav className="flex flex-wrap gap-2">
+                  {partnerSections.map((section) => {
+                    const isActive = activeSection === section.id;
 
+                    return (
+                      <Link
+                        key={section.id}
+                        href={sectionHref(section.id)}
+                        className={`inline-flex h-10 items-center rounded-xl px-4 text-sm font-semibold transition ${
+                          isActive
+                            ? "bg-clinic-navy text-white shadow-line"
+                            : "border border-border bg-white text-slate-600 hover:bg-clinic-mist hover:text-clinic-ink"
+                        }`}
+                      >
+                        {section.label}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
+            </Card>
+
+              {activeSection === "workspace" ? (
               <Card className="p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
@@ -238,14 +266,16 @@ export default async function AdminConsultantsPage({
                   <SubmitButton variant="outline" pendingText="Saving...">Save partner</SubmitButton>
                 </form>
               </Card>
+              ) : null}
 
-              {hierarchyTree ? (
+              {activeSection === "hierarchy" && hierarchyTree ? (
                 <SalesHierarchyView
                   tree={hierarchyTree}
                   title={`${selectedPartner.companyName || selectedPartner.displayName} hierarchy`}
                 />
               ) : null}
 
+              {activeSection === "leaders" ? (
               <Card className="p-6">
                 <div>
                   <Badge>Leaders</Badge>
@@ -282,6 +312,12 @@ export default async function AdminConsultantsPage({
                             <input type="hidden" name="targetUserId" value={leader.userId} />
                             <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as</SubmitButton>
                           </form>
+                          <Link
+                            href={sectionHref("hierarchy")}
+                            className="inline-flex h-9 items-center rounded-lg border border-border bg-white px-3 text-xs font-semibold text-clinic-ink transition hover:bg-clinic-mist"
+                          >
+                            View hierarchy
+                          </Link>
                         </div>
                       </div>
                       <form action={updateGroupLeaderProfile} className="mt-4 flex gap-2">
@@ -295,7 +331,10 @@ export default async function AdminConsultantsPage({
                   {selectedPartner.groupLeaders.length === 0 && <p className="text-sm text-slate-500">No leaders have been created for this partner yet.</p>}
                 </div>
               </Card>
+              ) : null}
 
+              {activeSection === "network" ? (
+              <>
               <Card className="p-6">
                 <div>
                   <Badge>Consultants</Badge>
@@ -335,38 +374,49 @@ export default async function AdminConsultantsPage({
 
               <Card className="overflow-hidden">
                 <div className="border-b border-border p-5">
-                  <Badge>Approval workflow</Badge>
-                  <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Pending applications</h3>
+                  <Badge>Seller Network</Badge>
+                  <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Leaders</h3>
                 </div>
-                <div className="divide-y divide-border">
-                  {selectedPending.map((user) => (
-                    <div key={user.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
-                      <div>
-                        <p className="font-semibold text-clinic-ink">{displayUserName(user)}</p>
-                        <p className="mt-1 text-sm text-slate-500">{user.email}</p>
-                      </div>
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <form action={rejectConsultant}>
-                          <input type="hidden" name="userId" value={user.id} />
-                          <input type="hidden" name="reason" value="Application rejected by company admin." />
-                          <SubmitButton size="sm" variant="outline" pendingText="Rejecting...">Reject</SubmitButton>
-                        </form>
-                        <form action={approveConsultant} className="flex flex-wrap justify-end gap-2">
-                          <input type="hidden" name="userId" value={user.id} />
-                          <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
-                          <select name="groupLeaderProfileId" className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" defaultValue={user.requestedGroupLeaderProfileId ?? ""}>
-                            <option value="">Direct partner</option>
-                            {selectedPartner.groupLeaders.map((leader) => (
-                              <option key={leader.id} value={leader.id}>{leader.displayName}</option>
-                            ))}
-                          </select>
-                          <input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" className="h-9 w-28 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Consultant share of partner pool" />
-                          <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
-                        </form>
-                      </div>
-                    </div>
-                  ))}
-                  {selectedPending.length === 0 && <p className="p-5 text-sm text-slate-500">No pending consultants for this partner.</p>}
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[760px] text-left text-sm">
+                    <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
+                      <tr>
+                        <th className="px-5 py-3">Leader</th>
+                        <th className="px-5 py-3">Direct sales</th>
+                        <th className="px-5 py-3">Consultant override</th>
+                        <th className="px-5 py-3">Consultants</th>
+                        <th className="px-5 py-3 text-right">Access</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border bg-white">
+                      {selectedPartner.groupLeaders.map((leader) => {
+                        const leaderConsultants = selectedPartner.consultants.filter((profile) => profile.groupLeaderProfileId === leader.id);
+
+                        return (
+                          <tr key={leader.id}>
+                            <td className="px-5 py-4">
+                              <p className="font-semibold text-clinic-ink">{leader.displayName}</p>
+                              <p className="mt-1 text-xs text-slate-500">{leader.user.email}</p>
+                            </td>
+                            <td className="px-5 py-4">{percentLabel(leader.commissionBps)}</td>
+                            <td className="px-5 py-4">{percentLabel(leader.consultantOverrideBps)}</td>
+                            <td className="px-5 py-4">{leaderConsultants.length}</td>
+                            <td className="px-5 py-4">
+                              <form action={startImpersonation} className="flex justify-end">
+                                <input type="hidden" name="targetUserId" value={leader.userId} />
+                                <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as leader</SubmitButton>
+                              </form>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                      {selectedPartner.groupLeaders.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-5 py-8 text-center text-slate-500">No leaders are assigned to this partner yet.</td>
+                        </tr>
+                      ) : null}
+                    </tbody>
+                  </table>
                 </div>
               </Card>
 
@@ -425,6 +475,47 @@ export default async function AdminConsultantsPage({
                   </table>
                 </div>
               </Card>
+              </>
+              ) : null}
+
+              {activeSection === "approval" ? (
+              <Card className="overflow-hidden">
+                <div className="border-b border-border p-5">
+                  <Badge>Approval workflow</Badge>
+                  <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Pending applications</h3>
+                </div>
+                <div className="divide-y divide-border">
+                  {selectedPending.map((user) => (
+                    <div key={user.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+                      <div>
+                        <p className="font-semibold text-clinic-ink">{displayUserName(user)}</p>
+                        <p className="mt-1 text-sm text-slate-500">{user.email}</p>
+                      </div>
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <form action={rejectConsultant}>
+                          <input type="hidden" name="userId" value={user.id} />
+                          <input type="hidden" name="reason" value="Application rejected by company admin." />
+                          <SubmitButton size="sm" variant="outline" pendingText="Rejecting...">Reject</SubmitButton>
+                        </form>
+                        <form action={approveConsultant} className="flex flex-wrap justify-end gap-2">
+                          <input type="hidden" name="userId" value={user.id} />
+                          <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
+                          <select name="groupLeaderProfileId" className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" defaultValue={user.requestedGroupLeaderProfileId ?? ""}>
+                            <option value="">Direct partner</option>
+                            {selectedPartner.groupLeaders.map((leader) => (
+                              <option key={leader.id} value={leader.id}>{leader.displayName}</option>
+                            ))}
+                          </select>
+                          <input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" className="h-9 w-28 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Consultant share of partner pool" />
+                          <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
+                        </form>
+                      </div>
+                    </div>
+                  ))}
+                  {selectedPending.length === 0 && <p className="p-5 text-sm text-slate-500">No pending consultants for this partner.</p>}
+                </div>
+              </Card>
+              ) : null}
           </div>
         )}
       </div>

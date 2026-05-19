@@ -631,7 +631,7 @@ export async function createGroupLeader(formData: FormData) {
 
   revalidatePath("/admin/consultants");
   revalidatePath("/partner/consultants");
-  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=group_leader_created" : "/admin/consultants?updated=group_leader_created");
+  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=group_leader_created" : `/admin/consultants?partnerId=${partnerProfile.id}&section=leaders&updated=group_leader_created`);
 }
 
 export async function createConsultantByAdmin(formData: FormData) {
@@ -791,7 +791,7 @@ export async function createConsultantByAdmin(formData: FormData) {
 
   revalidatePath("/admin/consultants");
   revalidatePath("/partner/consultants");
-  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=consultant_created" : `/admin/consultants?partnerId=${partnerProfile.id}&updated=consultant_created`);
+  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=consultant_created" : `/admin/consultants?partnerId=${partnerProfile.id}&section=network&updated=consultant_created`);
 }
 
 export async function updatePartnerProfileByAdmin(formData: FormData) {
@@ -822,7 +822,7 @@ export async function updatePartnerProfileByAdmin(formData: FormData) {
 
   revalidatePath("/admin/consultants");
   revalidatePath("/partner/consultants");
-  redirect(`/admin/consultants?partnerId=${partnerProfileId}&updated=partner_updated`);
+  redirect(`/admin/consultants?partnerId=${partnerProfileId}&section=workspace&updated=partner_updated`);
 }
 
 export async function updateGroupLeaderProfile(formData: FormData) {
@@ -856,7 +856,7 @@ export async function updateGroupLeaderProfile(formData: FormData) {
 
   revalidatePath("/admin/consultants");
   revalidatePath("/partner/consultants");
-  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=leader_updated" : `/admin/consultants?partnerId=${leader.partnerProfileId}&updated=leader_updated`);
+  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=leader_updated" : `/admin/consultants?partnerId=${leader.partnerProfileId}&section=leaders&updated=leader_updated`);
 }
 
 export async function updateConsultantCommercials(formData: FormData) {
@@ -906,5 +906,5 @@ export async function updateConsultantCommercials(formData: FormData) {
 
   revalidatePath("/admin/consultants");
   revalidatePath("/partner/consultants");
-  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=consultant_updated" : `/admin/consultants?partnerId=${partnerProfileId ?? consultant.partnerProfileId ?? ""}&updated=consultant_updated`);
+  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=consultant_updated" : `/admin/consultants?partnerId=${partnerProfileId ?? consultant.partnerProfileId ?? ""}&section=network&updated=consultant_updated`);
 }
