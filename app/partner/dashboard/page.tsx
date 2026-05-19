@@ -1,7 +1,7 @@
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { partnerNav } from "@/lib/constants/navigation";
+import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { requirePartner } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
 import { getPartnerMetrics } from "@/lib/partner/metrics";
@@ -16,14 +16,16 @@ async function getPartnerProfile(userId: string) {
 
 export default async function PartnerDashboardPage() {
   const user = await requirePartner();
+  const isGroupLeader = user.role === "GROUP_LEADER";
+  const nav = isGroupLeader ? groupLeaderNav : partnerNav;
   const partnerProfile = await getPartnerProfile(user.id);
 
   if (!partnerProfile) {
     return (
-      <SidebarShell nav={partnerNav} eyebrow="Partner" title="Partner dashboard">
+      <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title={isGroupLeader ? "Leader dashboard" : "Partner dashboard"}>
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-clinic-ink">Partner profile not configured</h2>
-          <p className="mt-2 text-slate-600">An owner must create and assign your partner profile before profit appears here.</p>
+          <h2 className="text-xl font-semibold text-clinic-ink">{isGroupLeader ? "Leader dashboard is coming next" : "Partner profile not configured"}</h2>
+          <p className="mt-2 text-slate-600">{isGroupLeader ? "Use Team, Sales, Pipeline, and Commissions to review your assigned hierarchy." : "An owner must create and assign your partner profile before profit appears here."}</p>
         </Card>
       </SidebarShell>
     );
@@ -32,7 +34,7 @@ export default async function PartnerDashboardPage() {
   const metrics = await getPartnerMetrics(partnerProfile.id);
 
   return (
-    <SidebarShell nav={partnerNav} eyebrow="Partner" title="Partner performance">
+    <SidebarShell nav={nav} eyebrow="Partner" title="Partner performance">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Attributed revenue" value={currency(metrics.attributedRevenueCents / 100)} change={`${metrics.attributedOrderCount} partner-linked orders`} />
         <MetricCard label="Partner profit" value={currency(metrics.partnerCommissionCents / 100)} change="25% of margin in dollars" />

@@ -4,7 +4,7 @@ import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { requirePartner } from "@/lib/auth/current-user";
-import { partnerNav } from "@/lib/constants/navigation";
+import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { formatCurrency } from "@/lib/products/catalog";
 
@@ -26,6 +26,8 @@ export default async function PartnerSalesPage({
 }) {
   const params = await searchParams;
   const user = await requirePartner();
+  const isGroupLeader = user.role === "GROUP_LEADER";
+  const nav = isGroupLeader ? groupLeaderNav : partnerNav;
   const partnerProfile = await prisma.partnerProfile.findUnique({
     where: { userId: user.id },
     select: { id: true, displayName: true, commissionBps: true }
@@ -98,7 +100,7 @@ export default async function PartnerSalesPage({
 
   const totalRevenueCents = orders.reduce((sum, order) => sum + order.totalCents, 0);
   const partnerProfitCents = orders.reduce(
-    (sum, order) => sum + order.commissionSplits.filter((split) => split.participantRole === "PARTNER").reduce((splitSum, split) => splitSum + split.amountCents, 0),
+    (sum, order) => sum + order.commissionSplits.filter((split) => split.participantRole === (groupLeaderProfile ? "GROUP_LEADER" : "PARTNER")).reduce((splitSum, split) => splitSum + split.amountCents, 0),
     0
   );
   const consultantPayoutCents = orders.reduce(
@@ -107,7 +109,7 @@ export default async function PartnerSalesPage({
   );
 
   return (
-    <SidebarShell nav={partnerNav} eyebrow="Partner" title="Sales">
+    <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Sales">
       <div className="space-y-6">
         {!effectivePartnerProfileId && (
           <Card className="p-6">
@@ -170,7 +172,7 @@ export default async function PartnerSalesPage({
             <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(totalRevenueCents)}</p>
           </Card>
           <Card className="p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner profit</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{groupLeaderProfile ? "Leader profit" : "Partner profit"}</p>
             <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(partnerProfitCents)}</p>
           </Card>
           <Card className="p-5">
@@ -181,8 +183,8 @@ export default async function PartnerSalesPage({
 
         <Card className="overflow-hidden">
           <div className="border-b border-border p-5">
-            <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">Partner-attributed only</Badge>
-            <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Partner sales workspace</h2>
+            <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{groupLeaderProfile ? "Leader-attributed only" : "Partner-attributed only"}</Badge>
+            <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">{groupLeaderProfile ? "Leader sales workspace" : "Partner sales workspace"}</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
               This list includes orders created directly by this partner and orders created by consultants assigned to this partner profile.
             </p>
@@ -196,7 +198,7 @@ export default async function PartnerSalesPage({
                   <th className="px-5 py-3">Consultant</th>
                   <th className="px-5 py-3">Products</th>
                   <th className="px-5 py-3">Total</th>
-                  <th className="px-5 py-3">Partner profit</th>
+                  <th className="px-5 py-3">{groupLeaderProfile ? "Leader profit" : "Partner profit"}</th>
                   <th className="px-5 py-3">Consultant payout</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Created</th>
@@ -205,7 +207,7 @@ export default async function PartnerSalesPage({
               <tbody className="divide-y divide-border bg-white">
                 {orders.map((order) => {
                   const partnerProfit = order.commissionSplits
-                    .filter((split) => split.participantRole === "PARTNER")
+                    .filter((split) => split.participantRole === (groupLeaderProfile ? "GROUP_LEADER" : "PARTNER"))
                     .reduce((sum, split) => sum + split.amountCents, 0);
                   const consultantPayout = order.commissionSplits
                     .filter((split) => split.participantRole === "CONSULTANT")

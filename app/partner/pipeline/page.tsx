@@ -2,7 +2,7 @@ import { CustomerPipelineBoard } from "@/components/pipeline/customer-pipeline-b
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Card } from "@/components/ui/card";
 import { requirePartner } from "@/lib/auth/current-user";
-import { partnerNav } from "@/lib/constants/navigation";
+import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
 
@@ -23,11 +23,14 @@ function normalizeStage(stage: string): CustomerPipelineStage {
 
 export default async function PartnerPipelinePage() {
   const user = await requirePartner();
+  const isGroupLeader = user.role === "GROUP_LEADER";
+  const nav = isGroupLeader ? groupLeaderNav : partnerNav;
   const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: user.id } });
+  const groupLeaderProfile = await prisma.groupLeaderProfile.findUnique({ where: { userId: user.id } });
 
   if (user.role === "PARTNER" && !partnerProfile) {
     return (
-      <SidebarShell nav={partnerNav} eyebrow="Partner" title="Pipeline">
+      <SidebarShell nav={nav} eyebrow="Partner" title="Pipeline">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Partner profile not configured</h2>
           <p className="mt-2 text-slate-600">An owner must create and assign your partner profile before pipeline visibility is available.</p>
@@ -36,15 +39,29 @@ export default async function PartnerPipelinePage() {
     );
   }
 
+  if (isGroupLeader && !groupLeaderProfile) {
+    return (
+      <SidebarShell nav={nav} eyebrow="Group leader" title="Pipeline">
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold text-clinic-ink">Leader profile not configured</h2>
+          <p className="mt-2 text-slate-600">An owner or partner must assign your leader profile before pipeline visibility is available.</p>
+        </Card>
+      </SidebarShell>
+    );
+  }
+
   const customers = await prisma.customer.findMany({
     where: {
       companyId: user.companyId ?? undefined,
-      OR: partnerProfile
+      OR: isGroupLeader
         ? [
-            { partnerProfileId: partnerProfile.id },
-            { consultantProfile: { partnerProfileId: partnerProfile.id } }
+            { groupLeaderProfileId: groupLeaderProfile!.id },
+            { consultantProfile: { groupLeaderProfileId: groupLeaderProfile!.id } }
           ]
-        : undefined
+        : [
+            { partnerProfileId: partnerProfile!.id },
+            { consultantProfile: { partnerProfileId: partnerProfile!.id } }
+          ]
     },
     include: {
       consultantProfile: {
@@ -62,7 +79,7 @@ export default async function PartnerPipelinePage() {
   });
 
   return (
-    <SidebarShell nav={partnerNav} eyebrow="Partner" title="Sales pipeline">
+    <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Sales pipeline">
       <div>
         <CustomerPipelineBoard
           customers={customers.map((customer) => ({

@@ -1,17 +1,22 @@
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { partnerNav } from "@/lib/constants/navigation";
+import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { requirePartner } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
 import { currency } from "@/lib/utils";
 
 export default async function PartnerCommissionsPage() {
   const user = await requirePartner();
+  const isGroupLeader = user.role === "GROUP_LEADER";
+  const nav = isGroupLeader ? groupLeaderNav : partnerNav;
   const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: user.id } });
-  const splits = partnerProfile
+  const groupLeaderProfile = await prisma.groupLeaderProfile.findUnique({ where: { userId: user.id } });
+  const splits = partnerProfile || groupLeaderProfile
     ? await prisma.commissionSplit.findMany({
-        where: { partnerProfileId: partnerProfile.id },
+        where: partnerProfile
+          ? { partnerProfileId: partnerProfile.id }
+          : { groupLeaderProfileId: groupLeaderProfile!.id },
         include: {
           consultantProfile: { include: { user: true } },
           order: true
@@ -22,7 +27,7 @@ export default async function PartnerCommissionsPage() {
     : [];
 
   return (
-    <SidebarShell nav={partnerNav} eyebrow="Partner" title="Commission ledger">
+    <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Commission ledger">
       <Card className="overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[840px] text-left text-sm">

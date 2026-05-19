@@ -46,7 +46,7 @@ function Field({
   );
 }
 
-function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: string }) {
+export function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -123,7 +123,7 @@ function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: string }) {
   );
 }
 
-function EditLeaderModal({ leader }: { leader: Leader }) {
+export function EditLeaderModal({ leader }: { leader: Leader }) {
   const [open, setOpen] = useState(false);
 
   return (

@@ -1,13 +1,30 @@
-import { approveConsultant, createConsultantByAdmin, createGroupLeader, rejectConsultant } from "@/app/(auth)/actions";
+import Link from "next/link";
+import { approveConsultant, rejectConsultant } from "@/app/(auth)/actions";
+import { CreateConsultantModal } from "@/app/admin/consultants/create-consultant-modal";
+import { EditConsultantModal } from "@/app/admin/consultants/edit-consultant-modal";
+import { CreateLeaderModal, EditLeaderModal } from "@/app/admin/consultants/leader-section";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { SalesHierarchyView } from "@/components/network/sales-hierarchy-view";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { partnerNav } from "@/lib/constants/navigation";
+import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { requirePartner } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
-import { buildSalesHierarchyTree } from "@/lib/network/sales-hierarchy";
+import { buildSalesHierarchyTree, percentLabel } from "@/lib/network/sales-hierarchy";
+
+function displayName(user: { firstName: string | null; lastName: string | null; email: string }) {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+}
+
+function initialsFromName(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+}
 
 export default async function PartnerConsultantsPage({
   searchParams
@@ -15,11 +32,14 @@ export default async function PartnerConsultantsPage({
   searchParams: Promise<{ error?: string; updated?: string }>;
 }) {
   const params = await searchParams;
+  const user = await requirePartner();
+  const isGroupLeader = user.role === "GROUP_LEADER";
+  const nav = isGroupLeader ? groupLeaderNav : partnerNav;
   const errorMessages: Record<string, string> = {
     duplicate_email: "That email is already assigned to another partner, leader, or consultant.",
     duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant."
   };
-  const user = await requirePartner();
+
   const partnerProfile = await prisma.partnerProfile.findUnique({
     where: { userId: user.id },
     include: { user: true }
@@ -54,9 +74,11 @@ export default async function PartnerConsultantsPage({
           orderBy: { createdAt: "desc" }
         }),
         prisma.groupLeaderProfile.findMany({
-          where: { partnerProfileId: effectivePartnerProfileId },
+          where: groupLeaderProfile
+            ? { id: groupLeaderProfile.id }
+            : { partnerProfileId: effectivePartnerProfileId },
           include: { user: true },
-          orderBy: { createdAt: "desc" }
+          orderBy: { displayName: "asc" }
         }),
         prisma.order.findMany({
           where: groupLeaderProfile
@@ -108,142 +130,165 @@ export default async function PartnerConsultantsPage({
         hideCommissionSetup: Boolean(groupLeaderProfile)
       })
     : null;
+  const groupLeaderOptions = groupLeaders.map((leader) => ({
+    id: leader.id,
+    displayName: leader.displayName
+  }));
 
   return (
-    <SidebarShell nav={partnerNav} eyebrow={user.role === "GROUP_LEADER" ? "Group leader" : "Partner"} title="My consultants">
+    <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title={isGroupLeader ? "Team" : "Partner network"}>
       <div className="space-y-6">
+        {params.updated ? (
+          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
+            Network updated successfully.
+          </div>
+        ) : null}
         {params.error ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-clinic-red">
             {errorMessages[params.error] ?? "The requested action could not be completed. Please review the details and try again."}
           </div>
         ) : null}
-        {partnerProfile && (
-          <Card className="p-6">
-            <div>
-              <Badge>Team structure</Badge>
-              <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Create group leader</h2>
-              <p className="mt-2 max-w-3xl text-slate-600">Leaders manage a smaller group of consultants inside your partner organization.</p>
-            </div>
-            <form action={createGroupLeader} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-              <input name="firstName" placeholder="First name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <input name="lastName" placeholder="Last name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <input name="email" type="email" placeholder="Leader email" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <input name="phone" type="tel" placeholder="Phone" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" />
-              <input name="password" type="password" minLength={8} placeholder="Temporary password" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="Direct sale %" defaultValue="25" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" placeholder="Consultant override %" defaultValue="0" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <div className="md:col-span-2 xl:col-span-6">
-                <SubmitButton variant="accent" pendingText="Creating leader...">Create group leader</SubmitButton>
-              </div>
-            </form>
-          </Card>
-        )}
 
-        {partnerProfile && (
-          <Card className="overflow-hidden">
-            <div className="border-b border-border p-5">
-              <h2 className="text-lg font-semibold text-clinic-ink">Group leaders</h2>
-              <p className="mt-1 text-sm text-slate-500">Leaders roll up to your partner dashboard and can have consultants assigned.</p>
-            </div>
-            <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
-              {groupLeaders.map((leader) => (
-                <div key={leader.id} className="rounded-xl border border-border p-4">
-                  <p className="font-semibold text-clinic-ink">{leader.displayName}</p>
-                  <p className="mt-1 text-sm text-slate-500">{leader.user.email}</p>
-                  <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {leader.commissionBps / 100}% direct sale · {leader.consultantOverrideBps / 100}% consultant override
-                  </p>
-                </div>
-              ))}
-              {groupLeaders.length === 0 && <p className="text-sm text-slate-500">No group leaders have been created yet.</p>}
-            </div>
-          </Card>
-        )}
-
-        {partnerProfile && (
+        {!effectivePartnerProfileId ? (
           <Card className="p-6">
-            <div>
-              <Badge>Consultants</Badge>
-              <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Create consultant</h2>
-              <p className="mt-2 max-w-3xl text-slate-600">
-                Add a seller directly under your partner account or assign them to a group leader.
-              </p>
-            </div>
-            <form action={createConsultantByAdmin} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-              <input type="hidden" name="partnerProfileId" value={partnerProfile.id} />
-              <input name="firstName" placeholder="First name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <input name="lastName" placeholder="Last name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <input name="email" type="email" placeholder="Consultant email" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <input name="phone" type="tel" placeholder="Phone" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" />
-              <input name="password" type="password" minLength={8} placeholder="Temporary password" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <select name="groupLeaderProfileId" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" defaultValue="">
-                <option value="">Direct partner</option>
-                {groupLeaders.map((leader) => (
-                  <option key={leader.id} value={leader.id}>{leader.displayName}</option>
-                ))}
-              </select>
-              <input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" placeholder="% of partner pool" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <div className="md:col-span-2 xl:col-span-6">
-                <SubmitButton variant="accent" pendingText="Creating consultant...">Create consultant</SubmitButton>
-              </div>
-            </form>
+            <h2 className="text-xl font-semibold text-clinic-ink">Profile setup required</h2>
+            <p className="mt-2 text-slate-600">An owner must assign your partner or leader profile before team data appears here.</p>
           </Card>
-        )}
+        ) : null}
 
         {hierarchyTree ? (
           <SalesHierarchyView
             tree={hierarchyTree}
-            title={groupLeaderProfile ? "My team hierarchy" : "Partner hierarchy"}
+            title={isGroupLeader ? `${groupLeaderProfile?.displayName ?? "My"} hierarchy` : `${partnerProfile?.companyName ?? partnerProfile?.displayName ?? "Partner"} hierarchy`}
           />
         ) : null}
 
-        <Card className="overflow-hidden">
-          <div className="border-b border-border p-5">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {partnerProfile ? (
+          <div className="space-y-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-clinic-ink">Pending consultant applications</h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  These sellers selected {partnerProfile?.companyName ?? partnerProfile?.displayName ?? "your company"} during registration.
-                </p>
+                <h2 className="text-2xl font-semibold text-clinic-ink">Group leaders</h2>
+                <p className="mt-1 text-sm text-slate-500">Manage leaders and their consultant override rules inside your partner network.</p>
               </div>
-              <Badge className="w-fit border-amber-200 bg-amber-50 text-amber-700">{pendingConsultants.length} pending</Badge>
+              <CreateLeaderModal partnerProfileId={partnerProfile.id} />
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {groupLeaders.map((leader) => {
+                const leaderConsultants = consultants.filter((profile) => profile.groupLeaderProfileId === leader.id);
+
+                return (
+                  <Card
+                    key={leader.id}
+                    className="rounded-3xl border border-border bg-white p-5 shadow-line transition hover:-translate-y-0.5 hover:border-clinic-navy/30 hover:shadow-soft"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div
+                          className="grid size-12 shrink-0 place-items-center rounded-2xl border border-border bg-clinic-mist bg-cover bg-center text-sm font-bold text-clinic-navy"
+                          style={leader.user.avatarUrl ? { backgroundImage: `url(${leader.user.avatarUrl})` } : undefined}
+                          aria-label={`${leader.displayName} avatar`}
+                        >
+                          {leader.user.avatarUrl ? null : initialsFromName(leader.displayName)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate text-lg font-semibold text-clinic-ink">{leader.displayName}</p>
+                          <p className="mt-1 truncate text-sm text-slate-500">{leader.user.email}</p>
+                        </div>
+                      </div>
+                      <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{percentLabel(leader.commissionBps)}</Badge>
+                    </div>
+
+                    <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs font-semibold text-slate-500">
+                      <div className="rounded-2xl bg-clinic-mist px-2 py-3">
+                        <p className="text-2xl text-clinic-navy">{percentLabel(leader.commissionBps)}</p>
+                        <p className="mt-1">Direct</p>
+                      </div>
+                      <div className="rounded-2xl bg-blue-50 px-2 py-3">
+                        <p className="text-2xl text-clinic-navy">{percentLabel(leader.consultantOverrideBps)}</p>
+                        <p className="mt-1">Override</p>
+                      </div>
+                      <div className="rounded-2xl bg-clinic-mist px-2 py-3">
+                        <p className="text-2xl text-clinic-navy">{leaderConsultants.length}</p>
+                        <p className="mt-1">Sellers</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+                      <Link
+                        href="/partner/consultants"
+                        className="inline-flex h-9 items-center rounded-xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink transition hover:bg-clinic-mist"
+                      >
+                        View hierarchy
+                      </Link>
+                      <EditLeaderModal leader={leader} />
+                    </div>
+                  </Card>
+                );
+              })}
+              {groupLeaders.length === 0 ? (
+                <div className="rounded-3xl border border-dashed border-border bg-white p-6 md:col-span-2 xl:col-span-3">
+                  <h3 className="text-lg font-semibold text-clinic-ink">No group leaders yet</h3>
+                  <p className="mt-2 text-sm text-slate-500">Create leaders when you are ready to organize consultants by group.</p>
+                </div>
+              ) : null}
             </div>
           </div>
-          <div className="divide-y divide-border bg-white">
-            {pendingConsultants.map((applicant) => (
-              <div key={applicant.id} className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+        ) : null}
+
+        {partnerProfile ? (
+          <Card className="p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Seller network</p>
+                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Consultants</h3>
+                <p className="mt-1 text-sm text-slate-500">Create sellers directly under your partner account or assign them to a group leader.</p>
+              </div>
+              <CreateConsultantModal
+                partnerProfileId={partnerProfile.id}
+                groupLeaders={groupLeaderOptions}
+                returnTo="/partner/consultants?updated=consultant_created"
+              />
+            </div>
+          </Card>
+        ) : null}
+
+        {partnerProfile ? (
+          <Card className="overflow-hidden">
+            <div className="border-b border-border p-5">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="font-semibold text-clinic-ink">
-                    {[applicant.firstName, applicant.lastName].filter(Boolean).join(" ") || "Unnamed applicant"}
-                  </p>
-                  <p className="mt-1 text-sm text-slate-500">{applicant.email}</p>
-                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    Requested {new Intl.DateTimeFormat("en-US").format(applicant.createdAt)}
-                  </p>
+                  <Badge>Approval workflow</Badge>
+                  <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Pending applications</h2>
                 </div>
-                <div className="flex gap-2">
-                  <form action={rejectConsultant}>
-                    <input type="hidden" name="userId" value={applicant.id} />
-                    <input type="hidden" name="reason" value="Application rejected by partner." />
-                    <SubmitButton size="sm" variant="outline" pendingText="Rejecting...">Reject</SubmitButton>
-                  </form>
-                  <form action={approveConsultant}>
-                    <input type="hidden" name="userId" value={applicant.id} />
-                    {groupLeaderProfile ? (
-                      <input type="hidden" name="groupLeaderProfileId" value={groupLeaderProfile.id} />
-                    ) : (
+                <Badge className="w-fit border-amber-200 bg-amber-50 text-amber-700">{pendingConsultants.length} pending</Badge>
+              </div>
+            </div>
+            <div className="divide-y divide-border bg-white">
+              {pendingConsultants.map((applicant) => (
+                <div key={applicant.id} className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="font-semibold text-clinic-ink">{displayName(applicant)}</p>
+                    <p className="mt-1 text-sm text-slate-500">{applicant.email}</p>
+                  </div>
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <form action={rejectConsultant}>
+                      <input type="hidden" name="userId" value={applicant.id} />
+                      <input type="hidden" name="reason" value="Application rejected by partner." />
+                      <SubmitButton size="sm" variant="outline" pendingText="Rejecting...">Reject</SubmitButton>
+                    </form>
+                    <form action={approveConsultant} className="flex flex-wrap justify-end gap-2">
+                      <input type="hidden" name="userId" value={applicant.id} />
                       <select
                         name="groupLeaderProfileId"
                         className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                        defaultValue=""
+                        defaultValue={applicant.requestedGroupLeaderProfileId ?? ""}
                       >
-                        <option value="">No leader</option>
+                        <option value="">Direct partner</option>
                         {groupLeaders.map((leader) => (
                           <option key={leader.id} value={leader.id}>{leader.displayName}</option>
                         ))}
                       </select>
-                    )}
-                    {partnerProfile ? (
                       <input
                         name="consultantCommissionPercent"
                         type="number"
@@ -254,43 +299,73 @@ export default async function PartnerConsultantsPage({
                         className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
                         aria-label="Consultant share of partner pool"
                       />
-                    ) : null}
-                    <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
-                  </form>
+                      <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
+                    </form>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {pendingConsultants.length === 0 && (
-              <p className="p-5 text-sm text-slate-500">No consultant applications are waiting for your approval.</p>
-            )}
-          </div>
-        </Card>
+              ))}
+              {pendingConsultants.length === 0 ? (
+                <p className="p-5 text-sm text-slate-500">No consultant applications are waiting for approval.</p>
+              ) : null}
+            </div>
+          </Card>
+        ) : null}
 
         <Card className="overflow-hidden">
           <div className="border-b border-border p-5">
-            <h2 className="text-lg font-semibold text-clinic-ink">Assigned seller network</h2>
-            <p className="mt-1 text-sm text-slate-500">These consultants roll up to your partner dashboard and payout queue.</p>
+            <Badge>{isGroupLeader ? "My team" : "Seller network"}</Badge>
+            <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Consultants</h3>
           </div>
-          <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-3">
-            {consultants.map((profile) => (
-              <div key={profile.id} className="rounded-xl border border-border p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-semibold text-clinic-ink">{[profile.user.firstName, profile.user.lastName].filter(Boolean).join(" ")}</p>
-                    <p className="mt-1 text-sm text-slate-500">{profile.user.email}</p>
-                  </div>
-                  <Badge>Consultant</Badge>
-                </div>
-                <p className="mt-4 rounded-lg bg-clinic-mist p-3 text-sm font-semibold text-clinic-navy">/c/{profile.referralSlug}</p>
-                <p className="mt-3 text-sm text-slate-500">Leader: {profile.groupLeaderProfile?.displayName ?? "Unassigned"}</p>
-                {partnerProfile ? (
-                  <>
-                    <p className="mt-1 text-sm text-slate-500">Consultant commission: {profile.commissionBps / 100}% of partner pool</p>
-                  </>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[860px] text-left text-sm">
+              <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
+                <tr>
+                  <th className="px-5 py-3">Consultant</th>
+                  <th className="px-5 py-3">Leader</th>
+                  <th className="px-5 py-3">Referral</th>
+                  {partnerProfile ? <th className="px-5 py-3">Pool share</th> : null}
+                  {partnerProfile ? <th className="px-5 py-3 text-right">Edit</th> : null}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border bg-white">
+                {consultants.map((profile) => (
+                  <tr key={profile.id}>
+                    <td className="px-5 py-4">
+                      <p className="font-semibold text-clinic-ink">{displayName(profile.user)}</p>
+                      <p className="mt-1 text-xs text-slate-500">{profile.user.email}</p>
+                    </td>
+                    <td className="px-5 py-4 text-slate-600">{profile.groupLeaderProfile?.displayName ?? "Direct partner"}</td>
+                    <td className="px-5 py-4 font-semibold text-clinic-navy">/c/{profile.referralSlug}</td>
+                    {partnerProfile ? <td className="px-5 py-4">{percentLabel(profile.commissionBps)} of partner pool</td> : null}
+                    {partnerProfile ? (
+                      <td className="px-5 py-4 text-right">
+                        <EditConsultantModal
+                          consultant={{
+                            id: profile.id,
+                            firstName: profile.user.firstName,
+                            lastName: profile.user.lastName,
+                            email: profile.user.email,
+                            phone: profile.user.phone,
+                            groupLeaderProfileId: profile.groupLeaderProfileId,
+                            commissionPercent: profile.commissionBps / 100
+                          }}
+                          partnerProfileId={partnerProfile.id}
+                          groupLeaders={groupLeaderOptions}
+                          returnTo="/partner/consultants?updated=consultant_updated"
+                        />
+                      </td>
+                    ) : null}
+                  </tr>
+                ))}
+                {consultants.length === 0 ? (
+                  <tr>
+                    <td colSpan={partnerProfile ? 5 : 3} className="px-5 py-8 text-center text-slate-500">
+                      No consultants are assigned yet.
+                    </td>
+                  </tr>
                 ) : null}
-              </div>
-            ))}
-            {consultants.length === 0 && <p className="text-sm text-slate-500">No consultants are assigned to this partner yet.</p>}
+              </tbody>
+            </table>
           </div>
         </Card>
       </div>

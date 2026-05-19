@@ -51,3 +51,13 @@ export const partnerNav = [
   { href: "/partner/reports", label: "Reports", icon: BarChart3 },
   { href: "/partner/settings", label: "Settings", icon: Settings }
 ];
+
+export const groupLeaderNav = [
+  { href: "/partner/consultants", label: "Team", icon: Users },
+  { href: "/partner/sales", label: "Sales", icon: ClipboardList },
+  { href: "/partner/pipeline", label: "Pipeline", icon: Columns3 },
+  { href: "/partner/products", label: "Products", icon: Boxes },
+  { href: "/partner/commissions", label: "Commissions", icon: HandCoins },
+  { href: "/partner/reports", label: "Reports", icon: BarChart3 },
+  { href: "/partner/profile", label: "Profile", icon: Settings }
+];
