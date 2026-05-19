@@ -55,7 +55,9 @@ export default async function AdminConsultantsPage({
     })
   ]);
 
-  const selectedPartner = partners.find((partner) => partner.id === params.partnerId) ?? partners[0] ?? null;
+  const selectedPartner = params.partnerId
+    ? partners.find((partner) => partner.id === params.partnerId) ?? null
+    : null;
   const selectedOrders = selectedPartner
     ? await prisma.order.findMany({
         where: {
@@ -136,54 +138,61 @@ export default async function AdminConsultantsPage({
 
         <CreatePartnerModal />
 
-        <div className="grid gap-6 xl:grid-cols-[380px_minmax(0,1fr)]">
-          <Card className="overflow-hidden">
-            <div className="border-b border-border p-5">
-              <h3 className="text-lg font-semibold text-clinic-ink">Partners</h3>
-              <p className="mt-1 text-sm text-slate-500">Open a partner to manage its leaders, consultants, and commission structure.</p>
-            </div>
-            <div className="divide-y divide-border">
-              {partners.map((partner) => {
-                const isSelected = selectedPartner?.id === partner.id;
+        {!selectedPartner ? (
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {partners.map((partner) => {
+              const partnerPendingCount = pendingConsultants.filter((user) => user.requestedPartnerProfileId === partner.id).length;
 
-                return (
-                  <Link
-                    key={partner.id}
-                    href={`/admin/consultants?partnerId=${partner.id}`}
-                    className={`block p-5 transition hover:bg-clinic-mist/70 ${isSelected ? "bg-clinic-mist" : "bg-white"}`}
-                  >
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="font-semibold text-clinic-ink">{partner.companyName || partner.displayName}</p>
-                        <p className="mt-1 text-sm text-slate-500">{partner.user.email}</p>
-                      </div>
-                      <Badge className={isSelected ? "border-blue-100 bg-blue-50 text-clinic-navy" : ""}>
-                        {percentLabel(partner.commissionBps)}
-                      </Badge>
+              return (
+                <Link
+                  key={partner.id}
+                  href={`/admin/consultants?partnerId=${partner.id}`}
+                  className="group rounded-3xl border border-border bg-white p-5 shadow-line transition hover:-translate-y-0.5 hover:border-clinic-navy/30 hover:shadow-soft"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="truncate text-lg font-semibold text-clinic-ink">{partner.companyName || partner.displayName}</p>
+                      <p className="mt-1 truncate text-sm text-slate-500">{partner.user.email}</p>
                     </div>
-                    <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-semibold text-slate-500">
-                      <div className="rounded-xl bg-white/80 px-2 py-2">
-                        <p className="text-lg text-clinic-navy">{partner.groupLeaders.length}</p>
-                        <p>Leaders</p>
-                      </div>
-                      <div className="rounded-xl bg-white/80 px-2 py-2">
-                        <p className="text-lg text-clinic-navy">{partner.consultants.length}</p>
-                        <p>Sellers</p>
-                      </div>
-                      <div className="rounded-xl bg-white/80 px-2 py-2">
-                        <p className="text-lg text-clinic-red">{pendingConsultants.filter((user) => user.requestedPartnerProfileId === partner.id).length}</p>
-                        <p>Pending</p>
-                      </div>
+                    <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{percentLabel(partner.commissionBps)}</Badge>
+                  </div>
+                  <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs font-semibold text-slate-500">
+                    <div className="rounded-2xl bg-clinic-mist px-2 py-3">
+                      <p className="text-2xl text-clinic-navy">{partner.groupLeaders.length}</p>
+                      <p className="mt-1">Leaders</p>
                     </div>
-                  </Link>
-                );
-              })}
-              {partners.length === 0 && <p className="p-5 text-sm text-slate-500">Create the first partner to start building the sales network.</p>}
-            </div>
-          </Card>
+                    <div className="rounded-2xl bg-clinic-mist px-2 py-3">
+                      <p className="text-2xl text-clinic-navy">{partner.consultants.length}</p>
+                      <p className="mt-1">Sellers</p>
+                    </div>
+                    <div className="rounded-2xl bg-red-50 px-2 py-3">
+                      <p className="text-2xl text-clinic-red">{partnerPendingCount}</p>
+                      <p className="mt-1">Pending</p>
+                    </div>
+                  </div>
+                  <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
+                    <span className="text-sm font-semibold text-slate-500">Open partner workspace</span>
+                    <span className="text-sm font-semibold text-clinic-navy transition group-hover:translate-x-1">View</span>
+                  </div>
+                </Link>
+              );
+            })}
+            {partners.length === 0 ? (
+              <Card className="p-6 md:col-span-2 xl:col-span-3">
+                <h2 className="text-xl font-semibold text-clinic-ink">No partners yet</h2>
+                <p className="mt-2 text-slate-600">Create the first partner to start building leaders and consultants.</p>
+              </Card>
+            ) : null}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <Link
+              href="/admin/consultants"
+              className="inline-flex h-10 items-center rounded-xl border border-border bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line transition hover:bg-clinic-mist"
+            >
+              Back to partners
+            </Link>
 
-          {selectedPartner ? (
-            <div className="space-y-6">
               <Card className="p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
@@ -351,14 +360,8 @@ export default async function AdminConsultantsPage({
                   </table>
                 </div>
               </Card>
-            </div>
-          ) : (
-            <Card className="p-6">
-              <h2 className="text-xl font-semibold text-clinic-ink">No partner selected</h2>
-              <p className="mt-2 text-slate-600">Create a partner to start building leaders and consultants.</p>
-            </Card>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </SidebarShell>
   );
