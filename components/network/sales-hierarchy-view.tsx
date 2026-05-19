@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import type { PointerEvent } from "react";
 import { Building2, Search, UserRound, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -52,6 +53,10 @@ function roleLabel(type: HierarchyNode["type"]) {
   if (type === "PARTNER") return "Partner";
   if (type === "GROUP_LEADER") return "Group leader";
   return "Consultant";
+}
+
+function isInteractiveTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && Boolean(target.closest("button, a, input, select, textarea"));
 }
 
 function Avatar({ node, size = "md" }: { node: HierarchyNode; size?: "sm" | "md" | "lg" }) {
@@ -192,7 +197,16 @@ function DetailPanel({ node, onClose }: { node: HierarchyNode | null; onClose: (
 export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: SalesHierarchyTree; title?: string }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [zoom, setZoom] = useState(80);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
   const [query, setQuery] = useState("");
+  const dragStartRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
 
   const nodes = useMemo(
     () => [
@@ -208,6 +222,42 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
   function isVisible(node: HierarchyNode) {
     if (!normalizedQuery) return true;
     return `${node.name} ${node.email} ${roleLabel(node.type)}`.toLowerCase().includes(normalizedQuery);
+  }
+
+  function handleCanvasPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0 || isInteractiveTarget(event.target)) return;
+
+    dragStartRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: pan.x,
+      originY: pan.y
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setIsPanning(true);
+  }
+
+  function handleCanvasPointerMove(event: PointerEvent<HTMLDivElement>) {
+    const dragStart = dragStartRef.current;
+    if (!dragStart || dragStart.pointerId !== event.pointerId) return;
+
+    event.preventDefault();
+    setPan({
+      x: dragStart.originX + event.clientX - dragStart.startX,
+      y: dragStart.originY + event.clientY - dragStart.startY
+    });
+  }
+
+  function stopCanvasPan(event: PointerEvent<HTMLDivElement>) {
+    const dragStart = dragStartRef.current;
+    if (!dragStart || dragStart.pointerId !== event.pointerId) return;
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    dragStartRef.current = null;
+    setIsPanning(false);
   }
 
   return (
@@ -247,10 +297,21 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
       </div>
 
       <div className={`mt-5 grid gap-5 ${selectedNode ? "xl:grid-cols-[minmax(0,1fr)_360px]" : "xl:grid-cols-1"}`}>
-        <div className="min-h-[620px] overflow-auto rounded-3xl bg-slate-50 p-6 xl:max-h-[72vh]">
+        <div
+          className={`min-h-[620px] overflow-hidden rounded-3xl bg-slate-50 p-6 xl:max-h-[72vh] ${
+            isPanning ? "cursor-grabbing" : "cursor-grab"
+          }`}
+          onPointerDown={handleCanvasPointerDown}
+          onPointerMove={handleCanvasPointerMove}
+          onPointerUp={stopCanvasPan}
+          onPointerCancel={stopCanvasPan}
+        >
           <div
             className="min-w-max origin-top-left transition-transform"
-            style={{ transform: `scale(${zoom / 100})`, transformOrigin: "top left" }}
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom / 100})`,
+              transformOrigin: "top left"
+            }}
           >
             <div className="flex flex-col items-center">
               {isVisible(tree.partner) ? (
