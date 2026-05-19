@@ -27,12 +27,19 @@ export function CreateConsultantModal({
   partnerProfileId,
   groupLeaderProfileId,
   groupLeaderName,
-  returnTo
+  groupLeaders = [],
+  returnTo,
+  buttonLabel = "Create consultant"
 }: {
   partnerProfileId: string;
   groupLeaderProfileId?: string | null;
   groupLeaderName?: string | null;
+  groupLeaders?: Array<{
+    id: string;
+    displayName: string;
+  }>;
   returnTo?: string;
+  buttonLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -40,7 +47,7 @@ export function CreateConsultantModal({
     <>
       <Button type="button" variant="accent" size="lg" onClick={() => setOpen(true)}>
         <Plus className="h-4 w-4" />
-        Add consultant
+        {buttonLabel}
       </Button>
 
       {open ? (
@@ -49,9 +56,11 @@ export function CreateConsultantModal({
             <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Seller network</p>
-                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Add consultant</h3>
+                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Create consultant</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  {groupLeaderName ? `This consultant will be assigned under ${groupLeaderName}.` : "Create a consultant and assign them into the partner network."}
+                  {groupLeaderName
+                    ? `This consultant will be assigned under ${groupLeaderName}.`
+                    : "Create a consultant and assign them directly to the partner or under a group leader."}
                 </p>
               </div>
               <button
@@ -66,7 +75,7 @@ export function CreateConsultantModal({
 
             <form action={createConsultantByAdmin} className="grid max-h-[calc(92vh-120px)] gap-5 overflow-y-auto p-6">
               <input type="hidden" name="partnerProfileId" value={partnerProfileId} />
-              <input type="hidden" name="groupLeaderProfileId" value={groupLeaderProfileId ?? ""} />
+              {groupLeaderProfileId !== undefined ? <input type="hidden" name="groupLeaderProfileId" value={groupLeaderProfileId ?? ""} /> : null}
               {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="First name">
@@ -84,6 +93,20 @@ export function CreateConsultantModal({
                 <Field label="Temporary password">
                   <Input name="password" type="password" minLength={8} placeholder="Minimum 8 characters" required />
                 </Field>
+                {groupLeaderProfileId === undefined ? (
+                  <Field label="Group leader">
+                    <select
+                      name="groupLeaderProfileId"
+                      className="h-11 w-full rounded-lg border border-input bg-white px-3 text-sm shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      defaultValue=""
+                    >
+                      <option value="">Direct partner</option>
+                      {groupLeaders.map((leader) => (
+                        <option key={leader.id} value={leader.id}>{leader.displayName}</option>
+                      ))}
+                    </select>
+                  </Field>
+                ) : null}
                 <Field label="Consultant share">
                   <div className="relative">
                     <Input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" className="pr-10" required />
