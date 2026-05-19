@@ -2,13 +2,12 @@ import Link from "next/link";
 import {
   approveConsultant,
   createConsultantByAdmin,
-  createGroupLeader,
   rejectConsultant,
   updateConsultantCommercials,
-  updateGroupLeaderProfile,
   updatePartnerProfileByAdmin
 } from "@/app/(auth)/actions";
 import { CreatePartnerModal } from "@/app/admin/consultants/create-partner-modal";
+import { LeaderSection } from "@/app/admin/consultants/leader-section";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { SalesHierarchyView } from "@/components/network/sales-hierarchy-view";
 import { Badge } from "@/components/ui/badge";
@@ -311,57 +310,11 @@ export default async function AdminConsultantsPage({
               ) : null}
 
               {activeSection === "leaders" ? (
-              <Card className="p-6">
-                <div>
-                  <Badge>Leaders</Badge>
-                  <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Create group leader</h3>
-                  <p className="mt-2 text-sm text-slate-500">
-                    Set what the leader earns on direct sales and optionally what they receive from consultants under them.
-                  </p>
-                </div>
-                <form action={createGroupLeader} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
-                  <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
-                  <input name="firstName" placeholder="First name" className={inputClass()} required />
-                  <input name="lastName" placeholder="Last name" className={inputClass()} required />
-                  <input name="email" type="email" placeholder="Leader email" className={inputClass()} required />
-                  <input name="password" type="password" minLength={8} placeholder="Temporary password" className={inputClass()} required />
-                  <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="Direct sale %" defaultValue="25" className={inputClass()} required />
-                  <input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" placeholder="Consultant override %" defaultValue="0" className={inputClass()} required />
-                  <div>
-                    <SubmitButton variant="accent" pendingText="Creating...">Create leader</SubmitButton>
-                  </div>
-                </form>
-
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  {selectedPartner.groupLeaders.map((leader) => (
-                    <div key={leader.id} className="rounded-2xl border border-border bg-white p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-clinic-ink">{leader.displayName}</p>
-                          <p className="mt-1 text-sm text-slate-500">{leader.user.email}</p>
-                        </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <Badge>{percentLabel(leader.commissionBps)} direct</Badge>
-                          <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{percentLabel(leader.consultantOverrideBps)} override</Badge>
-                          <Link
-                            href={sectionHref("hierarchy")}
-                            className="inline-flex h-9 items-center rounded-lg border border-border bg-white px-3 text-xs font-semibold text-clinic-ink transition hover:bg-clinic-mist"
-                          >
-                            View hierarchy
-                          </Link>
-                        </div>
-                      </div>
-                      <form action={updateGroupLeaderProfile} className="mt-4 flex gap-2">
-                        <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
-                        <input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.commissionBps / 100} className={inputClass("min-w-0 flex-1")} required />
-                        <input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.consultantOverrideBps / 100} className={inputClass("min-w-0 flex-1")} required />
-                        <SubmitButton size="sm" variant="outline" pendingText="Saving...">Save</SubmitButton>
-                      </form>
-                    </div>
-                  ))}
-                  {selectedPartner.groupLeaders.length === 0 && <p className="text-sm text-slate-500">No leaders have been created for this partner yet.</p>}
-                </div>
-              </Card>
+              <LeaderSection
+                partnerProfileId={selectedPartner.id}
+                leaders={selectedPartner.groupLeaders}
+                hierarchyHref={sectionHref("hierarchy")}
+              />
               ) : null}
 
               {activeSection === "network" ? (
