@@ -89,6 +89,9 @@ function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: string }) {
                 <Field label="Email">
                   <Input name="email" type="email" placeholder="leader@company.com" required />
                 </Field>
+                <Field label="Phone">
+                  <Input name="phone" type="tel" placeholder="(555) 123-4567" />
+                </Field>
                 <Field label="Temporary password">
                   <Input name="password" type="password" minLength={8} placeholder="Minimum 8 characters" required />
                 </Field>
@@ -182,12 +185,10 @@ function EditLeaderModal({ leader }: { leader: Leader }) {
 
 export function LeaderSection({
   partnerProfileId,
-  leaders,
-  hierarchyHref
+  leaders
 }: {
   partnerProfileId: string;
   leaders: Leader[];
-  hierarchyHref: string;
 }) {
   return (
     <div className="space-y-5">
@@ -235,7 +236,7 @@ export function LeaderSection({
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
               <Link
-                href={hierarchyHref}
+                href={`/admin/consultants?partnerId=${partnerProfileId}&section=hierarchy&leaderId=${leader.id}`}
                 className="inline-flex h-9 items-center rounded-xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink transition hover:bg-clinic-mist"
               >
                 View hierarchy

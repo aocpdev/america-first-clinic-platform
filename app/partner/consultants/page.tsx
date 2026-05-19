@@ -9,7 +9,16 @@ import { requirePartner } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
 import { buildSalesHierarchyTree } from "@/lib/network/sales-hierarchy";
 
-export default async function PartnerConsultantsPage() {
+export default async function PartnerConsultantsPage({
+  searchParams
+}: {
+  searchParams: Promise<{ error?: string; updated?: string }>;
+}) {
+  const params = await searchParams;
+  const errorMessages: Record<string, string> = {
+    duplicate_email: "That email is already assigned to another partner, leader, or consultant.",
+    duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant."
+  };
   const user = await requirePartner();
   const partnerProfile = await prisma.partnerProfile.findUnique({
     where: { userId: user.id },
@@ -103,6 +112,11 @@ export default async function PartnerConsultantsPage() {
   return (
     <SidebarShell nav={partnerNav} eyebrow={user.role === "GROUP_LEADER" ? "Group leader" : "Partner"} title="My consultants">
       <div className="space-y-6">
+        {params.error ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-clinic-red">
+            {errorMessages[params.error] ?? "The requested action could not be completed. Please review the details and try again."}
+          </div>
+        ) : null}
         {partnerProfile && (
           <Card className="p-6">
             <div>
@@ -114,6 +128,7 @@ export default async function PartnerConsultantsPage() {
               <input name="firstName" placeholder="First name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="lastName" placeholder="Last name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="email" type="email" placeholder="Leader email" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
+              <input name="phone" type="tel" placeholder="Phone" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" />
               <input name="password" type="password" minLength={8} placeholder="Temporary password" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="Direct sale %" defaultValue="25" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" placeholder="Consultant override %" defaultValue="0" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
@@ -159,6 +174,7 @@ export default async function PartnerConsultantsPage() {
               <input name="firstName" placeholder="First name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="lastName" placeholder="Last name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="email" type="email" placeholder="Consultant email" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
+              <input name="phone" type="tel" placeholder="Phone" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" />
               <input name="password" type="password" minLength={8} placeholder="Temporary password" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <select name="groupLeaderProfileId" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" defaultValue="">
                 <option value="">Direct partner</option>

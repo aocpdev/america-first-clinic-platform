@@ -24,6 +24,46 @@ function bpsFromPercentInput(value: string, fallbackBps: number) {
   return Math.max(0, Math.min(10000, Math.round(parsed * 100)));
 }
 
+function normalizePhoneInput(value: string) {
+  const digits = value.replace(/\D/g, "");
+  return digits || null;
+}
+
+function redirectWithError(path: string, error: string): never {
+  const separator = path.includes("?") ? "&" : "?";
+  redirect(`${path}${separator}error=${encodeURIComponent(error)}`);
+}
+
+async function assertUniqueUserContact({
+  email,
+  phone,
+  redirectPath
+}: {
+  email: string;
+  phone: string | null;
+  redirectPath: string;
+}) {
+  const existingEmail = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true }
+  });
+
+  if (existingEmail) {
+    redirectWithError(redirectPath, "duplicate_email");
+  }
+
+  if (phone) {
+    const existingPhone = await prisma.user.findFirst({
+      where: { phone },
+      select: { id: true }
+    });
+
+    if (existingPhone) {
+      redirectWithError(redirectPath, "duplicate_phone");
+    }
+  }
+}
+
 async function getAmericaFirstClinic() {
   return prisma.company.upsert({
     where: { slug: "america-first-clinic" },
@@ -41,6 +81,7 @@ export async function registerUser(formData: FormData) {
   const lastName = formValue(formData, "lastName");
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
+  const phone = normalizePhoneInput(formValue(formData, "phone"));
   const requestedRole = roleSchema.extract(["CONSULTANT"]).catch("CONSULTANT").parse("CONSULTANT");
   const requestedPartnerProfileId = formValue(formData, "requestedPartnerProfileId");
   const requestedGroupLeaderProfileId = formValue(formData, "requestedGroupLeaderProfileId") || null;
@@ -50,6 +91,7 @@ export async function registerUser(formData: FormData) {
   }
 
   const company = await getAmericaFirstClinic();
+  await assertUniqueUserContact({ email, phone, redirectPath: "/register" });
   const selectedPartner = await prisma.partnerProfile.findFirst({
     where: {
       id: requestedPartnerProfileId,
@@ -110,6 +152,7 @@ export async function registerUser(formData: FormData) {
       status,
       firstName,
       lastName,
+      phone,
       isActive: false
     },
     create: {
@@ -123,6 +166,7 @@ export async function registerUser(formData: FormData) {
       email,
       firstName,
       lastName,
+      phone,
       isActive: false
     }
   });
@@ -434,6 +478,7 @@ export async function createPartnerByAdmin(formData: FormData) {
   const lastName = formValue(formData, "lastName");
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
+  const phone = normalizePhoneInput(formValue(formData, "phone"));
   const companyName = formValue(formData, "companyName");
   const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
 
@@ -442,6 +487,7 @@ export async function createPartnerByAdmin(formData: FormData) {
   }
 
   const company = await getAmericaFirstClinic();
+  await assertUniqueUserContact({ email, phone, redirectPath: "/admin/consultants" });
   const adminClient = createSupabaseAdminClient();
   const { data, error } = await adminClient.auth.admin.createUser({
     email,
@@ -475,6 +521,7 @@ export async function createPartnerByAdmin(formData: FormData) {
         status: "ACTIVE",
         firstName,
         lastName,
+        phone,
         isActive: true
       },
       create: {
@@ -486,6 +533,7 @@ export async function createPartnerByAdmin(formData: FormData) {
         email,
         firstName,
         lastName,
+        phone,
         isActive: true
       }
     });
@@ -525,6 +573,7 @@ export async function createGroupLeader(formData: FormData) {
   const lastName = formValue(formData, "lastName");
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
+  const phone = normalizePhoneInput(formValue(formData, "phone"));
   const selectedPartnerProfileId = formValue(formData, "partnerProfileId");
   const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
   const consultantOverrideBps = bpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
@@ -554,6 +603,12 @@ export async function createGroupLeader(formData: FormData) {
   if (!partnerProfile) {
     redirect(actor.role === "PARTNER" ? "/partner/consultants?error=invalid_partner" : "/admin/consultants?error=invalid_partner");
   }
+
+  await assertUniqueUserContact({
+    email,
+    phone,
+    redirectPath: actor.role === "PARTNER" ? "/partner/consultants" : `/admin/consultants?partnerId=${partnerProfile.id}&section=leaders`
+  });
 
   const adminClient = createSupabaseAdminClient();
   const { data, error } = await adminClient.auth.admin.createUser({
@@ -589,6 +644,7 @@ export async function createGroupLeader(formData: FormData) {
         status: "ACTIVE",
         firstName,
         lastName,
+        phone,
         isActive: true
       },
       create: {
@@ -600,6 +656,7 @@ export async function createGroupLeader(formData: FormData) {
         email,
         firstName,
         lastName,
+        phone,
         isActive: true
       }
     });
@@ -640,9 +697,11 @@ export async function createConsultantByAdmin(formData: FormData) {
   const lastName = formValue(formData, "lastName");
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
+  const phone = normalizePhoneInput(formValue(formData, "phone"));
   const selectedPartnerProfileId = formValue(formData, "partnerProfileId");
   const selectedGroupLeaderProfileId = formValue(formData, "groupLeaderProfileId") || null;
   const commissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
+  const returnTo = formValue(formData, "returnTo");
 
   if (!firstName || !lastName || !email || password.length < 8 || !selectedPartnerProfileId) {
     redirect("/admin/consultants?error=invalid_consultant");
@@ -669,6 +728,20 @@ export async function createConsultantByAdmin(formData: FormData) {
   if (!partnerProfile) {
     redirect(actor.role === "PARTNER" ? "/partner/consultants?error=invalid_partner" : "/admin/consultants?error=invalid_partner");
   }
+
+  const defaultAdminPath = `/admin/consultants?partnerId=${partnerProfile.id}&section=network`;
+  const safeReturnTo =
+    returnTo.startsWith("/admin/consultants") || returnTo.startsWith("/partner/consultants")
+      ? returnTo
+      : "";
+  const successPath = actor.role === "PARTNER" ? "/partner/consultants?updated=consultant_created" : safeReturnTo || `${defaultAdminPath}&updated=consultant_created`;
+  const errorPath = actor.role === "PARTNER" ? "/partner/consultants" : safeReturnTo || defaultAdminPath;
+
+  await assertUniqueUserContact({
+    email,
+    phone,
+    redirectPath: errorPath
+  });
 
   if (selectedGroupLeaderProfileId) {
     const groupLeader = await prisma.groupLeaderProfile.findFirst({
@@ -732,6 +805,7 @@ export async function createConsultantByAdmin(formData: FormData) {
         status: "ACTIVE",
         firstName,
         lastName,
+        phone,
         isActive: true,
         approvedAt: new Date(),
         approvedByUserId: actor.id
@@ -747,6 +821,7 @@ export async function createConsultantByAdmin(formData: FormData) {
         email,
         firstName,
         lastName,
+        phone,
         isActive: true,
         approvedAt: new Date(),
         approvedByUserId: actor.id
@@ -791,7 +866,7 @@ export async function createConsultantByAdmin(formData: FormData) {
 
   revalidatePath("/admin/consultants");
   revalidatePath("/partner/consultants");
-  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=consultant_created" : `/admin/consultants?partnerId=${partnerProfile.id}&section=network&updated=consultant_created`);
+  redirect(successPath);
 }
 
 export async function updatePartnerProfileByAdmin(formData: FormData) {

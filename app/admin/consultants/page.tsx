@@ -6,6 +6,7 @@ import {
   updateConsultantCommercials,
   updatePartnerProfileByAdmin
 } from "@/app/(auth)/actions";
+import { CreateConsultantModal } from "@/app/admin/consultants/create-consultant-modal";
 import { CreatePartnerModal } from "@/app/admin/consultants/create-partner-modal";
 import { LeaderSection } from "@/app/admin/consultants/leader-section";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
@@ -51,7 +52,7 @@ function getPartnerSection(section: string | undefined): PartnerSection {
 export default async function AdminConsultantsPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; updated?: string; partnerId?: string; section?: string }>;
+  searchParams: Promise<{ error?: string; updated?: string; partnerId?: string; section?: string; leaderId?: string }>;
 }) {
   const params = await searchParams;
   const [pendingConsultants, partners] = await Promise.all([
@@ -80,6 +81,9 @@ export default async function AdminConsultantsPage({
 
   const selectedPartner = params.partnerId
     ? partners.find((partner) => partner.id === params.partnerId) ?? null
+    : null;
+  const selectedLeader = selectedPartner && params.leaderId
+    ? selectedPartner.groupLeaders.find((leader) => leader.id === params.leaderId) ?? null
     : null;
   const selectedOrders = selectedPartner
     ? await prisma.order.findMany({
@@ -117,7 +121,8 @@ export default async function AdminConsultantsPage({
         partner: selectedPartner,
         groupLeaders: selectedPartner.groupLeaders,
         consultants: selectedPartner.consultants,
-        orders: selectedOrders
+        orders: selectedOrders,
+        visibleGroupLeaderId: selectedLeader?.id ?? null
       })
     : null;
   const selectedPending = selectedPartner
@@ -126,6 +131,10 @@ export default async function AdminConsultantsPage({
   const activeSection = getPartnerSection(params.section);
   const sectionHref = (section: PartnerSection) =>
     selectedPartner ? `/admin/consultants?partnerId=${selectedPartner.id}&section=${section}` : "/admin/consultants";
+  const errorMessages: Record<string, string> = {
+    duplicate_email: "That email is already assigned to another partner, leader, or consultant.",
+    duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant."
+  };
 
   return (
     <SidebarShell nav={adminNav} eyebrow="Admin" title="Partner network">
@@ -137,7 +146,7 @@ export default async function AdminConsultantsPage({
         ) : null}
         {params.error ? (
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-clinic-red">
-            The requested action could not be completed. Please review the details and try again.
+            {errorMessages[params.error] ?? "The requested action could not be completed. Please review the details and try again."}
           </div>
         ) : null}
 
@@ -303,17 +312,40 @@ export default async function AdminConsultantsPage({
               ) : null}
 
               {activeSection === "hierarchy" && hierarchyTree ? (
-                <SalesHierarchyView
-                  tree={hierarchyTree}
-                  title={`${selectedPartner.companyName || selectedPartner.displayName} hierarchy`}
-                />
+                <div className="space-y-4">
+                  {selectedLeader ? (
+                    <Card className="p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <Link
+                            href={sectionHref("leaders")}
+                            className="text-sm font-semibold text-clinic-navy transition hover:text-clinic-red"
+                          >
+                            Back to leaders
+                          </Link>
+                          <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">{selectedLeader.displayName} hierarchy</h2>
+                          <p className="mt-1 text-sm text-slate-500">This view only shows consultants assigned under this group leader.</p>
+                        </div>
+                        <CreateConsultantModal
+                          partnerProfileId={selectedPartner.id}
+                          groupLeaderProfileId={selectedLeader.id}
+                          groupLeaderName={selectedLeader.displayName}
+                          returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=hierarchy&leaderId=${selectedLeader.id}`}
+                        />
+                      </div>
+                    </Card>
+                  ) : null}
+                  <SalesHierarchyView
+                    tree={hierarchyTree}
+                    title={selectedLeader ? `${selectedLeader.displayName} hierarchy` : `${selectedPartner.companyName || selectedPartner.displayName} hierarchy`}
+                  />
+                </div>
               ) : null}
 
               {activeSection === "leaders" ? (
               <LeaderSection
                 partnerProfileId={selectedPartner.id}
                 leaders={selectedPartner.groupLeaders}
-                hierarchyHref={sectionHref("hierarchy")}
               />
               ) : null}
 
@@ -329,10 +361,11 @@ export default async function AdminConsultantsPage({
                 </div>
                 <form action={createConsultantByAdmin} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
                   <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
-                  <input name="firstName" placeholder="First name" className={inputClass()} required />
-                  <input name="lastName" placeholder="Last name" className={inputClass()} required />
-                  <input name="email" type="email" placeholder="Consultant email" className={inputClass()} required />
-                  <input name="password" type="password" minLength={8} placeholder="Temporary password" className={inputClass()} required />
+	                  <input name="firstName" placeholder="First name" className={inputClass()} required />
+	                  <input name="lastName" placeholder="Last name" className={inputClass()} required />
+	                  <input name="email" type="email" placeholder="Consultant email" className={inputClass()} required />
+	                  <input name="phone" type="tel" placeholder="Phone" className={inputClass()} />
+	                  <input name="password" type="password" minLength={8} placeholder="Temporary password" className={inputClass()} required />
                   <select name="groupLeaderProfileId" className={inputClass()} defaultValue="">
                     <option value="">Direct partner</option>
                     {selectedPartner.groupLeaders.map((leader) => (

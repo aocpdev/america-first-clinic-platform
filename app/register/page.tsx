@@ -13,6 +13,10 @@ export default async function RegisterPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
+  const errorMessages: Record<string, string> = {
+    duplicate_email: "That email is already registered. Please use another email or log in.",
+    duplicate_phone: "That phone number is already registered. Please use another phone number."
+  };
   const [partners, groupLeaders] = await Promise.all([
     prisma.partnerProfile.findMany({
       where: {
@@ -43,13 +47,14 @@ export default async function RegisterPage({
           </p>
           {error && (
             <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
-              Registration could not be completed. Please review your information and try again.
+              {errorMessages[error] ?? "Registration could not be completed. Please review your information and try again."}
             </div>
           )}
           <form action={registerUser} className="mt-6 grid gap-4 sm:grid-cols-2">
             <Input name="firstName" placeholder="First name" required />
             <Input name="lastName" placeholder="Last name" required />
             <Input className="sm:col-span-2" name="email" placeholder="Email address" type="email" required />
+            <Input className="sm:col-span-2" name="phone" placeholder="Phone number" type="tel" />
             <Input className="sm:col-span-2" name="password" placeholder="Password" type="password" minLength={8} required />
             <label className="sm:col-span-2 text-sm font-semibold text-clinic-ink">
               Partner company
