@@ -392,7 +392,7 @@ async function createWorkspaceOrder(
 
   const fallbackInvoiceUrl = orderPaymentUrl(order.id, providerCode);
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
-  const checkoutResult = paymentWorkflow === "send_invoice"
+  const checkoutResult = providerCode === "stripe"
     ? await getPaymentProvider(providerCode).createCheckoutSession({
         companyId,
         customerId: customer.id,
@@ -503,6 +503,10 @@ async function createWorkspaceOrder(
   revalidatePath("/consultant/sales");
   revalidatePath("/consultant/commissions");
   revalidatePath("/consultant/pipeline");
+
+  if (paymentWorkflow === "collect_payment" && checkoutResult?.redirectUrl) {
+    redirect(checkoutResult.redirectUrl);
+  }
 
   redirect(`${redirectBasePath}?created=${order.id}`);
 }

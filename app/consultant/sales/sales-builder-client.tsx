@@ -436,8 +436,8 @@ export function SalesBuilderClient({
               </div>
               <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-clinic-navy">
                 {paymentWorkflow === "collect_payment"
-                  ? "Prepared for Authorize.net Accept Hosted so card data is collected by Authorize.net, not stored in the CRM."
-                  : "Creates an invoice payment link placeholder and queues webhook metadata for the communication workflow."}
+                  ? "Opens secure Stripe Checkout after the order is created. Card data is collected by Stripe, not stored in the CRM."
+                  : "Creates a Stripe invoice payment link and queues webhook metadata for the communication workflow."}
               </div>
             </div>
 

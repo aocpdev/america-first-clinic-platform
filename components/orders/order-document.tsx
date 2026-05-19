@@ -23,6 +23,14 @@ function shortId(id: string) {
   return id.slice(0, 8).toUpperCase();
 }
 
+function paymentProviderMetadata(order: OrderListRecord) {
+  const metadata = order.referralMetadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  const paymentProvider = (metadata as Record<string, unknown>).paymentProvider;
+  if (!paymentProvider || typeof paymentProvider !== "object" || Array.isArray(paymentProvider)) return null;
+  return paymentProvider as Record<string, unknown>;
+}
+
 export function OrderDocument({
   order,
   mode,
@@ -41,6 +49,9 @@ export function OrderDocument({
   const canSeePartnerProfit = mode === "admin" || mode === "partner";
   const canSeeLeaderProfit = mode === "admin" || mode === "partner" || mode === "group_leader";
   const canSeeConsultantCommission = !isReceipt;
+  const paymentMetadata = paymentProviderMetadata(order);
+  const paymentUrl = typeof paymentMetadata?.paymentUrl === "string" ? paymentMetadata.paymentUrl : null;
+  const providerSessionId = typeof paymentMetadata?.providerSessionId === "string" ? paymentMetadata.providerSessionId : null;
 
   return (
     <Card className="overflow-hidden rounded-3xl bg-white shadow-line">
@@ -145,6 +156,24 @@ export function OrderDocument({
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Order total</p>
             <p className="mt-3 text-4xl font-semibold text-clinic-navy">{money(order.totalCents)}</p>
           </div>
+
+          {!isReceipt && paymentUrl ? (
+            <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Payment link</p>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                {order.paymentStatus === "CAPTURED" ? "Payment has been captured." : "Use this secure provider-hosted link to complete or resend payment."}
+              </p>
+              <a
+                href={paymentUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-clinic-navy px-4 text-sm font-semibold text-white shadow-soft transition hover:bg-clinic-blue"
+              >
+                Open payment link
+              </a>
+              {providerSessionId ? <p className="mt-3 break-all text-xs text-slate-500">Session: {providerSessionId}</p> : null}
+            </div>
+          ) : null}
 
           {!isReceipt ? (
             <div className="rounded-3xl border border-border bg-white p-5">
