@@ -1,4 +1,3 @@
-import { ConsultantTable } from "@/components/dashboard/data-table";
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
@@ -33,7 +32,25 @@ export default function ConsultantDashboardPage() {
         </Card>
       </div>
       <div className="mt-6">
-        <ConsultantTable />
+        <Card>
+          <CardHeader>
+            <CardTitle>Personal sales activity</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 md:grid-cols-3">
+              {[
+                ["Recent orders", "Track your latest customer purchases and payment status."],
+                ["Customer follow-ups", "Keep your assigned customers moving through the pipeline."],
+                ["Monthly goal", "Monitor progress against your personal sales target."]
+              ].map(([title, description]) => (
+                <div key={title} className="rounded-2xl border border-border bg-white p-4">
+                  <p className="font-semibold text-clinic-ink">{title}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </SidebarShell>
   );
