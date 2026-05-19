@@ -2,12 +2,13 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 import { UserRole, UserStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { createReferralCode, createReferralSlug } from "@/lib/auth/slug";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
 import { roleSchema } from "@/lib/validations/core";
-import { requireRole, requireUser } from "@/lib/auth/current-user";
+import { getAuthenticatedUser, IMPERSONATION_COOKIE, requireRole, requireUser } from "@/lib/auth/current-user";
 import { dashboardPathForRole } from "@/lib/auth/redirects";
 
 function formValue(formData: FormData, key: string) {
@@ -163,8 +164,102 @@ export async function loginUser(formData: FormData) {
 
 export async function logoutUser() {
   const supabase = await createSupabaseServerClient();
+  const cookieStore = await cookies();
+  cookieStore.delete(IMPERSONATION_COOKIE);
   await supabase.auth.signOut();
   redirect("/login");
+}
+
+function displayNameForUser(user: { firstName: string | null; lastName: string | null; email: string }) {
+  return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+}
+
+async function ensureCanImpersonateTarget(targetUserId: string) {
+  const realUser = await getAuthenticatedUser();
+
+  if (!realUser) {
+    redirect("/login");
+  }
+
+  const target = await prisma.user.findUnique({
+    where: { id: targetUserId },
+    include: { consultantProfile: true, groupLeaderProfile: true, partnerProfile: true }
+  });
+
+  if (!target || target.status !== "ACTIVE" || !target.isActive) {
+    redirect("/login?error=impersonation_unavailable");
+  }
+
+  if (realUser.role === "COMPANY_ADMIN" || realUser.role === "SUPER_ADMIN") {
+    if (
+      target.companyId !== realUser.companyId ||
+      !["PARTNER", "GROUP_LEADER", "CONSULTANT"].includes(target.role)
+    ) {
+      redirect("/login?error=access_denied");
+    }
+
+    return { realUser, target };
+  }
+
+  if (realUser.role === "PARTNER" && realUser.partnerProfile) {
+    const partnerProfileId = realUser.partnerProfile.id;
+    const isLeader = target.groupLeaderProfile?.partnerProfileId === partnerProfileId;
+    const isConsultant = target.consultantProfile?.partnerProfileId === partnerProfileId;
+
+    if (target.companyId !== realUser.companyId || (!isLeader && !isConsultant)) {
+      redirect("/login?error=access_denied");
+    }
+
+    if (target.role !== "GROUP_LEADER" && target.role !== "CONSULTANT") {
+      redirect("/login?error=access_denied");
+    }
+
+    return { realUser, target };
+  }
+
+  redirect("/login?error=access_denied");
+}
+
+export async function startImpersonation(formData: FormData) {
+  const targetUserId = formValue(formData, "targetUserId");
+
+  if (!targetUserId) {
+    redirect("/login?error=invalid_impersonation");
+  }
+
+  const { realUser, target } = await ensureCanImpersonateTarget(targetUserId);
+  const cookieStore = await cookies();
+  cookieStore.set(IMPERSONATION_COOKIE, target.id, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      companyId: realUser.companyId,
+      userId: realUser.id,
+      action: "IMPERSONATION_STARTED",
+      resource: "User",
+      resourceId: target.id,
+      metadata: {
+        targetEmail: target.email,
+        targetName: displayNameForUser(target),
+        targetRole: target.role
+      }
+    }
+  });
+
+  redirect(dashboardPathForRole(target.role));
+}
+
+export async function stopImpersonation() {
+  const realUser = await getAuthenticatedUser();
+  const cookieStore = await cookies();
+  cookieStore.delete(IMPERSONATION_COOKIE);
+  redirect(realUser ? dashboardPathForRole(realUser.role) : "/login");
 }
 
 export async function approveConsultant(formData: FormData) {

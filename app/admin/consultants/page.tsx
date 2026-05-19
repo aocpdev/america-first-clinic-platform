@@ -3,6 +3,7 @@ import {
   approveConsultant,
   createGroupLeader,
   rejectConsultant,
+  startImpersonation,
   updateConsultantCommercials,
   updateGroupLeaderProfile,
   updatePartnerProfileByAdmin
@@ -144,9 +145,8 @@ export default async function AdminConsultantsPage({
               const partnerPendingCount = pendingConsultants.filter((user) => user.requestedPartnerProfileId === partner.id).length;
 
               return (
-                <Link
+                <Card
                   key={partner.id}
-                  href={`/admin/consultants?partnerId=${partner.id}`}
                   className="group rounded-3xl border border-border bg-white p-5 shadow-line transition hover:-translate-y-0.5 hover:border-clinic-navy/30 hover:shadow-soft"
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -170,11 +170,19 @@ export default async function AdminConsultantsPage({
                       <p className="mt-1">Pending</p>
                     </div>
                   </div>
-                  <div className="mt-5 flex items-center justify-between border-t border-border pt-4">
-                    <span className="text-sm font-semibold text-slate-500">Open partner workspace</span>
-                    <span className="text-sm font-semibold text-clinic-navy transition group-hover:translate-x-1">View</span>
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
+                    <Link
+                      href={`/admin/consultants?partnerId=${partner.id}`}
+                      className="inline-flex h-9 items-center rounded-xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink transition hover:bg-clinic-mist"
+                    >
+                      Open workspace
+                    </Link>
+                    <form action={startImpersonation}>
+                      <input type="hidden" name="targetUserId" value={partner.userId} />
+                      <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as partner</SubmitButton>
+                    </form>
                   </div>
-                </Link>
+                </Card>
               );
             })}
             {partners.length === 0 ? (
@@ -201,6 +209,10 @@ export default async function AdminConsultantsPage({
                       {selectedPartner.companyName || selectedPartner.displayName}
                     </h2>
                     <p className="mt-2 text-sm text-slate-500">{selectedPartner.user.email}</p>
+                    <form action={startImpersonation} className="mt-4">
+                      <input type="hidden" name="targetUserId" value={selectedPartner.userId} />
+                      <SubmitButton size="sm" variant="outline" pendingText="Opening partner view...">View as partner</SubmitButton>
+                    </form>
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div className="rounded-2xl bg-clinic-mist px-4 py-3">
@@ -259,7 +271,13 @@ export default async function AdminConsultantsPage({
                           <p className="font-semibold text-clinic-ink">{leader.displayName}</p>
                           <p className="mt-1 text-sm text-slate-500">{leader.user.email}</p>
                         </div>
-                        <Badge>{percentLabel(leader.commissionBps)} pool share</Badge>
+                        <div className="flex flex-col items-end gap-2">
+                          <Badge>{percentLabel(leader.commissionBps)} pool share</Badge>
+                          <form action={startImpersonation}>
+                            <input type="hidden" name="targetUserId" value={leader.userId} />
+                            <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as</SubmitButton>
+                          </form>
+                        </div>
                       </div>
                       <form action={updateGroupLeaderProfile} className="mt-4 flex gap-2">
                         <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
@@ -347,6 +365,10 @@ export default async function AdminConsultantsPage({
                               </select>
                               <input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={profile.commissionBps / 100} className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Consultant share of partner pool" />
                               <SubmitButton size="sm" variant="outline" pendingText="Saving...">Save</SubmitButton>
+                            </form>
+                            <form action={startImpersonation} className="mt-2 flex justify-end">
+                              <input type="hidden" name="targetUserId" value={profile.userId} />
+                              <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as consultant</SubmitButton>
                             </form>
                           </td>
                         </tr>

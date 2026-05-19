@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { Bell, Search } from "lucide-react";
+import { stopImpersonation } from "@/app/(auth)/actions";
 import { ClinicLogo } from "@/components/layout/logo";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getCurrentUser } from "@/lib/auth/current-user";
+import { getImpersonationContext } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +25,9 @@ export async function SidebarShell({
   eyebrow: string;
   children: React.ReactNode;
 }) {
-  const user = await getCurrentUser();
+  const { realUser, activeUser: user, isImpersonating } = await getImpersonationContext();
+  const activeName = user ? [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email : "";
+  const realName = realUser ? [realUser.firstName, realUser.lastName].filter(Boolean).join(" ").trim() || realUser.email : "";
 
   return (
     <div className="min-h-screen bg-clinic-mist">
@@ -52,6 +55,20 @@ export async function SidebarShell({
         </nav>
       </aside>
       <main className="lg:pl-72">
+        {isImpersonating && user && realUser ? (
+          <div className="sticky top-0 z-40 border-b border-amber-200 bg-amber-50 px-4 py-2 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-2 text-sm font-semibold text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+              <p>
+                Viewing as {activeName} ({user.role}). Real account: {realName}.
+              </p>
+              <form action={stopImpersonation}>
+                <Button type="submit" size="sm" variant="outline" className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100">
+                  Exit view
+                </Button>
+              </form>
+            </div>
+          </div>
+        ) : null}
         <header className="sticky top-0 z-30 border-b border-border bg-white/88 backdrop-blur-xl">
           <div className="flex min-h-20 flex-col gap-3 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
             <div>

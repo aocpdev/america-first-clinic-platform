@@ -1,4 +1,4 @@
-import { approveConsultant, createGroupLeader, rejectConsultant } from "@/app/(auth)/actions";
+import { approveConsultant, createGroupLeader, rejectConsultant, startImpersonation } from "@/app/(auth)/actions";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { SalesHierarchyView } from "@/components/network/sales-hierarchy-view";
 import { Badge } from "@/components/ui/badge";
@@ -137,6 +137,10 @@ export default async function PartnerConsultantsPage() {
                   <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                     {leader.commissionBps / 100}% of partner pool
                   </p>
+                  <form action={startImpersonation} className="mt-4">
+                    <input type="hidden" name="targetUserId" value={leader.userId} />
+                    <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as leader</SubmitButton>
+                  </form>
                 </div>
               ))}
               {groupLeaders.length === 0 && <p className="text-sm text-slate-500">No group leaders have been created yet.</p>}
@@ -238,7 +242,13 @@ export default async function PartnerConsultantsPage() {
                 <p className="mt-4 rounded-lg bg-clinic-mist p-3 text-sm font-semibold text-clinic-navy">/c/{profile.referralSlug}</p>
                 <p className="mt-3 text-sm text-slate-500">Leader: {profile.groupLeaderProfile?.displayName ?? "Unassigned"}</p>
                 {partnerProfile ? (
-                  <p className="mt-1 text-sm text-slate-500">Consultant commission: {profile.commissionBps / 100}% of partner pool</p>
+                  <>
+                    <p className="mt-1 text-sm text-slate-500">Consultant commission: {profile.commissionBps / 100}% of partner pool</p>
+                    <form action={startImpersonation} className="mt-4">
+                      <input type="hidden" name="targetUserId" value={profile.userId} />
+                      <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as consultant</SubmitButton>
+                    </form>
+                  </>
                 ) : null}
               </div>
             ))}
