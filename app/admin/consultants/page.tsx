@@ -9,15 +9,13 @@ import {
   updatePartnerProfileByAdmin
 } from "@/app/(auth)/actions";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
+import { SalesHierarchyView } from "@/components/network/sales-hierarchy-view";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { adminNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
-
-function percent(bps: number) {
-  return `${bps / 100}%`;
-}
+import { buildSalesHierarchyTree, percentLabel } from "@/lib/network/sales-hierarchy";
 
 function displayUserName(user: { firstName: string | null; lastName: string | null; email: string }) {
   return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
@@ -58,6 +56,45 @@ export default async function AdminConsultantsPage({
   ]);
 
   const selectedPartner = partners.find((partner) => partner.id === params.partnerId) ?? partners[0] ?? null;
+  const selectedOrders = selectedPartner
+    ? await prisma.order.findMany({
+        where: {
+          OR: [
+            { partnerProfileId: selectedPartner.id },
+            { consultantProfile: { partnerProfileId: selectedPartner.id } }
+          ]
+        },
+        select: {
+          totalCents: true,
+          partnerProfileId: true,
+          groupLeaderProfileId: true,
+          consultantProfileId: true,
+          consultantProfile: {
+            select: {
+              partnerProfileId: true,
+              groupLeaderProfileId: true
+            }
+          },
+          commissionSplits: {
+            select: {
+              participantRole: true,
+              amountCents: true,
+              partnerProfileId: true,
+              groupLeaderProfileId: true,
+              consultantProfileId: true
+            }
+          }
+        }
+      })
+    : [];
+  const hierarchyTree = selectedPartner
+    ? buildSalesHierarchyTree({
+        partner: selectedPartner,
+        groupLeaders: selectedPartner.groupLeaders,
+        consultants: selectedPartner.consultants,
+        orders: selectedOrders
+      })
+    : null;
   const selectedPending = selectedPartner
     ? pendingConsultants.filter((user) => user.requestedPartnerProfileId === selectedPartner.id)
     : [];
@@ -142,7 +179,7 @@ export default async function AdminConsultantsPage({
                         <p className="mt-1 text-sm text-slate-500">{partner.user.email}</p>
                       </div>
                       <Badge className={isSelected ? "border-blue-100 bg-blue-50 text-clinic-navy" : ""}>
-                        {percent(partner.commissionBps)}
+                        {percentLabel(partner.commissionBps)}
                       </Badge>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs font-semibold text-slate-500">
@@ -179,7 +216,7 @@ export default async function AdminConsultantsPage({
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div className="rounded-2xl bg-clinic-mist px-4 py-3">
-                      <p className="text-2xl font-semibold text-clinic-navy">{percent(selectedPartner.commissionBps)}</p>
+                      <p className="text-2xl font-semibold text-clinic-navy">{percentLabel(selectedPartner.commissionBps)}</p>
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Margin pool</p>
                     </div>
                     <div className="rounded-2xl bg-clinic-mist px-4 py-3">
@@ -200,6 +237,13 @@ export default async function AdminConsultantsPage({
                   <SubmitButton variant="outline" pendingText="Saving...">Save partner</SubmitButton>
                 </form>
               </Card>
+
+              {hierarchyTree ? (
+                <SalesHierarchyView
+                  tree={hierarchyTree}
+                  title={`${selectedPartner.companyName || selectedPartner.displayName} hierarchy`}
+                />
+              ) : null}
 
               <Card className="p-6">
                 <div>
@@ -227,7 +271,7 @@ export default async function AdminConsultantsPage({
                           <p className="font-semibold text-clinic-ink">{leader.displayName}</p>
                           <p className="mt-1 text-sm text-slate-500">{leader.user.email}</p>
                         </div>
-                        <Badge>{percent(leader.commissionBps)} pool share</Badge>
+                        <Badge>{percentLabel(leader.commissionBps)} pool share</Badge>
                       </div>
                       <form action={updateGroupLeaderProfile} className="mt-4 flex gap-2">
                         <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
@@ -302,7 +346,7 @@ export default async function AdminConsultantsPage({
                           </td>
                           <td className="px-5 py-4 text-slate-600">{profile.groupLeaderProfile?.displayName ?? "Direct partner"}</td>
                           <td className="px-5 py-4 font-semibold text-clinic-navy">/c/{profile.referralSlug}</td>
-                          <td className="px-5 py-4">{percent(profile.commissionBps)} of partner pool</td>
+                          <td className="px-5 py-4">{percentLabel(profile.commissionBps)} of partner pool</td>
                           <td className="px-5 py-4">
                             <form action={updateConsultantCommercials} className="flex justify-end gap-2">
                               <input type="hidden" name="consultantProfileId" value={profile.id} />

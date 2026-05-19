@@ -1,27 +1,38 @@
 import { approveConsultant, createGroupLeader, rejectConsultant } from "@/app/(auth)/actions";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
+import { SalesHierarchyView } from "@/components/network/sales-hierarchy-view";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { partnerNav } from "@/lib/constants/navigation";
 import { requirePartner } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
+import { buildSalesHierarchyTree } from "@/lib/network/sales-hierarchy";
 
 export default async function PartnerConsultantsPage() {
   const user = await requirePartner();
-  const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: user.id } });
+  const partnerProfile = await prisma.partnerProfile.findUnique({
+    where: { userId: user.id },
+    include: { user: true }
+  });
   const groupLeaderProfile = await prisma.groupLeaderProfile.findUnique({
     where: { userId: user.id },
-    include: { partnerProfile: true }
+    include: {
+      user: true,
+      partnerProfile: {
+        include: { user: true }
+      }
+    }
   });
   const effectivePartnerProfileId = partnerProfile?.id ?? groupLeaderProfile?.partnerProfileId ?? null;
-  const [pendingConsultants, consultants, groupLeaders] = effectivePartnerProfileId
+  const [pendingConsultants, consultants, groupLeaders, hierarchyOrders] = effectivePartnerProfileId
     ? await Promise.all([
         prisma.user.findMany({
           where: {
             requestedRole: "CONSULTANT",
             status: "PENDING_APPROVAL",
-            requestedPartnerProfileId: effectivePartnerProfileId
+            requestedPartnerProfileId: effectivePartnerProfileId,
+            ...(groupLeaderProfile ? { requestedGroupLeaderProfileId: groupLeaderProfile.id } : {})
           },
           orderBy: { createdAt: "desc" }
         }),
@@ -37,9 +48,55 @@ export default async function PartnerConsultantsPage() {
           where: { partnerProfileId: effectivePartnerProfileId },
           include: { user: true },
           orderBy: { createdAt: "desc" }
+        }),
+        prisma.order.findMany({
+          where: groupLeaderProfile
+            ? {
+                OR: [
+                  { groupLeaderProfileId: groupLeaderProfile.id },
+                  { consultantProfile: { groupLeaderProfileId: groupLeaderProfile.id } }
+                ]
+              }
+            : {
+                OR: [
+                  { partnerProfileId: effectivePartnerProfileId },
+                  { consultantProfile: { partnerProfileId: effectivePartnerProfileId } }
+                ]
+              },
+          select: {
+            totalCents: true,
+            partnerProfileId: true,
+            groupLeaderProfileId: true,
+            consultantProfileId: true,
+            consultantProfile: {
+              select: {
+                partnerProfileId: true,
+                groupLeaderProfileId: true
+              }
+            },
+            commissionSplits: {
+              select: {
+                participantRole: true,
+                amountCents: true,
+                partnerProfileId: true,
+                groupLeaderProfileId: true,
+                consultantProfileId: true
+              }
+            }
+          }
         })
       ])
-    : [[], [], []];
+    : [[], [], [], []];
+  const hierarchyPartner = partnerProfile ?? groupLeaderProfile?.partnerProfile ?? null;
+  const hierarchyTree = hierarchyPartner
+    ? buildSalesHierarchyTree({
+        partner: hierarchyPartner,
+        groupLeaders,
+        consultants,
+        orders: hierarchyOrders,
+        visibleGroupLeaderId: groupLeaderProfile?.id ?? null
+      })
+    : null;
 
   return (
     <SidebarShell nav={partnerNav} eyebrow={user.role === "GROUP_LEADER" ? "Group leader" : "Partner"} title="My consultants">
@@ -49,16 +106,14 @@ export default async function PartnerConsultantsPage() {
             <div>
               <Badge>Team structure</Badge>
               <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Create group leader</h2>
-              <p className="mt-2 max-w-3xl text-slate-600">
-                Leaders can manage a smaller group of consultants inside your partner organization.
-              </p>
+              <p className="mt-2 max-w-3xl text-slate-600">Leaders manage a smaller group of consultants inside your partner organization.</p>
             </div>
             <form action={createGroupLeader} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
               <input name="firstName" placeholder="First name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="lastName" placeholder="Last name" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="email" type="email" placeholder="Leader email" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <input name="password" type="password" minLength={8} placeholder="Temporary password" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
-              <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="Leader % of margin" defaultValue="6.25" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
+              <input name="commissionPercent" type="number" min="0" max="100" step="0.01" placeholder="% of partner pool" defaultValue="25" className="h-11 rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10" required />
               <div className="md:col-span-2 xl:col-span-5">
                 <SubmitButton variant="accent" pendingText="Creating leader...">Create group leader</SubmitButton>
               </div>
@@ -78,7 +133,7 @@ export default async function PartnerConsultantsPage() {
                   <p className="font-semibold text-clinic-ink">{leader.displayName}</p>
                   <p className="mt-1 text-sm text-slate-500">{leader.user.email}</p>
                   <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                    {leader.commissionBps / 100}% of margin
+                    {leader.commissionBps / 100}% of partner pool
                   </p>
                 </div>
               ))}
@@ -86,6 +141,13 @@ export default async function PartnerConsultantsPage() {
             </div>
           </Card>
         )}
+
+        {hierarchyTree ? (
+          <SalesHierarchyView
+            tree={hierarchyTree}
+            title={groupLeaderProfile ? "My team hierarchy" : "Partner hierarchy"}
+          />
+        ) : null}
 
         <Card className="overflow-hidden">
           <div className="border-b border-border p-5">
@@ -139,9 +201,9 @@ export default async function PartnerConsultantsPage() {
                       min="0"
                       max="100"
                       step="0.01"
-                      defaultValue={groupLeaderProfile ? "6.25" : "12.5"}
+                      defaultValue="50"
                       className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                      aria-label="Consultant percent of margin"
+                      aria-label="Consultant share of partner pool"
                     />
                     <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
                   </form>
@@ -171,7 +233,7 @@ export default async function PartnerConsultantsPage() {
                 </div>
                 <p className="mt-4 rounded-lg bg-clinic-mist p-3 text-sm font-semibold text-clinic-navy">/c/{profile.referralSlug}</p>
                 <p className="mt-3 text-sm text-slate-500">Leader: {profile.groupLeaderProfile?.displayName ?? "Unassigned"}</p>
-                <p className="mt-1 text-sm text-slate-500">Consultant commission: {profile.commissionBps / 100}% of margin</p>
+                <p className="mt-1 text-sm text-slate-500">Consultant commission: {profile.commissionBps / 100}% of partner pool</p>
               </div>
             ))}
             {consultants.length === 0 && <p className="text-sm text-slate-500">No consultants are assigned to this partner yet.</p>}
