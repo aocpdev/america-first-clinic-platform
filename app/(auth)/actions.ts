@@ -172,7 +172,7 @@ export async function approveConsultant(formData: FormData) {
   const userId = formValue(formData, "userId");
   const requestedFormPartnerProfileId = formValue(formData, "partnerProfileId") || null;
   const requestedGroupLeaderProfileId = formValue(formData, "groupLeaderProfileId") || null;
-  const consultantCommissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
+  let consultantCommissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!user || user.requestedRole !== "CONSULTANT") {
@@ -196,6 +196,7 @@ export async function approveConsultant(formData: FormData) {
     }
     partnerProfileId = groupLeaderProfile.partnerProfileId;
     groupLeaderProfileId = groupLeaderProfile.id;
+    consultantCommissionBps = 5000;
   } else if (approver.role !== "COMPANY_ADMIN" && approver.role !== "SUPER_ADMIN") {
     redirect("/login?error=access_denied");
   }
@@ -292,6 +293,15 @@ export async function rejectConsultant(formData: FormData) {
   if (approver.role === "PARTNER") {
     const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: approver.id } });
     if (!partnerProfile || user.requestedPartnerProfileId !== partnerProfile.id) {
+      redirect("/partner/consultants?error=access_denied");
+    }
+  } else if (approver.role === "GROUP_LEADER") {
+    const groupLeaderProfile = await prisma.groupLeaderProfile.findUnique({ where: { userId: approver.id } });
+    if (
+      !groupLeaderProfile ||
+      user.requestedPartnerProfileId !== groupLeaderProfile.partnerProfileId ||
+      user.requestedGroupLeaderProfileId !== groupLeaderProfile.id
+    ) {
       redirect("/partner/consultants?error=access_denied");
     }
   } else if (approver.role !== "COMPANY_ADMIN" && approver.role !== "SUPER_ADMIN") {

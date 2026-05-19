@@ -94,7 +94,9 @@ export default async function PartnerConsultantsPage() {
         groupLeaders,
         consultants,
         orders: hierarchyOrders,
-        visibleGroupLeaderId: groupLeaderProfile?.id ?? null
+        visibleGroupLeaderId: groupLeaderProfile?.id ?? null,
+        hidePartnerFinancials: Boolean(groupLeaderProfile),
+        hideCommissionSetup: Boolean(groupLeaderProfile)
       })
     : null;
 
@@ -195,16 +197,18 @@ export default async function PartnerConsultantsPage() {
                         ))}
                       </select>
                     )}
-                    <input
-                      name="consultantCommissionPercent"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      defaultValue="50"
-                      className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                      aria-label="Consultant share of partner pool"
-                    />
+                    {partnerProfile ? (
+                      <input
+                        name="consultantCommissionPercent"
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        defaultValue="50"
+                        className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                        aria-label="Consultant share of partner pool"
+                      />
+                    ) : null}
                     <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
                   </form>
                 </div>
@@ -233,7 +237,9 @@ export default async function PartnerConsultantsPage() {
                 </div>
                 <p className="mt-4 rounded-lg bg-clinic-mist p-3 text-sm font-semibold text-clinic-navy">/c/{profile.referralSlug}</p>
                 <p className="mt-3 text-sm text-slate-500">Leader: {profile.groupLeaderProfile?.displayName ?? "Unassigned"}</p>
-                <p className="mt-1 text-sm text-slate-500">Consultant commission: {profile.commissionBps / 100}% of partner pool</p>
+                {partnerProfile ? (
+                  <p className="mt-1 text-sm text-slate-500">Consultant commission: {profile.commissionBps / 100}% of partner pool</p>
+                ) : null}
               </div>
             ))}
             {consultants.length === 0 && <p className="text-sm text-slate-500">No consultants are assigned to this partner yet.</p>}

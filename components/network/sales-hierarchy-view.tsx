@@ -14,6 +14,8 @@ export type HierarchyNode = {
   revenueCents: number;
   commissionCents: number;
   salesCount: number;
+  showCommissionMetric?: boolean;
+  showCommissionSetup?: boolean;
   subtitle?: string;
   notes?: string[];
 };
@@ -82,6 +84,7 @@ function PersonNode({
   onSelect: (node: HierarchyNode) => void;
 }) {
   const isPartner = node.type === "PARTNER";
+  const showCommissionMetric = node.showCommissionMetric !== false;
 
   return (
     <button
@@ -102,18 +105,22 @@ function PersonNode({
           <p className="mt-1 truncate text-xs text-slate-400">{node.email}</p>
         </div>
       </div>
-      <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
+      <div className={`mt-4 grid gap-2 text-xs ${showCommissionMetric ? "grid-cols-2" : "grid-cols-1"}`}>
         <div className="rounded-xl bg-clinic-mist px-3 py-2">
           <p className="font-semibold text-clinic-navy">{formatCurrency(node.revenueCents)}</p>
           <p className="mt-1 text-slate-500">Sales</p>
         </div>
-        <div className="rounded-xl bg-emerald-50 px-3 py-2">
-          <p className="font-semibold text-emerald-800">{formatCurrency(node.commissionCents)}</p>
-          <p className="mt-1 text-emerald-700">Earned</p>
-        </div>
+        {showCommissionMetric ? (
+          <div className="rounded-xl bg-emerald-50 px-3 py-2">
+            <p className="font-semibold text-emerald-800">{formatCurrency(node.commissionCents)}</p>
+            <p className="mt-1 text-emerald-700">Earned</p>
+          </div>
+        ) : null}
       </div>
       <div className="mt-3 flex items-center justify-between gap-2">
-        <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{node.commissionLabel}</Badge>
+        {node.showCommissionSetup === false ? null : (
+          <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{node.commissionLabel}</Badge>
+        )}
         <span className="text-xs font-semibold text-slate-400">{node.salesCount} sales</span>
       </div>
     </button>
@@ -122,6 +129,8 @@ function PersonNode({
 
 function DetailPanel({ node, onClose }: { node: HierarchyNode | null; onClose: () => void }) {
   if (!node) return null;
+  const showCommissionMetric = node.showCommissionMetric !== false;
+  const showCommissionSetup = node.showCommissionSetup !== false;
 
   return (
     <aside className="rounded-3xl border border-border bg-white p-6 shadow-soft xl:sticky xl:top-24">
@@ -144,19 +153,23 @@ function DetailPanel({ node, onClose }: { node: HierarchyNode | null; onClose: (
         </button>
       </div>
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+      <div className={`mt-6 grid gap-3 ${showCommissionMetric && showCommissionSetup ? "sm:grid-cols-3 xl:grid-cols-1" : "sm:grid-cols-2 xl:grid-cols-1"}`}>
         <div className="rounded-2xl bg-clinic-mist p-4">
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Attributed sales</p>
           <p className="mt-2 text-2xl font-semibold text-clinic-navy">{formatCurrency(node.revenueCents)}</p>
         </div>
-        <div className="rounded-2xl bg-emerald-50 p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Commission earned</p>
-          <p className="mt-2 text-2xl font-semibold text-emerald-800">{formatCurrency(node.commissionCents)}</p>
-        </div>
-        <div className="rounded-2xl bg-white p-4 ring-1 ring-border">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Commission setup</p>
-          <p className="mt-2 text-lg font-semibold text-clinic-ink">{node.commissionLabel}</p>
-        </div>
+        {showCommissionMetric ? (
+          <div className="rounded-2xl bg-emerald-50 p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Commission earned</p>
+            <p className="mt-2 text-2xl font-semibold text-emerald-800">{formatCurrency(node.commissionCents)}</p>
+          </div>
+        ) : null}
+        {showCommissionSetup ? (
+          <div className="rounded-2xl bg-white p-4 ring-1 ring-border">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Commission setup</p>
+            <p className="mt-2 text-lg font-semibold text-clinic-ink">{node.commissionLabel}</p>
+          </div>
+        ) : null}
       </div>
 
       <div className="mt-6 space-y-3">

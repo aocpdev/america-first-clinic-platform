@@ -52,6 +52,11 @@ export type HierarchyOrderSummary = {
   commissionSplits: CommissionSplitSummary[];
 };
 
+type BuildVisibility = {
+  hidePartnerFinancials?: boolean;
+  hideCommissionSetup?: boolean;
+};
+
 export function percentLabel(bps: number) {
   return `${bps / 100}%`;
 }
@@ -98,26 +103,31 @@ function earnedByRole(
   }, 0);
 }
 
-function partnerNode(partner: PartnerSummary, orders: HierarchyOrderSummary[]): HierarchyNode {
+function partnerNode(partner: PartnerSummary, orders: HierarchyOrderSummary[], visibility: BuildVisibility = {}): HierarchyNode {
   return {
     id: `partner-${partner.id}`,
     type: "PARTNER",
     name: partner.companyName || partner.displayName,
     email: partner.user.email,
     avatarUrl: partner.user.avatarUrl,
-    commissionLabel: `${percentLabel(partner.commissionBps)} margin pool`,
+    commissionLabel: visibility.hidePartnerFinancials ? "Organization" : `${percentLabel(partner.commissionBps)} margin pool`,
     revenueCents: sumBy(orders, (order) => partnerOwnsOrder(partner.id, order), (order) => order.totalCents),
-    commissionCents: earnedByRole(orders, "PARTNER", partner.id),
+    commissionCents: visibility.hidePartnerFinancials ? 0 : earnedByRole(orders, "PARTNER", partner.id),
     salesCount: salesCount(orders, (order) => partnerOwnsOrder(partner.id, order)),
+    showCommissionMetric: !visibility.hidePartnerFinancials,
+    showCommissionSetup: !visibility.hidePartnerFinancials,
     subtitle: `Partner owner: ${displayPersonName(partner.user)}`,
-    notes: ["Can view leaders, consultants, sales, and partner-level earned commission."]
+    notes: visibility.hidePartnerFinancials
+      ? ["This view only includes your assigned team activity."]
+      : ["Can view leaders, consultants, sales, and partner-level earned commission."]
   };
 }
 
 function leaderNode(
   leader: GroupLeaderSummary,
   orders: HierarchyOrderSummary[],
-  consultantCount: number
+  consultantCount: number,
+  visibility: BuildVisibility = {}
 ): HierarchyNode {
   return {
     id: `leader-${leader.id}`,
@@ -129,12 +139,17 @@ function leaderNode(
     revenueCents: sumBy(orders, (order) => leaderOwnsOrder(leader.id, order), (order) => order.totalCents),
     commissionCents: earnedByRole(orders, "GROUP_LEADER", leader.id),
     salesCount: salesCount(orders, (order) => leaderOwnsOrder(leader.id, order)),
+    showCommissionSetup: !visibility.hideCommissionSetup,
     subtitle: `${consultantCount} consultants assigned`,
     notes: ["Leader earnings come from their configured share of the partner pool."]
   };
 }
 
-function consultantNode(consultant: ConsultantSummary, orders: HierarchyOrderSummary[]): HierarchyNode {
+function consultantNode(
+  consultant: ConsultantSummary,
+  orders: HierarchyOrderSummary[],
+  visibility: BuildVisibility = {}
+): HierarchyNode {
   return {
     id: `consultant-${consultant.id}`,
     type: "CONSULTANT",
@@ -145,6 +160,7 @@ function consultantNode(consultant: ConsultantSummary, orders: HierarchyOrderSum
     revenueCents: sumBy(orders, (order) => consultantOwnsOrder(consultant.id, order), (order) => order.totalCents),
     commissionCents: earnedByRole(orders, "CONSULTANT", consultant.id),
     salesCount: salesCount(orders, (order) => consultantOwnsOrder(consultant.id, order)),
+    showCommissionSetup: !visibility.hideCommissionSetup,
     subtitle: `Referral /c/${consultant.referralSlug}`,
     notes: [`Referral code: ${consultant.referralCode}`]
   };
@@ -155,14 +171,19 @@ export function buildSalesHierarchyTree({
   groupLeaders,
   consultants,
   orders,
-  visibleGroupLeaderId = null
+  visibleGroupLeaderId = null,
+  hidePartnerFinancials = false,
+  hideCommissionSetup = false
 }: {
   partner: PartnerSummary;
   groupLeaders: GroupLeaderSummary[];
   consultants: ConsultantSummary[];
   orders: HierarchyOrderSummary[];
   visibleGroupLeaderId?: string | null;
+  hidePartnerFinancials?: boolean;
+  hideCommissionSetup?: boolean;
 }): SalesHierarchyTree {
+  const visibility = { hidePartnerFinancials, hideCommissionSetup };
   const visibleLeaders = visibleGroupLeaderId
     ? groupLeaders.filter((leader) => leader.id === visibleGroupLeaderId)
     : groupLeaders;
@@ -174,8 +195,8 @@ export function buildSalesHierarchyTree({
     const leaderConsultants = visibleConsultants.filter((consultant) => consultant.groupLeaderProfileId === leader.id);
 
     return {
-      leader: leaderNode(leader, orders, leaderConsultants.length),
-      consultants: leaderConsultants.map((consultant) => consultantNode(consultant, orders))
+      leader: leaderNode(leader, orders, leaderConsultants.length, visibility),
+      consultants: leaderConsultants.map((consultant) => consultantNode(consultant, orders, visibility))
     };
   });
 
@@ -183,10 +204,10 @@ export function buildSalesHierarchyTree({
     ? []
     : visibleConsultants
         .filter((consultant) => !consultant.groupLeaderProfileId)
-        .map((consultant) => consultantNode(consultant, orders));
+        .map((consultant) => consultantNode(consultant, orders, visibility));
 
   return {
-    partner: partnerNode(partner, orders),
+    partner: partnerNode(partner, orders, visibility),
     leaderGroups,
     directConsultants
   };
