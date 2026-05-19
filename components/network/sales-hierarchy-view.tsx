@@ -228,7 +228,7 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
               className="h-10 w-full rounded-xl border border-border bg-white pl-9 pr-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10 sm:w-64"
             />
           </label>
-          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-clinic-mist px-3 py-2">
+          <div className="flex h-10 items-center gap-3 rounded-xl border border-border bg-clinic-mist px-3 shadow-line">
             <ZoomOut className="h-4 w-4 text-slate-500" />
             <input
               type="range"
@@ -237,31 +237,11 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
               step="5"
               value={zoom}
               onChange={(event) => setZoom(Number(event.target.value))}
-              className="w-32 accent-clinic-navy"
+              className="w-36 accent-clinic-navy"
               aria-label="Zoom hierarchy"
             />
             <span className="w-12 text-center text-xs font-bold tabular-nums text-clinic-navy">{zoom}%</span>
             <ZoomIn className="h-4 w-4 text-slate-500" />
-          </div>
-          <div className="flex items-center gap-1 rounded-xl border border-border bg-white p-1">
-            {[
-              { label: "Fit", value: 25 },
-              { label: "50%", value: 50 },
-              { label: "100%", value: 100 }
-            ].map((preset) => (
-              <button
-                key={preset.label}
-                type="button"
-                onClick={() => setZoom(preset.value)}
-                className={`h-8 rounded-lg px-3 text-xs font-bold transition ${
-                  zoom === preset.value
-                    ? "bg-clinic-navy text-white"
-                    : "text-slate-600 hover:bg-clinic-mist hover:text-clinic-ink"
-                }`}
-              >
-                {preset.label}
-              </button>
-            ))}
           </div>
         </div>
       </div>
