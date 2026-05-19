@@ -2,11 +2,11 @@ import Link from "next/link";
 import {
   approveConsultant,
   rejectConsultant,
-  updateConsultantCommercials,
   updatePartnerProfileByAdmin
 } from "@/app/(auth)/actions";
 import { CreateConsultantModal } from "@/app/admin/consultants/create-consultant-modal";
 import { CreatePartnerModal } from "@/app/admin/consultants/create-partner-modal";
+import { EditConsultantModal } from "@/app/admin/consultants/edit-consultant-modal";
 import { LeaderSection } from "@/app/admin/consultants/leader-section";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { SalesHierarchyView } from "@/components/network/sales-hierarchy-view";
@@ -372,47 +372,6 @@ export default async function AdminConsultantsPage({
 
               <Card className="overflow-hidden">
                 <div className="border-b border-border p-5">
-                  <Badge>Seller Network</Badge>
-                  <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Leaders</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[760px] text-left text-sm">
-                    <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
-                      <tr>
-                        <th className="px-5 py-3">Leader</th>
-                        <th className="px-5 py-3">Direct sales</th>
-                        <th className="px-5 py-3">Consultant override</th>
-                        <th className="px-5 py-3">Consultants</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border bg-white">
-                      {selectedPartner.groupLeaders.map((leader) => {
-                        const leaderConsultants = selectedPartner.consultants.filter((profile) => profile.groupLeaderProfileId === leader.id);
-
-                        return (
-                          <tr key={leader.id}>
-                            <td className="px-5 py-4">
-                              <p className="font-semibold text-clinic-ink">{leader.displayName}</p>
-                              <p className="mt-1 text-xs text-slate-500">{leader.user.email}</p>
-                            </td>
-                            <td className="px-5 py-4">{percentLabel(leader.commissionBps)}</td>
-                            <td className="px-5 py-4">{percentLabel(leader.consultantOverrideBps)}</td>
-                            <td className="px-5 py-4">{leaderConsultants.length}</td>
-                          </tr>
-                        );
-                      })}
-                      {selectedPartner.groupLeaders.length === 0 ? (
-                        <tr>
-                          <td colSpan={4} className="px-5 py-8 text-center text-slate-500">No leaders are assigned to this partner yet.</td>
-                        </tr>
-                      ) : null}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-
-              <Card className="overflow-hidden">
-                <div className="border-b border-border p-5">
                   <Badge>Seller network</Badge>
                   <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Consultants</h3>
                 </div>
@@ -424,7 +383,7 @@ export default async function AdminConsultantsPage({
                         <th className="px-5 py-3">Leader</th>
                         <th className="px-5 py-3">Referral</th>
                         <th className="px-5 py-3">Pool share</th>
-                        <th className="px-5 py-3 text-right">Update</th>
+                        <th className="px-5 py-3 text-right">Edit</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border bg-white">
@@ -437,19 +396,24 @@ export default async function AdminConsultantsPage({
                           <td className="px-5 py-4 text-slate-600">{profile.groupLeaderProfile?.displayName ?? "Direct partner"}</td>
                           <td className="px-5 py-4 font-semibold text-clinic-navy">/c/{profile.referralSlug}</td>
                           <td className="px-5 py-4">{percentLabel(profile.commissionBps)} of partner pool</td>
-                          <td className="px-5 py-4">
-                            <form action={updateConsultantCommercials} className="flex justify-end gap-2">
-                              <input type="hidden" name="consultantProfileId" value={profile.id} />
-                              <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
-                              <select name="groupLeaderProfileId" className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" defaultValue={profile.groupLeaderProfileId ?? ""}>
-                                <option value="">Direct partner</option>
-                                {selectedPartner.groupLeaders.map((leader) => (
-                                  <option key={leader.id} value={leader.id}>{leader.displayName}</option>
-                                ))}
-                              </select>
-                              <input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={profile.commissionBps / 100} className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Consultant share of partner pool" />
-                              <SubmitButton size="sm" variant="outline" pendingText="Saving...">Save</SubmitButton>
-                            </form>
+                          <td className="px-5 py-4 text-right">
+                            <EditConsultantModal
+                              consultant={{
+                                id: profile.id,
+                                firstName: profile.user.firstName,
+                                lastName: profile.user.lastName,
+                                email: profile.user.email,
+                                phone: profile.user.phone,
+                                groupLeaderProfileId: profile.groupLeaderProfileId,
+                                commissionPercent: profile.commissionBps / 100
+                              }}
+                              partnerProfileId={selectedPartner.id}
+                              groupLeaders={selectedPartner.groupLeaders.map((leader) => ({
+                                id: leader.id,
+                                displayName: leader.displayName
+                              }))}
+                              returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=network&updated=consultant_updated`}
+                            />
                           </td>
                         </tr>
                       ))}

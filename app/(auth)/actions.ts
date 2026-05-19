@@ -37,18 +37,20 @@ function redirectWithError(path: string, error: string): never {
 async function assertUniqueUserContact({
   email,
   phone,
-  redirectPath
+  redirectPath,
+  excludeUserId
 }: {
   email: string;
   phone: string | null;
   redirectPath: string;
+  excludeUserId?: string;
 }) {
   const existingEmail = await prisma.user.findUnique({
     where: { email },
     select: { id: true }
   });
 
-  if (existingEmail) {
+  if (existingEmail && existingEmail.id !== excludeUserId) {
     redirectWithError(redirectPath, "duplicate_email");
   }
 
@@ -58,7 +60,7 @@ async function assertUniqueUserContact({
       select: { id: true }
     });
 
-    if (existingPhone) {
+    if (existingPhone && existingPhone.id !== excludeUserId) {
       redirectWithError(redirectPath, "duplicate_phone");
     }
   }
@@ -959,10 +961,15 @@ export async function updateConsultantCommercials(formData: FormData) {
   const partnerProfileId = formValue(formData, "partnerProfileId") || null;
   const groupLeaderProfileId = formValue(formData, "groupLeaderProfileId") || null;
   const commissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
+  const hasProfileFields = formData.has("firstName") || formData.has("lastName") || formData.has("email") || formData.has("phone");
+  const firstName = formValue(formData, "firstName");
+  const lastName = formValue(formData, "lastName");
+  const email = formValue(formData, "email").toLowerCase();
+  const returnTo = formValue(formData, "returnTo");
 
   const consultant = await prisma.consultantProfile.findUnique({
     where: { id: consultantProfileId },
-    include: { partnerProfile: true }
+    include: { partnerProfile: true, user: true }
   });
 
   if (!consultant) {
@@ -989,16 +996,63 @@ export async function updateConsultantCommercials(formData: FormData) {
     }
   }
 
-  await prisma.consultantProfile.update({
-    where: { id: consultant.id },
-    data: {
-      ...(partnerProfileId ? { partnerProfileId } : {}),
-      groupLeaderProfileId,
-      commissionBps
+  const destination = actor.role === "PARTNER"
+    ? "/partner/consultants?updated=consultant_updated"
+    : returnTo.startsWith("/admin/consultants")
+      ? returnTo
+      : `/admin/consultants?partnerId=${partnerProfileId ?? consultant.partnerProfileId ?? ""}&section=network&updated=consultant_updated`;
+  const errorPath = actor.role === "PARTNER" ? "/partner/consultants" : `/admin/consultants?partnerId=${partnerProfileId ?? consultant.partnerProfileId ?? ""}&section=network`;
+  const nextEmail = email || consultant.user.email;
+  const phone = formData.has("phone") ? normalizePhoneInput(formValue(formData, "phone")) : consultant.user.phone;
+  const userUpdateData = hasProfileFields
+    ? {
+        ...(formData.has("firstName") ? { firstName: firstName || null } : {}),
+        ...(formData.has("lastName") ? { lastName: lastName || null } : {}),
+        ...(formData.has("email") ? { email: nextEmail } : {}),
+        ...(formData.has("phone") ? { phone } : {})
+      }
+    : null;
+
+  if (hasProfileFields && (nextEmail !== consultant.user.email || phone !== consultant.user.phone)) {
+    await assertUniqueUserContact({
+      email: nextEmail,
+      phone,
+      redirectPath: errorPath,
+      excludeUserId: consultant.userId
+    });
+  }
+
+  if (hasProfileFields && nextEmail !== consultant.user.email && consultant.user.authUserId) {
+    const adminClient = createSupabaseAdminClient();
+    const { error } = await adminClient.auth.admin.updateUserById(consultant.user.authUserId, {
+      email: nextEmail,
+      email_confirm: true
+    });
+
+    if (error) {
+      redirectWithError(errorPath, error.message || "consultant_email_update_failed");
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.consultantProfile.update({
+      where: { id: consultant.id },
+      data: {
+        ...(partnerProfileId ? { partnerProfileId } : {}),
+        groupLeaderProfileId,
+        commissionBps
+      }
+    });
+
+    if (userUpdateData) {
+      await tx.user.update({
+        where: { id: consultant.userId },
+        data: userUpdateData
+      });
     }
   });
 
   revalidatePath("/admin/consultants");
   revalidatePath("/partner/consultants");
-  redirect(actor.role === "PARTNER" ? "/partner/consultants?updated=consultant_updated" : `/admin/consultants?partnerId=${partnerProfileId ?? consultant.partnerProfileId ?? ""}&section=network&updated=consultant_updated`);
+  redirect(destination);
 }
