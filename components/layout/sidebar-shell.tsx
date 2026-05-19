@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getImpersonationContext } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
+import { prisma } from "@/lib/db/prisma";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -28,6 +29,9 @@ export async function SidebarShell({
   const { realUser, activeUser: user, isImpersonating } = await getImpersonationContext();
   const activeName = user ? [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email : "";
   const realName = realUser ? [realUser.firstName, realUser.lastName].filter(Boolean).join(" ").trim() || realUser.email : "";
+  const impersonationTargets = realUser
+    ? await prismaUserImpersonationTargets(realUser)
+    : [];
 
   return (
     <div className="min-h-screen bg-clinic-mist">
@@ -63,7 +67,7 @@ export async function SidebarShell({
               </p>
               <form action={stopImpersonation}>
                 <Button type="submit" size="sm" variant="outline" className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100">
-                  Exit view
+                  Switch to my account
                 </Button>
               </form>
             </div>
@@ -92,6 +96,7 @@ export async function SidebarShell({
                     role: user.role
                   }}
                   profileHref={profilePathForRole(user.role)}
+                  impersonationTargets={impersonationTargets}
                 />
               ) : null}
             </div>
@@ -101,4 +106,61 @@ export async function SidebarShell({
       </main>
     </div>
   );
+}
+
+async function prismaUserImpersonationTargets(realUser: NonNullable<Awaited<ReturnType<typeof getImpersonationContext>>>["realUser"]) {
+  if (!realUser) return [];
+
+  const baseSelect = {
+    id: true,
+    email: true,
+    firstName: true,
+    lastName: true,
+    role: true,
+    partnerProfile: { select: { companyName: true, displayName: true } },
+    groupLeaderProfile: { select: { displayName: true } }
+  } as const;
+
+  const users =
+    realUser.role === "COMPANY_ADMIN" || realUser.role === "SUPER_ADMIN"
+      ? await prisma.user.findMany({
+          where: {
+            id: { not: realUser.id },
+            companyId: realUser.companyId,
+            role: { in: ["PARTNER", "GROUP_LEADER", "CONSULTANT"] },
+            status: "ACTIVE",
+            isActive: true
+          },
+          select: baseSelect,
+          orderBy: [{ role: "asc" }, { firstName: "asc" }, { email: "asc" }]
+        })
+      : realUser.role === "PARTNER" && realUser.partnerProfile
+        ? await prisma.user.findMany({
+            where: {
+              id: { not: realUser.id },
+              companyId: realUser.companyId,
+              role: { in: ["GROUP_LEADER", "CONSULTANT"] },
+              status: "ACTIVE",
+              isActive: true,
+              OR: [
+                { groupLeaderProfile: { partnerProfileId: realUser.partnerProfile.id } },
+                { consultantProfile: { partnerProfileId: realUser.partnerProfile.id } }
+              ]
+            },
+            select: baseSelect,
+            orderBy: [{ role: "asc" }, { firstName: "asc" }, { email: "asc" }]
+          })
+        : [];
+
+  return users.map((target) => {
+    const personName = [target.firstName, target.lastName].filter(Boolean).join(" ").trim();
+    const label = target.partnerProfile?.companyName || target.partnerProfile?.displayName || target.groupLeaderProfile?.displayName || personName || target.email;
+
+    return {
+      id: target.id,
+      label,
+      role: target.role,
+      email: target.email
+    };
+  });
 }

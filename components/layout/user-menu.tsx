@@ -3,8 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
-import { LogOut, UserRound } from "lucide-react";
-import { logoutUser } from "@/app/(auth)/actions";
+import { Eye, LogOut, UserRound } from "lucide-react";
+import { logoutUser, startImpersonation } from "@/app/(auth)/actions";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 type UserMenuProps = {
   user: {
@@ -15,6 +16,12 @@ type UserMenuProps = {
     role: string;
   };
   profileHref: string;
+  impersonationTargets?: Array<{
+    id: string;
+    label: string;
+    role: string;
+    email: string;
+  }>;
 };
 
 function initials(firstName: string | null, lastName: string | null, email: string) {
@@ -23,7 +30,7 @@ function initials(firstName: string | null, lastName: string | null, email: stri
   return `${first ?? ""}${last ?? ""}`.trim().toUpperCase() || email.charAt(0).toUpperCase();
 }
 
-export function UserMenu({ user, profileHref }: UserMenuProps) {
+export function UserMenu({ user, profileHref, impersonationTargets = [] }: UserMenuProps) {
   const [open, setOpen] = useState(false);
   const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "Account";
 
@@ -56,6 +63,34 @@ export function UserMenu({ user, profileHref }: UserMenuProps) {
             </p>
           </div>
           <div className="p-2">
+            {impersonationTargets.length > 0 ? (
+              <div className="mb-2 rounded-2xl border border-border bg-clinic-mist p-3">
+                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                  <Eye className="h-3.5 w-3.5" />
+                  Login as
+                </div>
+                <form action={startImpersonation} className="space-y-2">
+                  <select
+                    name="targetUserId"
+                    className="h-10 w-full rounded-xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+                    defaultValue=""
+                    required
+                  >
+                    <option value="" disabled>
+                      Select account
+                    </option>
+                    {impersonationTargets.map((target) => (
+                      <option key={target.id} value={target.id}>
+                        {target.label} · {target.role.replace("_", " ")}
+                      </option>
+                    ))}
+                  </select>
+                  <SubmitButton size="sm" className="w-full" pendingText="Opening...">
+                    Open CRM view
+                  </SubmitButton>
+                </form>
+              </div>
+            ) : null}
             <Link
               href={profileHref}
               onClick={() => setOpen(false)}

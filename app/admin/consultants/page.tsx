@@ -4,7 +4,6 @@ import {
   createConsultantByAdmin,
   createGroupLeader,
   rejectConsultant,
-  startImpersonation,
   updateConsultantCommercials,
   updateGroupLeaderProfile,
   updatePartnerProfileByAdmin
@@ -196,10 +195,6 @@ export default async function AdminConsultantsPage({
                       >
                         Open workspace
                       </Link>
-                      <form action={startImpersonation}>
-                        <input type="hidden" name="targetUserId" value={partner.userId} />
-                        <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as partner</SubmitButton>
-                      </form>
                     </div>
                   </Card>
                 );
@@ -253,10 +248,6 @@ export default async function AdminConsultantsPage({
                       {selectedPartner.companyName || selectedPartner.displayName}
                     </h2>
                     <p className="mt-2 text-sm text-slate-500">{selectedPartner.user.email}</p>
-                    <form action={startImpersonation} className="mt-4">
-                      <input type="hidden" name="targetUserId" value={selectedPartner.userId} />
-                      <SubmitButton size="sm" variant="outline" pendingText="Opening partner view...">View as partner</SubmitButton>
-                    </form>
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div className="rounded-2xl bg-clinic-mist px-4 py-3">
@@ -323,10 +314,6 @@ export default async function AdminConsultantsPage({
                         <div className="flex flex-col items-end gap-2">
                           <Badge>{percentLabel(leader.commissionBps)} direct</Badge>
                           <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{percentLabel(leader.consultantOverrideBps)} override</Badge>
-                          <form action={startImpersonation}>
-                            <input type="hidden" name="targetUserId" value={leader.userId} />
-                            <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as</SubmitButton>
-                          </form>
                           <Link
                             href={sectionHref("hierarchy")}
                             className="inline-flex h-9 items-center rounded-lg border border-border bg-white px-3 text-xs font-semibold text-clinic-ink transition hover:bg-clinic-mist"
@@ -400,7 +387,6 @@ export default async function AdminConsultantsPage({
                         <th className="px-5 py-3">Direct sales</th>
                         <th className="px-5 py-3">Consultant override</th>
                         <th className="px-5 py-3">Consultants</th>
-                        <th className="px-5 py-3 text-right">Access</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border bg-white">
@@ -416,18 +402,12 @@ export default async function AdminConsultantsPage({
                             <td className="px-5 py-4">{percentLabel(leader.commissionBps)}</td>
                             <td className="px-5 py-4">{percentLabel(leader.consultantOverrideBps)}</td>
                             <td className="px-5 py-4">{leaderConsultants.length}</td>
-                            <td className="px-5 py-4">
-                              <form action={startImpersonation} className="flex justify-end">
-                                <input type="hidden" name="targetUserId" value={leader.userId} />
-                                <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as leader</SubmitButton>
-                              </form>
-                            </td>
                           </tr>
                         );
                       })}
                       {selectedPartner.groupLeaders.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-5 py-8 text-center text-slate-500">No leaders are assigned to this partner yet.</td>
+                          <td colSpan={4} className="px-5 py-8 text-center text-slate-500">No leaders are assigned to this partner yet.</td>
                         </tr>
                       ) : null}
                     </tbody>
@@ -473,10 +453,6 @@ export default async function AdminConsultantsPage({
                               </select>
                               <input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={profile.commissionBps / 100} className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Consultant share of partner pool" />
                               <SubmitButton size="sm" variant="outline" pendingText="Saving...">Save</SubmitButton>
-                            </form>
-                            <form action={startImpersonation} className="mt-2 flex justify-end">
-                              <input type="hidden" name="targetUserId" value={profile.userId} />
-                              <SubmitButton size="sm" variant="outline" pendingText="Opening...">View as consultant</SubmitButton>
                             </form>
                           </td>
                         </tr>
