@@ -37,7 +37,7 @@ function initialsFromName(name: string) {
 
 const partnerSections = [
   { id: "hierarchy", label: "Hierarchy" },
-  { id: "workspace", label: "Partner workspace" },
+  { id: "workspace", label: "Partner Profile" },
   { id: "leaders", label: "Leaders" },
   { id: "approval", label: "Approval workflow" },
   { id: "network", label: "Seller Network" }
@@ -243,7 +243,7 @@ export default async function AdminConsultantsPage({
               <Card className="p-6">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <Badge>Partner workspace</Badge>
+                    <Badge>Partner Profile</Badge>
                     <h2 className="mt-4 text-3xl font-semibold text-clinic-ink">
                       {selectedPartner.companyName || selectedPartner.displayName}
                     </h2>
@@ -265,11 +265,40 @@ export default async function AdminConsultantsPage({
                   </div>
                 </div>
 
-                <form action={updatePartnerProfileByAdmin} className="mt-6 grid gap-3 md:grid-cols-[1fr_180px_auto]">
+                <form action={updatePartnerProfileByAdmin} className="mt-6 grid gap-4">
                   <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
-                  <input name="companyName" defaultValue={selectedPartner.companyName ?? selectedPartner.displayName} className={inputClass()} required />
-                  <input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={selectedPartner.commissionBps / 100} className={inputClass()} required />
-                  <SubmitButton variant="outline" pendingText="Saving...">Save partner</SubmitButton>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">First name</span>
+                      <input name="firstName" defaultValue={selectedPartner.user.firstName ?? ""} className={inputClass("w-full")} />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Last name</span>
+                      <input name="lastName" defaultValue={selectedPartner.user.lastName ?? ""} className={inputClass("w-full")} />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Partner display name</span>
+                      <input name="displayName" defaultValue={selectedPartner.displayName} className={inputClass("w-full")} required />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Partner company</span>
+                      <input name="companyName" defaultValue={selectedPartner.companyName ?? selectedPartner.displayName} className={inputClass("w-full")} required />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Phone</span>
+                      <input name="phone" defaultValue={selectedPartner.user.phone ?? ""} className={inputClass("w-full")} />
+                    </label>
+                    <label className="space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Partner margin pool</span>
+                      <input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={selectedPartner.commissionBps / 100} className={inputClass("w-full")} required />
+                    </label>
+                  </div>
+                  <div className="rounded-2xl border border-border bg-clinic-mist px-4 py-3 text-sm text-slate-600">
+                    Account email: <span className="font-semibold text-clinic-ink">{selectedPartner.user.email}</span>
+                  </div>
+                  <div>
+                    <SubmitButton variant="outline" pendingText="Saving...">Save partner profile</SubmitButton>
+                  </div>
                 </form>
               </Card>
               ) : null}

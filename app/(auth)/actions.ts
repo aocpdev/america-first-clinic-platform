@@ -797,17 +797,36 @@ export async function createConsultantByAdmin(formData: FormData) {
 export async function updatePartnerProfileByAdmin(formData: FormData) {
   const admin = await requireRole("COMPANY_ADMIN");
   const partnerProfileId = formValue(formData, "partnerProfileId");
+  const firstName = formValue(formData, "firstName") || null;
+  const lastName = formValue(formData, "lastName") || null;
+  const displayName = formValue(formData, "displayName");
   const companyName = formValue(formData, "companyName");
+  const phone = formValue(formData, "phone") || null;
   const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
 
-  if (!partnerProfileId || !companyName) {
+  if (!partnerProfileId || !displayName || !companyName) {
     redirect("/admin/consultants?error=invalid_partner");
   }
 
-  await prisma.partnerProfile.update({
+  const partnerProfile = await prisma.partnerProfile.findUnique({
     where: { id: partnerProfileId },
-    data: { companyName, commissionBps }
+    select: { id: true, userId: true }
   });
+
+  if (!partnerProfile) {
+    redirect("/admin/consultants?error=invalid_partner");
+  }
+
+  await prisma.$transaction([
+    prisma.partnerProfile.update({
+      where: { id: partnerProfile.id },
+      data: { displayName, companyName, commissionBps }
+    }),
+    prisma.user.update({
+      where: { id: partnerProfile.userId },
+      data: { firstName, lastName, phone }
+    })
+  ]);
 
   await prisma.auditLog.create({
     data: {
@@ -816,7 +835,7 @@ export async function updatePartnerProfileByAdmin(formData: FormData) {
       action: "PARTNER_UPDATED",
       resource: "PartnerProfile",
       resourceId: partnerProfileId,
-      metadata: { companyName, commissionBps }
+      metadata: { firstName, lastName, displayName, companyName, phone, commissionBps }
     }
   });
 
