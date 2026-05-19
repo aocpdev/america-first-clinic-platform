@@ -12,7 +12,7 @@ export default function MedicalDisclaimerPage() {
       eyebrow="Medical notice"
       title="Medical Disclaimer"
       updated="May 18, 2026"
-      intro="America First Clinic provides wellness information, sales support, and access to products or programs operated by The IV Infusion Co. This disclaimer explains the limits of website and CRM information."
+      intro="America First Clinic provides wellness information, sales support, and access to products or programs operated by ACV2 Investment Group LLC. This disclaimer explains the limits of website and CRM information."
       sections={[
         {
           title: "Information is not medical advice",

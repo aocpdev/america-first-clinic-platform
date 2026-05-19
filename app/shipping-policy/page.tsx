@@ -12,7 +12,7 @@ export default function ShippingPolicyPage() {
       eyebrow="Fulfillment"
       title="Shipping Policy"
       updated="May 18, 2026"
-      intro="This policy describes how America First Clinic handles order processing, shipping, delivery, and address responsibilities for products and programs operated by The IV Infusion Co."
+      intro="This policy describes how America First Clinic handles order processing, shipping, delivery, and address responsibilities for products and programs operated by ACV2 Investment Group LLC."
       sections={[
         {
           title: "Order processing",

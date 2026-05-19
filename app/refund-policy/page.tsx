@@ -12,7 +12,7 @@ export default function RefundPolicyPage() {
       eyebrow="Customer policy"
       title="Refund Policy"
       updated="May 18, 2026"
-      intro="This policy explains how refunds, cancellations, and order adjustments are handled for America First Clinic products, services, and programs operated by The IV Infusion Co."
+      intro="This policy explains how refunds, cancellations, and order adjustments are handled for America First Clinic products, services, and programs operated by ACV2 Investment Group LLC."
       sections={[
         {
           title: "General refund approach",

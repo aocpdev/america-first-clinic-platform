@@ -12,11 +12,11 @@ export default function TermsOfServicePage() {
       eyebrow="Legal"
       title="Terms of Service"
       updated="May 18, 2026"
-      intro="These Terms of Service govern access to America First Clinic websites, checkout flows, consultant portals, customer communications, and related services operated by The IV Infusion Co."
+      intro="These Terms of Service govern access to America First Clinic websites, checkout flows, consultant portals, customer communications, and related services operated by ACV2 Investment Group LLC."
       sections={[
         {
           title: "Operator and brand use",
-          body: "America First Clinic is operated by The IV Infusion Co. References to America First Clinic, we, us, or our mean the website, brand, sales platform, and related services operated by The IV Infusion Co. America First Clinic may be used as a brand name and may later be registered or operated as a DBA or related business name."
+          body: "America First Clinic is operated by ACV2 Investment Group LLC. References to America First Clinic, we, us, or our mean the website, brand, sales platform, and related services operated by ACV2 Investment Group LLC. America First Clinic may be used as a brand name and may later be registered or operated as a DBA or related business name."
         },
         {
           title: "Eligibility and accounts",
@@ -44,7 +44,7 @@ export default function TermsOfServicePage() {
         },
         {
           title: "Limitation of liability",
-          body: "To the fullest extent permitted by law, America First Clinic and The IV Infusion Co. are not liable for indirect, incidental, special, consequential, or punitive damages arising from use of the site, CRM, checkout, products, services, delays, third-party processors, or communications. Some jurisdictions do not allow certain limitations, so parts of this section may not apply to you."
+          body: "To the fullest extent permitted by law, America First Clinic and ACV2 Investment Group LLC are not liable for indirect, incidental, special, consequential, or punitive damages arising from use of the site, CRM, checkout, products, services, delays, third-party processors, or communications. Some jurisdictions do not allow certain limitations, so parts of this section may not apply to you."
         },
         {
           title: "Changes and contact",

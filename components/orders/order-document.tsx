@@ -55,7 +55,7 @@ export function OrderDocument({
               <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">
                 {isReceipt ? "Customer receipt" : "Internal order document"}
               </h2>
-              <p className="mt-1 text-sm text-slate-500">Operated by The IV Infusion Co.</p>
+              <p className="mt-1 text-sm text-slate-500">Operated by ACV2 Investment Group LLC.</p>
             </div>
           </div>
           <div className="rounded-2xl border border-border bg-white px-4 py-3 text-right shadow-line">

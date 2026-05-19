@@ -12,7 +12,7 @@ export default function PrivacyPolicyPage() {
       eyebrow="Privacy"
       title="Privacy Policy"
       updated="May 18, 2026"
-      intro="This Privacy Policy explains how America First Clinic, operated by The IV Infusion Co., collects, uses, and protects information across its website, CRM, checkout, consultant, and customer communication workflows."
+      intro="This Privacy Policy explains how America First Clinic, operated by ACV2 Investment Group LLC, collects, uses, and protects information across its website, CRM, checkout, consultant, and customer communication workflows."
       sections={[
         {
           title: "Information we collect",
