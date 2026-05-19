@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import Link from "next/link";
 import { currency } from "@/lib/utils";
 
 export type OrdersTableMode = "admin" | "partner" | "group_leader" | "consultant";
@@ -21,6 +22,7 @@ export type OrderRow = {
   paymentStatus: string;
   orderStatus: string;
   createdAt: string;
+  customerId: string;
 };
 
 function money(cents: number) {
@@ -42,6 +44,7 @@ export function OrdersTable({
   const showPartnerFinancials = mode === "partner";
   const showLeaderFinancials = mode === "group_leader";
   const showConsultantFinancials = mode === "consultant";
+  const basePath = mode === "admin" ? "/admin" : mode === "consultant" ? "/consultant" : "/partner";
 
   return (
     <Card className="overflow-hidden">
@@ -70,10 +73,14 @@ export function OrdersTable({
             {orders.map((order) => (
               <tr key={order.id}>
                 <td className="px-5 py-4">
-                  <p className="font-semibold text-clinic-ink">#{shortId(order.id)}</p>
+                  <Link href={`${basePath}/orders/${order.id}`} className="font-semibold text-clinic-navy transition hover:text-clinic-red">
+                    #{shortId(order.id)}
+                  </Link>
                 </td>
                 <td className="px-5 py-4">
-                  <p className="font-semibold text-clinic-ink">{order.customerName}</p>
+                  <Link href={`${basePath}/customers/${order.customerId}`} className="font-semibold text-clinic-ink transition hover:text-clinic-red">
+                    {order.customerName}
+                  </Link>
                   <p className="mt-1 text-xs text-slate-500">{order.customerEmail}</p>
                 </td>
                 {mode !== "consultant" ? <td className="px-5 py-4 text-slate-600">{order.consultantName ?? "Direct sale"}</td> : null}

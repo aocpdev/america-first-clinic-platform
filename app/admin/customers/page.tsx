@@ -1,7 +1,19 @@
-import { ModulePage } from "@/components/dashboard/module-page";
+import { CustomerList } from "@/components/customers/customer-list";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { adminNav } from "@/lib/constants/navigation";
+import { customerListInclude, mapCustomerRows } from "@/lib/customers/queries";
+import { prisma } from "@/lib/db/prisma";
 
-export default function AdminCustomersPage() {
-  return <SidebarShell nav={adminNav} eyebrow="Admin" title="Customers"><ModulePage title="Customer CRM" description="View profiles, order history, subscriptions, consultant assignment, notes, tags, activity, lifetime revenue, and last purchase." items={["Customer profiles", "Assigned consultant", "Notes and tags", "Activity history", "Subscriptions", "Revenue generated"]} /></SidebarShell>;
+export default async function AdminCustomersPage() {
+  const customers = await prisma.customer.findMany({
+    include: customerListInclude,
+    orderBy: { updatedAt: "desc" },
+    take: 250
+  });
+
+  return (
+    <SidebarShell nav={adminNav} eyebrow="Admin" title="Customers">
+      <CustomerList customers={mapCustomerRows(customers)} mode="admin" />
+    </SidebarShell>
+  );
 }

@@ -40,6 +40,7 @@ export function mapOrderRows(orders: OrderListRecord[]) {
 
     return {
       id: order.id,
+      customerId: order.customerId,
       customerName: personName(order.customer),
       customerEmail: order.customer.email,
       consultantName: order.consultantProfile ? personName(order.consultantProfile.user) : null,
