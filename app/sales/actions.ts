@@ -59,6 +59,12 @@ function orderPaymentUrl(orderId: string, providerCode: PaymentProviderCode) {
   return `${appUrl.replace(/\/$/, "")}/checkout?orderId=${orderId}&provider=${providerCode}`;
 }
 
+function orderDetailPath(workspace: "consultant" | "partner" | "group_leader" | "admin", orderId: string) {
+  if (workspace === "admin") return `/admin/orders/${orderId}`;
+  if (workspace === "consultant") return `/consultant/orders/${orderId}`;
+  return `/partner/orders/${orderId}`;
+}
+
 async function activePaymentProviderCode(companyId: string): Promise<PaymentProviderCode> {
   const provider = await prisma.paymentProvider.findFirst({
     where: {
@@ -392,13 +398,18 @@ async function createWorkspaceOrder(
 
   const fallbackInvoiceUrl = orderPaymentUrl(order.id, providerCode);
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const internalOrderUrl = `${appUrl}${orderDetailPath(workspace, order.id)}`;
+  const checkoutSuccessUrl =
+    paymentWorkflow === "collect_payment" ? `${internalOrderUrl}?payment=success` : `${appUrl}/checkout/success?orderId=${order.id}`;
+  const checkoutCancelUrl =
+    paymentWorkflow === "collect_payment" ? `${appUrl}${redirectBasePath}?created=${order.id}&payment=cancelled` : `${appUrl}/checkout/cancel?orderId=${order.id}`;
   const checkoutResult = providerCode === "stripe"
     ? await getPaymentProvider(providerCode).createCheckoutSession({
         companyId,
         customerId: customer.id,
         orderId: order.id,
-        successUrl: `${appUrl}/checkout/success?orderId=${order.id}`,
-        cancelUrl: `${appUrl}/checkout/cancel?orderId=${order.id}`,
+        successUrl: checkoutSuccessUrl,
+        cancelUrl: checkoutCancelUrl,
         lineItems: selectedItems.map((item) => {
           const product = productMap.get(item.productId)!;
           return {
@@ -429,6 +440,8 @@ async function createWorkspaceOrder(
         source: `${workspace}_sales_workspace`,
         commissionMode,
         paymentWorkflow,
+        internalOrderUrl,
+        customerSuccessUrl: `${appUrl}/checkout/success?orderId=${order.id}`,
         shippingAddress: shippingAddress.data,
         provider: providerCode,
         paymentProvider: {
