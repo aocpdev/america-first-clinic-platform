@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   approveConsultant,
+  createConsultantByAdmin,
   createGroupLeader,
   rejectConsultant,
   startImpersonation,
@@ -288,6 +289,43 @@ export default async function AdminConsultantsPage({
                   ))}
                   {selectedPartner.groupLeaders.length === 0 && <p className="text-sm text-slate-500">No leaders have been created for this partner yet.</p>}
                 </div>
+              </Card>
+
+              <Card className="p-6">
+                <div>
+                  <Badge>Consultants</Badge>
+                  <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Create consultant</h3>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Assign the consultant directly to this partner or place them under a group leader.
+                  </p>
+                </div>
+                <form action={createConsultantByAdmin} className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+                  <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
+                  <input name="firstName" placeholder="First name" className={inputClass()} required />
+                  <input name="lastName" placeholder="Last name" className={inputClass()} required />
+                  <input name="email" type="email" placeholder="Consultant email" className={inputClass()} required />
+                  <input name="password" type="password" minLength={8} placeholder="Temporary password" className={inputClass()} required />
+                  <select name="groupLeaderProfileId" className={inputClass()} defaultValue="">
+                    <option value="">Direct partner</option>
+                    {selectedPartner.groupLeaders.map((leader) => (
+                      <option key={leader.id} value={leader.id}>{leader.displayName}</option>
+                    ))}
+                  </select>
+                  <input
+                    name="consultantCommissionPercent"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    defaultValue="50"
+                    placeholder="% of partner pool"
+                    className={inputClass()}
+                    required
+                  />
+                  <div>
+                    <SubmitButton variant="accent" pendingText="Creating...">Create consultant</SubmitButton>
+                  </div>
+                </form>
               </Card>
 
               <Card className="overflow-hidden">
