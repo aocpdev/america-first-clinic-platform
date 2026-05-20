@@ -34,7 +34,7 @@ export async function SidebarShell({
     : [];
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-clinic-mist">
+    <div className="min-h-screen overflow-x-clip bg-clinic-mist">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-border bg-white lg:block">
         <div className="flex h-20 items-center border-b border-border px-6">
           <ClinicLogo />
@@ -102,7 +102,7 @@ export async function SidebarShell({
             </div>
           </div>
         </header>
-        <div className="min-w-0 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+        <div className="min-w-0 overflow-x-clip px-4 py-6 sm:px-6 lg:px-8">{children}</div>
       </main>
     </div>
   );

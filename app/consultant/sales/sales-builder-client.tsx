@@ -444,42 +444,39 @@ export function SalesBuilderClient({
           </Card>
         </div>
 
-        <div className="min-w-0 space-y-6 xl:sticky xl:top-28 xl:self-start">
-          <Card className="min-w-0 rounded-[2rem] border-white/80 bg-white/95 p-4 shadow-[0_18px_46px_rgba(7,55,99,0.08)] backdrop-blur-xl">
-            <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Live checkout</p>
-                <p className="mt-1 text-sm font-semibold text-clinic-ink">
-                  {selectedItemCount} item{selectedItemCount === 1 ? "" : "s"} selected
-                </p>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                Pending
-              </div>
-            </div>
-            <div className="mt-4 grid gap-3">
-              <div className="rounded-3xl bg-clinic-mist px-4 py-4">
-                <div className="flex items-center justify-between gap-4">
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Order total</p>
-                  <p className="text-xs font-semibold text-slate-500">Live</p>
+        <div className="min-w-0 space-y-5 xl:sticky xl:top-24 xl:self-start">
+          <Card className="min-w-0 overflow-hidden rounded-[2rem] border-white/80 bg-white/95 shadow-[0_18px_46px_rgba(7,55,99,0.08)] backdrop-blur-xl">
+            <div className="border-b border-border p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Live checkout</p>
+                  <h2 className="mt-2 text-xl font-semibold tracking-tight text-clinic-ink">Order summary</h2>
+                  <p className="mt-1 text-sm font-semibold text-slate-500">
+                    {selectedItemCount} item{selectedItemCount === 1 ? "" : "s"} selected
+                  </p>
                 </div>
-                <p className="mt-2 text-4xl font-semibold tracking-tight text-clinic-navy">{formatCurrency(subtotalCents)}</p>
+                <div className="inline-flex shrink-0 items-center gap-2 rounded-full bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  Pending
+                </div>
               </div>
-              <div className="rounded-3xl bg-emerald-50 px-4 py-4">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">{commissionLabel}</p>
-                <p className="mt-2 text-3xl font-semibold tracking-tight text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
+
+              <div className="mt-5 grid gap-3">
+                <div className="rounded-3xl bg-clinic-mist px-4 py-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Order total</p>
+                    <p className="text-xs font-semibold text-slate-500">Live</p>
+                  </div>
+                  <p className="mt-2 text-4xl font-semibold tracking-tight text-clinic-navy">{formatCurrency(subtotalCents)}</p>
+                </div>
+                <div className="rounded-3xl bg-emerald-50 px-4 py-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">{commissionLabel}</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
+                </div>
               </div>
             </div>
-          </Card>
 
-          <Card className="min-w-0 rounded-2xl p-5">
-            <div className="flex items-center gap-2">
-              <CircleDollarSign className="h-5 w-5 text-clinic-red" />
-              <h2 className="text-lg font-semibold text-clinic-ink">Order summary</h2>
-            </div>
-
-            <div className="mt-5 space-y-3">
+            <div className="space-y-3 p-5">
               {selectedLines.length > 0 ? (
                 selectedLines.map((line) => (
                   <div key={line.product.id} className="flex items-start justify-between gap-3 text-sm">
@@ -493,63 +490,63 @@ export function SalesBuilderClient({
               ) : (
                 <p className="rounded-xl bg-clinic-mist p-4 text-sm text-slate-500">Select products to build the order.</p>
               )}
-            </div>
 
-            <div className="mt-5 space-y-3 border-t border-border pt-5 text-sm">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Subtotal</span>
-                <span className="font-semibold text-clinic-ink">{formatCurrency(subtotalCents)}</span>
+              <div className="space-y-3 border-t border-border pt-5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Subtotal</span>
+                  <span className="font-semibold text-clinic-ink">{formatCurrency(subtotalCents)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Payment status</span>
+                  <span className="font-semibold text-clinic-ink">Pending</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Payment status</span>
-                <span className="font-semibold text-clinic-ink">Pending</span>
-              </div>
-            </div>
 
-            <div className="mt-5">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Payment action</p>
-              <div className="mt-2 grid grid-cols-1 gap-2 rounded-2xl bg-clinic-mist p-1 sm:grid-cols-2 xl:grid-cols-1 min-[1800px]:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentWorkflow("collect_payment")}
-                  className={`flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-xl px-3 text-center text-sm font-semibold transition ${
-                    paymentWorkflow === "collect_payment" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"
-                  }`}
-                >
-                  <ShieldCheck className="h-4 w-4 shrink-0" />
-                  Collect payment
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentWorkflow("send_invoice")}
-                  className={`flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-xl px-3 text-center text-sm font-semibold transition ${
-                    paymentWorkflow === "send_invoice" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"
-                  }`}
-                >
-                  <Link2 className="h-4 w-4 shrink-0" />
-                  Send invoice
-                </button>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Payment action</p>
+                <div className="mt-2 grid grid-cols-1 gap-2 rounded-2xl bg-clinic-mist p-1 sm:grid-cols-2 xl:grid-cols-1 min-[1800px]:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentWorkflow("collect_payment")}
+                    className={`flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-xl px-3 text-center text-sm font-semibold transition ${
+                      paymentWorkflow === "collect_payment" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"
+                    }`}
+                  >
+                    <ShieldCheck className="h-4 w-4 shrink-0" />
+                    Collect payment
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentWorkflow("send_invoice")}
+                    className={`flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-xl px-3 text-center text-sm font-semibold transition ${
+                      paymentWorkflow === "send_invoice" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"
+                    }`}
+                  >
+                    <Link2 className="h-4 w-4 shrink-0" />
+                    Send invoice
+                  </button>
+                </div>
+                <div className="mt-3 break-words rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-clinic-navy">
+                  {paymentWorkflow === "collect_payment"
+                    ? "Opens secure Stripe Checkout after the order is created. Card data is collected by Stripe, not stored in the CRM."
+                    : "Creates a Stripe invoice payment link and queues webhook metadata for the communication workflow."}
+                </div>
               </div>
-              <div className="mt-3 break-words rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-clinic-navy">
-                {paymentWorkflow === "collect_payment"
-                  ? "Opens secure Stripe Checkout after the order is created. Card data is collected by Stripe, not stored in the CRM."
-                  : "Creates a Stripe invoice payment link and queues webhook metadata for the communication workflow."}
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Order notes</label>
+                <textarea
+                  name="notes"
+                  placeholder="Add call context, next step, or payment notes..."
+                  className="mt-2 min-h-24 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                />
               </div>
-            </div>
 
-            <div className="mt-4">
-              <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Order notes</label>
-              <textarea
-                name="notes"
-                placeholder="Add call context, next step, or payment notes..."
-                className="mt-2 min-h-24 w-full rounded-lg border border-input bg-white px-3 py-2 text-sm text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
+              <SubmitButton className="w-full" size="lg" pendingText="Creating order..." disabled={!canCreateOrders || selectedLines.length === 0}>
+                <CheckCircle2 className="h-4 w-4" />
+                {paymentWorkflow === "collect_payment" ? "Collect payment" : "Send invoice"}
+              </SubmitButton>
             </div>
-
-            <SubmitButton className="mt-5 w-full" size="lg" pendingText="Creating order..." disabled={!canCreateOrders || selectedLines.length === 0}>
-              <CheckCircle2 className="h-4 w-4" />
-              {paymentWorkflow === "collect_payment" ? "Collect payment" : "Send invoice"}
-            </SubmitButton>
           </Card>
 
           <Card className="min-w-0 rounded-2xl p-5">
