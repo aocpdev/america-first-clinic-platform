@@ -320,35 +320,37 @@ export function SalesBuilderClient({
 
           <Card className="overflow-hidden rounded-2xl">
             <div className="border-b border-border p-5">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div className="max-w-md">
+              <div className="space-y-5">
+                <div className="max-w-3xl">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Products</p>
-                  <h2 className="mt-2 text-3xl font-semibold leading-tight text-clinic-ink">Build the order</h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-500">Search by product, category, or price range. Add quantities and review the total on the right.</p>
+                  <h2 className="mt-2 text-2xl font-semibold leading-tight text-clinic-ink sm:text-3xl">Build the order</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                    Find the right products, add quantities, and review the order total before collecting payment or sending an invoice.
+                  </p>
                 </div>
-                <div className="grid w-full gap-3 lg:w-auto lg:grid-cols-[300px_190px_170px]">
-                <div className="relative">
-                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products..." className="pl-9" />
-                </div>
-                <select
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value)}
-                  className="h-11 rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {categories.map((item) => (
-                    <option key={item} value={item}>{item}</option>
-                  ))}
-                </select>
-                <select
-                  value={priceRange}
-                  onChange={(event) => setPriceRange(event.target.value)}
-                  className="h-11 rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  {priceRanges.map((range) => (
-                    <option key={range.label} value={range.label}>{range.label}</option>
-                  ))}
-                </select>
+                <div className="grid w-full gap-3 md:grid-cols-[minmax(240px,1fr)_190px_170px]">
+                  <div className="relative">
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products..." className="pl-9" />
+                  </div>
+                  <select
+                    value={category}
+                    onChange={(event) => setCategory(event.target.value)}
+                    className="h-11 rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {categories.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={priceRange}
+                    onChange={(event) => setPriceRange(event.target.value)}
+                    className="h-11 rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {priceRanges.map((range) => (
+                      <option key={range.label} value={range.label}>{range.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
             </div>
