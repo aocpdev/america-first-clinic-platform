@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { requirePartner } from "@/lib/auth/current-user";
 import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { formatCurrency } from "@/lib/products/catalog";
+import { extractProductSalesGuide, formatCurrency } from "@/lib/products/catalog";
 
 function personName(person: { firstName: string | null; lastName: string | null; email?: string }) {
   const name = [person.firstName, person.lastName].filter(Boolean).join(" ").trim();
@@ -130,6 +130,7 @@ export default async function PartnerSalesPage({
             products={products.map((product) => ({
               id: product.id,
               title: product.title,
+              description: product.description,
               categoryName: product.category.name,
               priceCents: product.priceCents,
               estimatedCommissionCents: commissionPoolPerUnit(
@@ -141,7 +142,8 @@ export default async function PartnerSalesPage({
               imageUrl: product.images[0]?.url ?? null,
               imageAlt: product.images[0]?.alt ?? null,
               supportsRecurring: product.supportsRecurring,
-              supportsSubscription: product.supportsSubscription
+              supportsSubscription: product.supportsSubscription,
+              salesGuide: extractProductSalesGuide(product.metadata)
             }))}
             recentOrders={orders.slice(0, 8).map((order) => ({
               id: order.id,

@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { requireApprovedConsultant } from "@/lib/auth/current-user";
 import { consultantNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { extractProductSalesGuide } from "@/lib/products/catalog";
 
 function customerName(customer: { firstName: string | null; lastName: string | null; email: string }) {
   const name = [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim();
@@ -103,6 +104,7 @@ export default async function ConsultantSalesPage({
         products={products.map((product) => ({
           id: product.id,
           title: product.title,
+          description: product.description,
           categoryName: product.category.name,
           priceCents: product.priceCents,
           estimatedCommissionCents: consultantCommissionPerUnit(
@@ -115,7 +117,8 @@ export default async function ConsultantSalesPage({
           imageUrl: product.images[0]?.url ?? null,
           imageAlt: product.images[0]?.alt ?? null,
           supportsRecurring: product.supportsRecurring,
-          supportsSubscription: product.supportsSubscription
+          supportsSubscription: product.supportsSubscription,
+          salesGuide: extractProductSalesGuide(product.metadata)
         }))}
         recentOrders={recentOrders.map((order) => ({
           id: order.id,

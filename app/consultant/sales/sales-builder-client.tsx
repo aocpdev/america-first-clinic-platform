@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, CircleDollarSign, Link2, Search, ShieldCheck, ShoppingBag, UserPlus } from "lucide-react";
+import { CheckCircle2, ChevronDown, CircleDollarSign, Info, Link2, Search, ShieldCheck, ShoppingBag, UserPlus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ type CustomerOption = {
 type ProductOption = {
   id: string;
   title: string;
+  description: string;
   categoryName: string;
   priceCents: number;
   estimatedCommissionCents: number;
@@ -26,6 +27,12 @@ type ProductOption = {
   imageAlt: string | null;
   supportsRecurring: boolean;
   supportsSubscription: boolean;
+  salesGuide: {
+    benefits: string[];
+    talkingPoints: string[];
+    commonObjections: string[];
+    callNotes: string;
+  };
 };
 
 type RecentOrder = {
@@ -76,6 +83,26 @@ function customerDisplayName(customer: CustomerOption) {
   return customer.name || customer.email;
 }
 
+function ProductGuideBlock({ title, items }: { title: string; items: string[] }) {
+  return (
+    <div className="rounded-2xl border border-border bg-white p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{title}</p>
+      {items.length > 0 ? (
+        <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
+          {items.map((item) => (
+            <li key={item} className="flex gap-2">
+              <CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-emerald-600" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-3 text-sm text-slate-500">No guide content has been added yet.</p>
+      )}
+    </div>
+  );
+}
+
 export function SalesBuilderClient({
   customers,
   products,
@@ -100,6 +127,7 @@ export function SalesBuilderClient({
   const [quantities, setQuantities] = useState<Record<string, number>>({});
   const [customerOpen, setCustomerOpen] = useState(true);
   const [shippingOpen, setShippingOpen] = useState(true);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
 
   const categories = useMemo(() => {
     return ["All", ...Array.from(new Set(products.map((product) => product.categoryName))).sort()];
@@ -132,6 +160,8 @@ export function SalesBuilderClient({
     0
   );
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId);
+  const selectedProduct = products.find((product) => product.id === selectedProductId);
+  const selectedItemCount = selectedLines.reduce((sum, line) => sum + line.quantity, 0);
 
   function setQuantity(productId: string, value: number) {
     setQuantities((current) => {
@@ -163,15 +193,21 @@ export function SalesBuilderClient({
         </div>
       )}
 
-      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-        <Card className="min-w-0 p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Selected total</p>
-          <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(subtotalCents)}</p>
-        </Card>
-        <Card className="min-w-0 p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{commissionLabel}</p>
-          <p className="mt-3 text-3xl font-semibold text-clinic-red">{formatCurrency(consultantCommissionCents)}</p>
-        </Card>
+      <div className="sticky top-20 z-20 rounded-2xl border border-white/70 bg-white/90 p-3 shadow-[0_18px_40px_rgba(7,55,99,0.08)] backdrop-blur-xl">
+        <div className="grid min-w-0 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-center">
+          <div className="rounded-xl bg-clinic-mist px-4 py-3">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Selected total</p>
+            <p className="mt-1 text-2xl font-semibold text-clinic-navy">{formatCurrency(subtotalCents)}</p>
+          </div>
+          <div className="rounded-xl bg-emerald-50 px-4 py-3">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">{commissionLabel}</p>
+            <p className="mt-1 text-2xl font-semibold text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
+          </div>
+          <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-white px-4 py-3 md:min-w-48 md:flex-col md:items-start md:gap-1">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Order</p>
+            <p className="text-sm font-semibold text-clinic-ink">{selectedItemCount} item{selectedItemCount === 1 ? "" : "s"} selected</p>
+          </div>
+        </div>
       </div>
 
       <form action={createOrderAction} className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
@@ -385,15 +421,25 @@ export function SalesBuilderClient({
                           {formatCurrency(product.estimatedCommissionCents)} {productEstimateLabel}
                         </p>
                       </div>
-                      <div className="flex items-center rounded-full border border-border bg-white p-1">
-                        <button type="button" onClick={() => setQuantity(product.id, quantity - 1)} className="h-8 w-8 rounded-full text-lg font-semibold text-slate-500 hover:bg-clinic-mist">-</button>
-                        <input
-                          aria-label={`Quantity for ${product.title}`}
-                          value={quantity}
-                          onChange={(event) => setQuantity(product.id, Number(event.target.value))}
-                          className="h-8 w-10 border-0 bg-transparent text-center text-sm font-semibold text-clinic-ink focus:outline-none"
-                        />
-                        <button type="button" onClick={() => setQuantity(product.id, quantity + 1)} className="h-8 w-8 rounded-full text-lg font-semibold text-clinic-navy hover:bg-clinic-mist">+</button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedProductId(product.id)}
+                          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border bg-white text-clinic-navy transition hover:bg-clinic-mist"
+                          aria-label={`View sales guide for ${product.title}`}
+                        >
+                          <Info className="h-4 w-4" />
+                        </button>
+                        <div className="flex items-center rounded-full border border-border bg-white p-1">
+                          <button type="button" onClick={() => setQuantity(product.id, quantity - 1)} className="h-8 w-8 rounded-full text-lg font-semibold text-slate-500 hover:bg-clinic-mist">-</button>
+                          <input
+                            aria-label={`Quantity for ${product.title}`}
+                            value={quantity}
+                            onChange={(event) => setQuantity(product.id, Number(event.target.value))}
+                            className="h-8 w-10 border-0 bg-transparent text-center text-sm font-semibold text-clinic-ink focus:outline-none"
+                          />
+                          <button type="button" onClick={() => setQuantity(product.id, quantity + 1)} className="h-8 w-8 rounded-full text-lg font-semibold text-clinic-navy hover:bg-clinic-mist">+</button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -525,6 +571,56 @@ export function SalesBuilderClient({
           )}
         </div>
       </Card>
+
+      {selectedProduct ? (
+        <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">
+          <div className="mx-auto max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
+            <div className="flex items-start justify-between gap-4 border-b border-border p-5">
+              <div className="flex min-w-0 gap-4">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-clinic-mist">
+                  {selectedProduct.imageUrl ? (
+                    <img src={selectedProduct.imageUrl} alt={selectedProduct.imageAlt ?? selectedProduct.title} className="h-full w-full object-cover" />
+                  ) : (
+                    <ShoppingBag className="h-7 w-7 text-slate-300" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Product sales guide</p>
+                  <h3 className="mt-2 text-2xl font-semibold leading-tight text-clinic-ink">{selectedProduct.title}</h3>
+                  <p className="mt-1 text-sm text-slate-500">{selectedProduct.categoryName} · {formatCurrency(selectedProduct.priceCents)}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSelectedProductId(null)}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-white text-slate-500 transition hover:bg-clinic-mist hover:text-clinic-ink"
+                aria-label="Close product guide"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="max-h-[calc(92vh-116px)] overflow-y-auto bg-clinic-mist/50 p-5">
+              {selectedProduct.description ? (
+                <div className="mb-4 rounded-2xl border border-border bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Overview</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">{selectedProduct.description}</p>
+                </div>
+              ) : null}
+              <div className="grid gap-4 md:grid-cols-2">
+                <ProductGuideBlock title="Key benefits" items={selectedProduct.salesGuide.benefits} />
+                <ProductGuideBlock title="Talking points" items={selectedProduct.salesGuide.talkingPoints} />
+                <ProductGuideBlock title="Common objections" items={selectedProduct.salesGuide.commonObjections} />
+                <div className="rounded-2xl border border-border bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Call notes</p>
+                  <p className="mt-3 text-sm leading-6 text-slate-600">
+                    {selectedProduct.salesGuide.callNotes || "No call notes have been added yet."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
