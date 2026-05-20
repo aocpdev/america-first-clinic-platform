@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, CircleDollarSign, Link2, Search, ShieldCheck, ShoppingBag, UserPlus } from "lucide-react";
+import { CheckCircle2, ChevronDown, CircleDollarSign, Link2, Search, ShieldCheck, ShoppingBag, UserPlus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -98,6 +98,8 @@ export function SalesBuilderClient({
   const [category, setCategory] = useState("All");
   const [priceRange, setPriceRange] = useState(priceRanges[0].label);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [customerOpen, setCustomerOpen] = useState(true);
+  const [shippingOpen, setShippingOpen] = useState(true);
 
   const categories = useMemo(() => {
     return ["All", ...Array.from(new Set(products.map((product) => product.categoryName))).sort()];
@@ -188,27 +190,37 @@ export function SalesBuilderClient({
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Customer</p>
                   <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Assign this sale</h2>
                 </div>
-                <div className="grid grid-cols-2 rounded-xl bg-clinic-mist p-1">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="grid grid-cols-2 rounded-xl bg-clinic-mist p-1">
+                    <button
+                      type="button"
+                      onClick={() => setCustomerMode("existing")}
+                      className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${customerMode === "existing" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"}`}
+                      disabled={customers.length === 0}
+                    >
+                      Existing
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCustomerMode("new")}
+                      className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${customerMode === "new" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"}`}
+                    >
+                      New
+                    </button>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setCustomerMode("existing")}
-                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${customerMode === "existing" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"}`}
-                    disabled={customers.length === 0}
+                    onClick={() => setCustomerOpen((value) => !value)}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-clinic-navy shadow-line transition hover:bg-clinic-mist"
                   >
-                    Existing
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCustomerMode("new")}
-                    className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${customerMode === "new" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"}`}
-                  >
-                    New
+                    {customerOpen ? "Hide details" : "Show details"}
+                    <ChevronDown className={`h-4 w-4 transition ${customerOpen ? "rotate-180" : ""}`} />
                   </button>
                 </div>
               </div>
             </div>
 
-            <div className="p-5">
+            <div className={`${customerOpen ? "block" : "hidden"} p-5`}>
               {customerMode === "existing" ? (
                 <div className="grid gap-4 md:grid-cols-[1fr_240px]">
                   <div>
@@ -238,7 +250,7 @@ export function SalesBuilderClient({
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">First name</label>
-                    <Input name="firstName" placeholder="First name" className="mt-2" required={customerMode === "new"} />
+                    <Input name="firstName" placeholder="First name" className="mt-2" />
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Last name</label>
@@ -246,11 +258,15 @@ export function SalesBuilderClient({
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Email</label>
-                    <Input name="email" type="email" placeholder="customer@email.com" className="mt-2" required={customerMode === "new"} />
+                    <Input name="email" type="email" placeholder="customer@email.com" className="mt-2" />
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Phone</label>
                     <Input name="phone" placeholder="Phone" className="mt-2" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Date of birth</label>
+                    <Input name="dateOfBirth" type="date" className="mt-2" />
                   </div>
                 </div>
               )}
@@ -259,13 +275,25 @@ export function SalesBuilderClient({
 
           <Card className="overflow-hidden rounded-2xl">
             <div className="border-b border-border p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Shipping address</p>
-              <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Delivery details</h2>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Shipping address</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Delivery details</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShippingOpen((value) => !value)}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-white px-4 text-sm font-semibold text-clinic-navy shadow-line transition hover:bg-clinic-mist"
+                >
+                  {shippingOpen ? "Hide address" : "Show address"}
+                  <ChevronDown className={`h-4 w-4 transition ${shippingOpen ? "rotate-180" : ""}`} />
+                </button>
+              </div>
             </div>
-            <div className="grid gap-4 p-5 md:grid-cols-2">
+            <div className={`${shippingOpen ? "grid" : "hidden"} gap-4 p-5 md:grid-cols-2`}>
               <div className="md:col-span-2">
                 <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 1</label>
-                <Input name="shippingAddressLine1" placeholder="Street address" className="mt-2" required />
+                <Input name="shippingAddressLine1" placeholder="Street address" className="mt-2" />
               </div>
               <div className="md:col-span-2">
                 <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 2</label>
@@ -273,19 +301,19 @@ export function SalesBuilderClient({
               </div>
               <div>
                 <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">City</label>
-                <Input name="shippingCity" placeholder="City" className="mt-2" required />
+                <Input name="shippingCity" placeholder="City" className="mt-2" />
               </div>
               <div>
                 <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">State</label>
-                <Input name="shippingState" placeholder="State" className="mt-2" required />
+                <Input name="shippingState" placeholder="State" className="mt-2" />
               </div>
               <div>
                 <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">ZIP code</label>
-                <Input name="shippingPostalCode" placeholder="ZIP code" className="mt-2" required />
+                <Input name="shippingPostalCode" placeholder="ZIP code" className="mt-2" />
               </div>
               <div>
                 <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Country</label>
-                <Input name="shippingCountry" defaultValue="US" placeholder="Country" className="mt-2" required />
+                <Input name="shippingCountry" defaultValue="US" placeholder="Country" className="mt-2" />
               </div>
             </div>
           </Card>
@@ -293,11 +321,12 @@ export function SalesBuilderClient({
           <Card className="overflow-hidden rounded-2xl">
             <div className="border-b border-border p-5">
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
+                <div className="max-w-md">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Products</p>
-                  <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Build the order</h2>
+                  <h2 className="mt-2 text-3xl font-semibold leading-tight text-clinic-ink">Build the order</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-500">Search by product, category, or price range. Add quantities and review the total on the right.</p>
                 </div>
-                <div className="grid w-full gap-3 lg:w-auto lg:grid-cols-[260px_190px_160px]">
+                <div className="grid w-full gap-3 lg:w-auto lg:grid-cols-[300px_190px_170px]">
                 <div className="relative">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products..." className="pl-9" />

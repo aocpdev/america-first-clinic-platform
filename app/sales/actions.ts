@@ -15,7 +15,8 @@ const newCustomerSchema = z.object({
   firstName: z.string().trim().min(1),
   lastName: z.string().trim().optional(),
   email: z.string().trim().email(),
-  phone: z.string().trim().optional()
+  phone: z.string().trim().optional(),
+  dateOfBirth: z.string().trim().optional()
 });
 
 const shippingAddressSchema = z.object({
@@ -30,6 +31,12 @@ const shippingAddressSchema = z.object({
 function formString(formData: FormData, key: string) {
   const value = formData.get(key);
   return typeof value === "string" ? value.trim() : "";
+}
+
+function optionalDate(value?: string) {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function selectedProductQuantities(formData: FormData) {
@@ -221,7 +228,8 @@ async function createWorkspaceOrder(
       firstName: formData.get("firstName"),
       lastName: formData.get("lastName"),
       email: formData.get("email"),
-      phone: formData.get("phone")
+      phone: formData.get("phone"),
+      dateOfBirth: formData.get("dateOfBirth")
     });
 
     if (!parsed.success) {
@@ -262,6 +270,7 @@ async function createWorkspaceOrder(
             pipelineUpdatedAt: new Date(),
             firstName: parsed.data.firstName,
             lastName: parsed.data.lastName || null,
+            dateOfBirth: optionalDate(parsed.data.dateOfBirth),
             phone: parsed.data.phone || null,
             notes: notes || undefined
           }
@@ -277,6 +286,7 @@ async function createWorkspaceOrder(
             pipelineUpdatedAt: new Date(),
             firstName: parsed.data.firstName,
             lastName: parsed.data.lastName || null,
+            dateOfBirth: optionalDate(parsed.data.dateOfBirth),
             phone: parsed.data.phone || null,
             notes: notes || null
           }
