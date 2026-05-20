@@ -16,7 +16,8 @@ const newCustomerSchema = z.object({
   lastName: z.string().trim().optional(),
   email: z.string().trim().email(),
   phone: z.string().trim().optional(),
-  dateOfBirth: z.string().trim().optional()
+  dateOfBirth: z.string().trim().optional(),
+  birthSex: z.enum(["MALE", "FEMALE", "PREFER_NOT_TO_SAY"]).optional()
 });
 
 const shippingAddressSchema = z.object({
@@ -229,7 +230,8 @@ async function createWorkspaceOrder(
       lastName: formData.get("lastName"),
       email: formData.get("email"),
       phone: formData.get("phone"),
-      dateOfBirth: formData.get("dateOfBirth")
+      dateOfBirth: formData.get("dateOfBirth"),
+      birthSex: formData.get("birthSex") || undefined
     });
 
     if (!parsed.success) {
@@ -271,6 +273,7 @@ async function createWorkspaceOrder(
             firstName: parsed.data.firstName,
             lastName: parsed.data.lastName || null,
             dateOfBirth: optionalDate(parsed.data.dateOfBirth),
+            birthSex: parsed.data.birthSex || null,
             phone: parsed.data.phone || null,
             notes: notes || undefined
           }
@@ -287,6 +290,7 @@ async function createWorkspaceOrder(
             firstName: parsed.data.firstName,
             lastName: parsed.data.lastName || null,
             dateOfBirth: optionalDate(parsed.data.dateOfBirth),
+            birthSex: parsed.data.birthSex || null,
             phone: parsed.data.phone || null,
             notes: notes || null
           }

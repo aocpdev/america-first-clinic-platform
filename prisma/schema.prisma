@@ -231,6 +231,7 @@ model Customer {
   firstName           String?
   lastName            String?
   dateOfBirth         DateTime?
+  birthSex            String?
   phone               String?
   pipelineStage       String              @default("NEW_LEAD")
   pipelineUpdatedAt   DateTime?

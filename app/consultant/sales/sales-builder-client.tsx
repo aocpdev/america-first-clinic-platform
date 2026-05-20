@@ -286,6 +286,19 @@ export function SalesBuilderClient({
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Date of birth</label>
                     <Input name="dateOfBirth" type="date" className="mt-2" />
                   </div>
+                  <div>
+                    <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Birth sex</label>
+                    <select
+                      name="birthSex"
+                      className="mt-2 h-11 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      defaultValue=""
+                    >
+                      <option value="" disabled>Select birth sex</option>
+                      <option value="MALE">Male</option>
+                      <option value="FEMALE">Female</option>
+                      <option value="PREFER_NOT_TO_SAY">Prefer not to say</option>
+                    </select>
+                  </div>
                 </div>
               )}
             </div>
