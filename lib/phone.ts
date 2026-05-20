@@ -16,6 +16,57 @@ const countryCallingCodes = [
   "993", "994", "995", "996", "998"
 ].sort((a, b) => b.length - a.length);
 
+const callingCodeCountries: Record<string, { flag: string; label: string }> = {
+  "1": { flag: "🇺🇸", label: "United States" },
+  "7": { flag: "🇰🇿", label: "Kazakhstan / Russia" },
+  "20": { flag: "🇪🇬", label: "Egypt" },
+  "27": { flag: "🇿🇦", label: "South Africa" },
+  "30": { flag: "🇬🇷", label: "Greece" },
+  "31": { flag: "🇳🇱", label: "Netherlands" },
+  "32": { flag: "🇧🇪", label: "Belgium" },
+  "33": { flag: "🇫🇷", label: "France" },
+  "34": { flag: "🇪🇸", label: "Spain" },
+  "39": { flag: "🇮🇹", label: "Italy" },
+  "44": { flag: "🇬🇧", label: "United Kingdom" },
+  "49": { flag: "🇩🇪", label: "Germany" },
+  "51": { flag: "🇵🇪", label: "Peru" },
+  "52": { flag: "🇲🇽", label: "Mexico" },
+  "54": { flag: "🇦🇷", label: "Argentina" },
+  "55": { flag: "🇧🇷", label: "Brazil" },
+  "57": { flag: "🇨🇴", label: "Colombia" },
+  "58": { flag: "🇻🇪", label: "Venezuela" },
+  "61": { flag: "🇦🇺", label: "Australia" },
+  "81": { flag: "🇯🇵", label: "Japan" },
+  "86": { flag: "🇨🇳", label: "China" },
+  "91": { flag: "🇮🇳", label: "India" }
+};
+
+const nanpAreaCountries: Record<string, { flag: string; label: string }> = {
+  "242": { flag: "🇧🇸", label: "Bahamas" },
+  "246": { flag: "🇧🇧", label: "Barbados" },
+  "264": { flag: "🇦🇮", label: "Anguilla" },
+  "268": { flag: "🇦🇬", label: "Antigua and Barbuda" },
+  "284": { flag: "🇻🇬", label: "British Virgin Islands" },
+  "340": { flag: "🇻🇮", label: "U.S. Virgin Islands" },
+  "345": { flag: "🇰🇾", label: "Cayman Islands" },
+  "441": { flag: "🇧🇲", label: "Bermuda" },
+  "473": { flag: "🇬🇩", label: "Grenada" },
+  "649": { flag: "🇹🇨", label: "Turks and Caicos" },
+  "664": { flag: "🇲🇸", label: "Montserrat" },
+  "721": { flag: "🇸🇽", label: "Sint Maarten" },
+  "758": { flag: "🇱🇨", label: "Saint Lucia" },
+  "767": { flag: "🇩🇲", label: "Dominica" },
+  "784": { flag: "🇻🇨", label: "Saint Vincent and the Grenadines" },
+  "787": { flag: "🇵🇷", label: "Puerto Rico" },
+  "809": { flag: "🇩🇴", label: "Dominican Republic" },
+  "829": { flag: "🇩🇴", label: "Dominican Republic" },
+  "849": { flag: "🇩🇴", label: "Dominican Republic" },
+  "868": { flag: "🇹🇹", label: "Trinidad and Tobago" },
+  "869": { flag: "🇰🇳", label: "Saint Kitts and Nevis" },
+  "876": { flag: "🇯🇲", label: "Jamaica" },
+  "939": { flag: "🇵🇷", label: "Puerto Rico" }
+};
+
 export function digitsOnly(value?: string | null) {
   return String(value ?? "").replace(/\D/g, "");
 }
@@ -24,18 +75,22 @@ function inferCallingCode(digits: string) {
   return countryCallingCodes.find((code) => digits.startsWith(code));
 }
 
-export function normalizePhoneToE164(value?: string | null) {
+function normalizeDigits(value?: string | null) {
   const raw = String(value ?? "").trim();
-  const digits = digitsOnly(raw);
+  let digits = digitsOnly(raw);
+
+  if (!digits) return "";
+  if (digits.length === 10) return `1${digits}`;
+  if (digits.length === 12 && digits.startsWith("11")) return `1${digits.slice(2)}`;
+  if (digits.length === 13 && digits.startsWith("111")) return `1${digits.slice(3)}`;
+  if (digits.length === 11 && digits.startsWith("1")) return digits;
+  return digits;
+}
+
+export function normalizePhoneToE164(value?: string | null) {
+  const digits = normalizeDigits(value);
 
   if (!digits) return null;
-  if (raw.startsWith("+")) return `+${digits}`;
-  if (digits.length === 10) return `+1${digits}`;
-  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
-
-  const callingCode = inferCallingCode(digits);
-  if (callingCode) return `+${digits}`;
-
   return `+${digits}`;
 }
 
@@ -55,22 +110,52 @@ export function formatPhoneForDisplay(value?: string | null) {
   return normalized;
 }
 
-export function maskPhoneInput(value?: string | null) {
-  const raw = String(value ?? "");
-  const digits = digitsOnly(raw);
+export function phoneCountryInfo(value?: string | null) {
+  const digits = normalizeDigits(value);
+  if (!digits) return { flag: "🌐", label: "Country", callingCode: "" };
 
-  if (!digits) return "";
-  if (digits.length <= 10 || (digits.length === 11 && digits.startsWith("1"))) {
-    const local = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+  if (digits.length === 11 && digits.startsWith("1")) {
+    const areaCode = digits.slice(1, 4);
+    const country = nanpAreaCountries[areaCode] ?? callingCodeCountries["1"];
+    return { ...country, callingCode: "+1" };
+  }
+
+  const callingCode = inferCallingCode(digits);
+  const country = callingCode ? callingCodeCountries[callingCode] : null;
+
+  return {
+    flag: country?.flag ?? "🌐",
+    label: country?.label ?? "International",
+    callingCode: callingCode ? `+${callingCode}` : "+"
+  };
+}
+
+export function maskPhoneInput(value?: string | null) {
+  const raw = String(value ?? "").trim();
+  const rawDigits = digitsOnly(raw);
+
+  if (!rawDigits) return "";
+  if (!raw.startsWith("+")) {
+    const local =
+      rawDigits.length === 11 && rawDigits.startsWith("1")
+        ? rawDigits.slice(1)
+        : rawDigits.length === 12 && rawDigits.startsWith("11")
+          ? rawDigits.slice(2, 12)
+          : rawDigits.slice(0, 10);
     const area = local.slice(0, 3);
     const prefix = local.slice(3, 6);
     const line = local.slice(6, 10);
 
-    if (local.length <= 3) return area ? `(${area}` : "";
-    if (local.length <= 6) return `(${area}) ${prefix}`;
+    if (local.length <= 3) return area ? `+1 (${area}` : "+1";
+    if (local.length <= 6) return `+1 (${area}) ${prefix}`;
     return `+1 (${area}) ${prefix}-${line}`;
   }
 
+  const digits = normalizeDigits(raw);
+  if (raw.trim().startsWith("+") && digits.length === 11 && digits.startsWith("1")) {
+    const local = digits.slice(1);
+    return `+1 (${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6, 10)}`;
+  }
   if (raw.trim().startsWith("+")) return `+${digits}`;
   return `+${digits}`;
 }
