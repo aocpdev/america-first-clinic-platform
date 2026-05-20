@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, CircleDollarSign, Home, Info, Link2, Search, ShieldCheck, ShoppingBag, UserPlus, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertCircle, CheckCircle2, ChevronDown, Home, Info, Link2, Search, ShieldCheck, ShoppingBag, UserPlus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -94,6 +94,28 @@ const priceRanges = [
   { label: "$500+", min: 50000, max: Number.POSITIVE_INFINITY }
 ];
 
+type SalesDraft = {
+  state: {
+    customerMode: "existing" | "new";
+    selectedCustomerId: string;
+    paymentWorkflow: "collect_payment" | "send_invoice";
+    query: string;
+    customerQuery: string;
+    shippingMode: "saved" | "new";
+    selectedShippingAddressId: string;
+    category: string;
+    priceRange: string;
+    quantities: Record<string, number>;
+    customerOpen: boolean;
+    shippingOpen: boolean;
+  };
+  fields: Record<string, string>;
+};
+
+function salesDraftKey() {
+  return `afc:sales-builder:${window.location.pathname}`;
+}
+
 function customerDisplayName(customer: CustomerOption) {
   return customer.name || customer.email;
 }
@@ -149,14 +171,15 @@ export function SalesBuilderClient({
   successMessage = "Order created successfully. Your commission is pending approval.",
   ownershipCopy = "You can only create orders for customers assigned to you. The operations team can reassign customers when the sales relationship changes."
 }: SalesBuilderClientProps) {
+  const formRef = useRef<HTMLFormElement>(null);
   const [customerMode, setCustomerMode] = useState<"existing" | "new">(customers.length > 0 ? "existing" : "new");
   const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id ?? "");
   const [paymentWorkflow, setPaymentWorkflow] = useState<"collect_payment" | "send_invoice">("collect_payment");
   const [query, setQuery] = useState("");
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
-  const [shippingMode, setShippingMode] = useState<"saved" | "new">("new");
-  const [selectedShippingAddressId, setSelectedShippingAddressId] = useState("");
+  const [shippingMode, setShippingMode] = useState<"saved" | "new">(customers[0]?.addresses.length ? "saved" : "new");
+  const [selectedShippingAddressId, setSelectedShippingAddressId] = useState(customers[0]?.addresses[0]?.id ?? "");
   const [category, setCategory] = useState("All");
   const [priceRange, setPriceRange] = useState(priceRanges[0].label);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -220,14 +243,102 @@ export function SalesBuilderClient({
   useEffect(() => {
     const firstAddress = selectedCustomer?.addresses[0];
 
-    if (customerMode === "existing" && firstAddress) {
-      setShippingMode("saved");
-      setSelectedShippingAddressId(firstAddress.id);
-    } else {
+    if (customerMode !== "existing" || !firstAddress) {
       setShippingMode("new");
       setSelectedShippingAddressId("");
+      return;
     }
-  }, [customerMode, selectedCustomerId, selectedCustomer]);
+
+    const selectedAddressIsValid = selectedCustomer.addresses.some((address) => address.id === selectedShippingAddressId);
+    if (shippingMode === "saved" && !selectedAddressIsValid) {
+      setSelectedShippingAddressId(firstAddress.id);
+    }
+  }, [customerMode, selectedShippingAddressId, selectedCustomer, shippingMode]);
+
+  useEffect(() => {
+    if (createdOrderId) {
+      localStorage.removeItem(salesDraftKey());
+      return;
+    }
+
+    if (!error) return;
+
+    const rawDraft = localStorage.getItem(salesDraftKey());
+    if (!rawDraft) return;
+
+    try {
+      const draft = JSON.parse(rawDraft) as SalesDraft;
+      setCustomerMode(draft.state.customerMode);
+      setSelectedCustomerId(draft.state.selectedCustomerId);
+      setPaymentWorkflow(draft.state.paymentWorkflow);
+      setQuery(draft.state.query);
+      setCustomerQuery(draft.state.customerQuery);
+      setShippingMode(draft.state.shippingMode);
+      setSelectedShippingAddressId(draft.state.selectedShippingAddressId);
+      setCategory(draft.state.category);
+      setPriceRange(draft.state.priceRange);
+      setQuantities(draft.state.quantities);
+      setCustomerOpen(draft.state.customerOpen);
+      setShippingOpen(draft.state.shippingOpen);
+
+      window.requestAnimationFrame(() => {
+        const form = formRef.current;
+        if (!form) return;
+
+        form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("[name]").forEach((field) => {
+          const value = draft.fields[field.name];
+          if (typeof value === "undefined") return;
+
+          if (field instanceof HTMLInputElement && field.type === "checkbox") {
+            field.checked = value === "true";
+            return;
+          }
+
+          field.value = value;
+        });
+      });
+    } catch {
+      localStorage.removeItem(salesDraftKey());
+    }
+  }, [createdOrderId, error]);
+
+  function saveSalesDraft() {
+    const form = formRef.current;
+    const fields: Record<string, string> = {};
+
+    if (form) {
+      form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>("[name]").forEach((field) => {
+        if (field.name.startsWith("quantity:")) return;
+
+        if (field instanceof HTMLInputElement && field.type === "checkbox") {
+          fields[field.name] = field.checked ? "true" : "false";
+          return;
+        }
+
+        fields[field.name] = field.value;
+      });
+    }
+
+    const draft: SalesDraft = {
+      state: {
+        customerMode,
+        selectedCustomerId,
+        paymentWorkflow,
+        query,
+        customerQuery,
+        shippingMode,
+        selectedShippingAddressId,
+        category,
+        priceRange,
+        quantities,
+        customerOpen,
+        shippingOpen
+      },
+      fields
+    };
+
+    localStorage.setItem(salesDraftKey(), JSON.stringify(draft));
+  }
 
   function setQuantity(productId: string, value: number) {
     setQuantities((current) => {
@@ -249,8 +360,31 @@ export function SalesBuilderClient({
         </div>
       )}
       {error && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
-          {errorCopy[error] ?? "Something went wrong while creating the order."}
+        <div className="overflow-hidden rounded-[1.75rem] border border-red-100 bg-white shadow-[0_18px_55px_rgba(185,28,28,0.08)]">
+          <div className="flex flex-col gap-4 bg-gradient-to-r from-red-50 via-white to-white p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-100 text-red-700">
+                <AlertCircle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-red-600">Needs attention</p>
+                <h2 className="mt-1 text-lg font-semibold text-clinic-ink">Order needs one more detail</h2>
+                <p className="mt-1 text-sm font-semibold leading-6 text-red-700">
+                  {errorCopy[error] ?? "Something went wrong while creating the order."}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  Your selected customer, products, quantities, and payment action were restored so you can keep going.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShippingOpen(true)}
+              className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl border border-red-100 bg-white px-4 text-sm font-bold text-red-700 shadow-line transition hover:bg-red-50"
+            >
+              Review details
+            </button>
+          </div>
         </div>
       )}
       {!canCreateOrders && setupMessage && (
@@ -259,7 +393,12 @@ export function SalesBuilderClient({
         </div>
       )}
 
-      <form action={createOrderAction} className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
+      <form
+        ref={formRef}
+        action={createOrderAction}
+        onSubmit={saveSalesDraft}
+        className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]"
+      >
         <input type="hidden" name="customerMode" value={customerMode} />
         <input type="hidden" name="pipelineStage" value="PAYMENT_PENDING" />
         <input type="hidden" name="paymentWorkflow" value={paymentWorkflow} />
