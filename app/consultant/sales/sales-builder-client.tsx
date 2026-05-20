@@ -307,7 +307,7 @@ export function SalesBuilderClient({
 
             <div className={`${customerOpen ? "block" : "hidden"} p-5`}>
               {customerMode === "existing" ? (
-                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,440px)]">
                   <input type="hidden" name="customerId" value={selectedCustomerId} />
                   <div className="relative">
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Find customer</label>
@@ -362,9 +362,6 @@ export function SalesBuilderClient({
                                       <span className="truncate">{formatPhoneForDisplay(customer.phone) || "No phone on file"}</span>
                                     </span>
                                   </span>
-                                  <span className="hidden rounded-full bg-white px-3 py-1 text-xs font-black text-clinic-navy ring-1 ring-border sm:inline-flex">
-                                    {formatCurrency(customer.lifetimeValueCents)}
-                                  </span>
                                 </button>
                               );
                             })
@@ -389,19 +386,15 @@ export function SalesBuilderClient({
                           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border bg-white text-base font-black text-clinic-navy shadow-line">
                             {customerInitials(selectedCustomer)}
                           </div>
-                          <div className="min-w-0">
+                          <div className="min-w-0 flex-1">
                             <p className="truncate text-base font-black text-clinic-ink">{customerDisplayName(selectedCustomer)}</p>
-                            <p className="truncate text-sm font-semibold text-slate-500">{selectedCustomer.email}</p>
+                            <p className="mt-1 break-all text-sm font-semibold leading-5 text-slate-500">{selectedCustomer.email}</p>
                           </div>
                         </div>
                         <div className="grid gap-2 text-sm font-semibold text-slate-600">
                           <div className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2 ring-1 ring-border">
                             <span>Phone</span>
                             <span className="text-right text-clinic-ink">{formatPhoneForDisplay(selectedCustomer.phone) || "Not provided"}</span>
-                          </div>
-                          <div className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2 ring-1 ring-border">
-                            <span>Customer value</span>
-                            <span className="text-right text-clinic-navy">{formatCurrency(selectedCustomer.lifetimeValueCents)}</span>
                           </div>
                         </div>
                       </div>
