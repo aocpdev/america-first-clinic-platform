@@ -1,10 +1,11 @@
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { requirePartner } from "@/lib/auth/current-user";
+import { getGroupLeaderDashboardMetrics, getPartnerDashboardMetrics } from "@/lib/dashboard/metrics";
 import { prisma } from "@/lib/db/prisma";
-import { getPartnerMetrics } from "@/lib/partner/metrics";
 import { currency } from "@/lib/utils";
 
 async function getPartnerProfile(userId: string) {
@@ -18,9 +19,15 @@ export default async function PartnerDashboardPage() {
   const user = await requirePartner();
   const isGroupLeader = user.role === "GROUP_LEADER";
   const nav = isGroupLeader ? groupLeaderNav : partnerNav;
-  const partnerProfile = await getPartnerProfile(user.id);
+  const [partnerProfile, groupLeaderProfile] = await Promise.all([
+    getPartnerProfile(user.id),
+    prisma.groupLeaderProfile.findUnique({
+      where: { userId: user.id },
+      include: { partnerProfile: true }
+    })
+  ]);
 
-  if (!partnerProfile) {
+  if (!partnerProfile && !groupLeaderProfile) {
     return (
       <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title={isGroupLeader ? "Leader dashboard" : "Partner dashboard"}>
         <Card className="p-6">
@@ -31,32 +38,39 @@ export default async function PartnerDashboardPage() {
     );
   }
 
-  const metrics = await getPartnerMetrics(partnerProfile.id);
+  const metrics = partnerProfile
+    ? await getPartnerDashboardMetrics(user.companyId!, partnerProfile.id)
+    : await getGroupLeaderDashboardMetrics(user.companyId!, groupLeaderProfile!.id);
+  const isLeaderDashboard = !partnerProfile && Boolean(groupLeaderProfile);
+  const leaderCount = "leaderCount" in metrics ? metrics.leaderCount : 0;
 
   return (
-    <SidebarShell nav={nav} eyebrow="Partner" title="Partner performance">
+    <SidebarShell nav={nav} eyebrow={isLeaderDashboard ? "Group leader" : "Partner"} title={isLeaderDashboard ? "Leader performance" : "Partner performance"}>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Attributed revenue" value={currency(metrics.attributedRevenueCents / 100)} change={`${metrics.attributedOrderCount} partner-linked orders`} />
-        <MetricCard label="Partner profit" value={currency(metrics.partnerCommissionCents / 100)} change="25% of margin in dollars" />
-        <MetricCard label="Consultant payouts" value={currency(metrics.consultantPayoutsByStatus.PENDING / 100)} change="Pending seller payouts" tone="red" />
-        <MetricCard label="Assigned consultants" value={`${metrics.consultants.length}`} change="Active seller network" />
+        <MetricCard label="Collected revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders in your network`} />
+        <MetricCard label={isLeaderDashboard ? "Leader profit" : "Partner profit"} value={currency(metrics.profitCents / 100)} change="Real earnings from captured payments" tone="green" />
+        <MetricCard label="Pending seller payouts" value={currency(metrics.pendingConsultantPayoutCents / 100)} change="Consultant commissions awaiting payout" tone="red" />
+        <MetricCard label="Assigned consultants" value={`${metrics.consultantCount}`} change={isLeaderDashboard ? "Direct team members" : `${leaderCount} leaders in network`} />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_1fr]">
         <Card>
-          <CardHeader><CardTitle>Profit formula</CardTitle></CardHeader>
-          <CardContent className="space-y-3 text-sm text-slate-600">
-            <div className="rounded-lg bg-clinic-mist p-4 font-semibold text-clinic-ink">Margin = sale price - internal cost</div>
-            <div className="rounded-lg bg-clinic-mist p-4 font-semibold text-clinic-ink">Partner profit = 25% of margin</div>
-            <div className="rounded-lg bg-clinic-blush p-4 font-semibold text-clinic-red">Consultant payout is tracked separately</div>
+          <CardHeader><CardTitle>Revenue and earnings</CardTitle></CardHeader>
+          <CardContent>
+            <RevenueChart data={metrics.chartData} earningsLabel={isLeaderDashboard ? "Leader profit" : "Partner profit"} />
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Partner payout responsibility</CardTitle></CardHeader>
-          <CardContent>
+          <CardHeader><CardTitle>{isLeaderDashboard ? "Leader visibility" : "Partner visibility"}</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
             <p className="text-sm leading-6 text-slate-600">
-              This workspace only includes sales created by consultants assigned to this partner profile.
-              Sales from other partner groups are excluded from revenue, partner profit, and payout queues.
+              This dashboard only includes captured sales inside your assigned hierarchy. Pending payment links and unpaid invoices are excluded from real revenue and earnings.
             </p>
+            <div className="rounded-2xl border border-border bg-clinic-mist p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Scope</p>
+              <p className="mt-2 font-semibold text-clinic-ink">
+                {isLeaderDashboard ? `Consultants assigned to ${groupLeaderProfile!.displayName}` : `Leaders and consultants assigned to ${partnerProfile!.companyName ?? partnerProfile!.displayName}`}
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

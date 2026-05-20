@@ -1,13 +1,31 @@
 "use client";
 
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { revenueSeries } from "@/lib/mock-data";
 
-export function RevenueChart() {
+type RevenueChartPoint = {
+  month: string;
+  revenue: number;
+  earnings: number;
+};
+
+export function RevenueChart({
+  data = [
+    { month: "Jan", revenue: 0, earnings: 0 },
+    { month: "Feb", revenue: 0, earnings: 0 },
+    { month: "Mar", revenue: 0, earnings: 0 },
+    { month: "Apr", revenue: 0, earnings: 0 },
+    { month: "May", revenue: 0, earnings: 0 },
+    { month: "Jun", revenue: 0, earnings: 0 }
+  ],
+  earningsLabel = "Earnings"
+}: {
+  data?: RevenueChartPoint[];
+  earningsLabel?: string;
+}) {
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={revenueSeries} margin={{ left: -18, right: 8, top: 12, bottom: 0 }}>
+        <AreaChart data={data} margin={{ left: -18, right: 8, top: 12, bottom: 0 }}>
           <defs>
             <linearGradient id="revenue" x1="0" x2="0" y1="0" y2="1">
               <stop offset="5%" stopColor="#0B4F8A" stopOpacity={0.28} />
@@ -19,9 +37,10 @@ export function RevenueChart() {
           <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748B", fontSize: 12 }} />
           <Tooltip
             contentStyle={{ borderRadius: 12, border: "1px solid #DDE8F2", boxShadow: "0 16px 40px rgba(7,55,99,.12)" }}
+            formatter={(value, name) => [`$${Number(value).toLocaleString("en-US", { maximumFractionDigits: 0 })}`, name === "earnings" ? earningsLabel : "Revenue"]}
           />
           <Area type="monotone" dataKey="revenue" stroke="#073763" strokeWidth={3} fill="url(#revenue)" />
-          <Area type="monotone" dataKey="commissions" stroke="#DC1F2A" strokeWidth={2} fill="transparent" />
+          <Area type="monotone" dataKey="earnings" stroke="#DC1F2A" strokeWidth={2} fill="transparent" />
         </AreaChart>
       </ResponsiveContainer>
     </div>

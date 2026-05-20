@@ -2,32 +2,56 @@ import { MetricCard } from "@/components/dashboard/metric-card";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { requireApprovedConsultant } from "@/lib/auth/current-user";
 import { consultantNav } from "@/lib/constants/navigation";
-import { products } from "@/lib/mock-data";
+import { getConsultantDashboardMetrics } from "@/lib/dashboard/metrics";
+import { currency } from "@/lib/utils";
 
-export default function ConsultantDashboardPage() {
+export default async function ConsultantDashboardPage() {
+  const user = await requireApprovedConsultant();
+
+  if (!user.companyId || !user.consultantProfile?.id) {
+    return (
+      <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales performance">
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold text-clinic-ink">Consultant profile required</h2>
+          <p className="mt-2 text-slate-600">Your consultant profile must be approved before performance metrics are available.</p>
+        </Card>
+      </SidebarShell>
+    );
+  }
+
+  const metrics = await getConsultantDashboardMetrics(user.companyId, user.consultantProfile.id);
+
   return (
     <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales performance">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Daily sales" value="$2.8K" change="+9.4% today" />
-        <MetricCard label="Monthly sales" value="$28.4K" change="78% of monthly goal" tone="green" />
-        <MetricCard label="Pending commissions" value="$4.2K" change="12 orders awaiting approval" tone="red" />
-        <MetricCard label="Referral conversion" value="18.4%" change="+2.1 pts this month" />
+        <MetricCard label="Collected revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders`} />
+        <MetricCard label="Commission earned" value={currency(metrics.commissionCents / 100)} change="Real earnings from captured payments" tone="green" />
+        <MetricCard label="Pending commissions" value={currency(metrics.pendingCommissionCents / 100)} change="Awaiting payout approval" tone="red" />
+        <MetricCard label="Assigned customers" value={`${metrics.customerCount}`} change="Customers assigned to you" />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
         <Card>
           <CardHeader><CardTitle>Revenue and commissions</CardTitle></CardHeader>
-          <CardContent><RevenueChart /></CardContent>
+          <CardContent><RevenueChart data={metrics.chartData} earningsLabel="Commission earned" /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Top products sold</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {products.map((product) => (
-              <div key={product.slug} className="flex items-center justify-between rounded-lg border border-border p-3">
-                <span className="text-sm font-semibold text-clinic-ink">{product.title}</span>
-                <span className="text-sm font-semibold text-clinic-red">{product.consultantCommission}</span>
+            {metrics.topProducts.length ? metrics.topProducts.map((product) => (
+              <div key={product.title} className="flex items-center justify-between rounded-2xl border border-border p-4">
+                <div>
+                  <span className="text-sm font-semibold text-clinic-ink">{product.title}</span>
+                  <p className="mt-1 text-xs font-medium text-slate-500">{product.quantity} sold</p>
+                </div>
+                <span className="text-sm font-semibold text-clinic-red">{currency(product.revenueCents / 100)}</span>
               </div>
-            ))}
+            )) : (
+              <div className="rounded-2xl border border-dashed border-border bg-clinic-mist p-5 text-sm font-medium text-slate-500">
+                Paid product sales will appear here.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
