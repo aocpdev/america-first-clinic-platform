@@ -7,6 +7,7 @@ import {
   ClipboardList,
   CreditCard,
   Gauge,
+  Gift,
   HandCoins,
   LineChart,
   Settings,
@@ -24,6 +25,7 @@ export const adminNav = [
   { href: "/admin/consultants", label: "Consultants", icon: BriefcaseBusiness },
   { href: "/admin/commissions", label: "Commissions", icon: HandCoins },
   { href: "/admin/payouts", label: "Payouts", icon: CircleDollarSign },
+  { href: "/admin/rewards", label: "Rewards", icon: Gift },
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/settings", label: "Settings", icon: Settings }
 ];
@@ -37,6 +39,7 @@ export const consultantNav = [
   { href: "/consultant/commissions", label: "Commissions", icon: HandCoins },
   { href: "/consultant/products", label: "Products", icon: Boxes },
   { href: "/consultant/performance", label: "Performance", icon: LineChart },
+  { href: "/consultant/rewards", label: "Rewards", icon: Gift },
   { href: "/consultant/referrals", label: "Referrals", icon: CreditCard },
   { href: "/consultant/profile", label: "Profile", icon: Settings }
 ];
@@ -50,6 +53,7 @@ export const partnerNav = [
   { href: "/partner/products", label: "Products", icon: Boxes },
   { href: "/partner/commissions", label: "Commissions", icon: HandCoins },
   { href: "/partner/payouts", label: "Payouts", icon: CircleDollarSign },
+  { href: "/partner/rewards", label: "Rewards", icon: Gift },
   { href: "/partner/reports", label: "Reports", icon: BarChart3 },
   { href: "/partner/settings", label: "Settings", icon: Settings }
 ];
@@ -61,6 +65,7 @@ export const groupLeaderNav = [
   { href: "/partner/pipeline", label: "Pipeline", icon: Columns3 },
   { href: "/partner/products", label: "Products", icon: Boxes },
   { href: "/partner/commissions", label: "Commissions", icon: HandCoins },
+  { href: "/partner/rewards", label: "Rewards", icon: Gift },
   { href: "/partner/reports", label: "Reports", icon: BarChart3 },
   { href: "/partner/profile", label: "Profile", icon: Settings }
 ];

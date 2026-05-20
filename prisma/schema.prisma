@@ -130,6 +130,8 @@ model Company {
   paymentProviders  PaymentProvider[]
   webhookEndpoints  WebhookEndpoint[]
   webhookDeliveries WebhookDelivery[]
+  rewardLevels      RewardLevel[]
+  rewards           Reward[]
   partnerProfiles   PartnerProfile[]
   groupLeaderProfiles GroupLeaderProfile[]
   teams             Team[]
@@ -557,6 +559,41 @@ model WebhookDelivery {
 
   @@index([companyId, eventType, status])
   @@index([endpointId, status])
+}
+
+model RewardLevel {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @db.Uuid
+  company        Company  @relation(fields: [companyId], references: [id])
+  level          Int
+  name           String
+  salesThreshold Int
+  accentColor    String   @default("#073763")
+  isActive       Boolean  @default(true)
+  rewards        Reward[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([companyId, level])
+  @@index([companyId, salesThreshold])
+}
+
+model Reward {
+  id          String      @id @default(uuid()) @db.Uuid
+  companyId   String      @db.Uuid
+  company     Company     @relation(fields: [companyId], references: [id])
+  levelId     String      @db.Uuid
+  level       RewardLevel @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  title       String
+  description String?
+  imageUrl    String?
+  valueCents  Int         @default(0)
+  isActive    Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([companyId, levelId, isActive])
 }
 
 model ReferralLink {

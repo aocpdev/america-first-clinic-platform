@@ -1,5 +1,5 @@
 .next/
-.next-stale-build-cache/
+.next-stale-build-cache*/
 node_modules/
 dist/
 coverage/
