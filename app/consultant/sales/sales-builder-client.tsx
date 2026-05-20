@@ -146,7 +146,7 @@ export function SalesBuilderClient({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       {createdOrderId && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
           {successMessage}
@@ -163,18 +163,18 @@ export function SalesBuilderClient({
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="p-5">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+        <Card className="min-w-0 p-5">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Selected total</p>
           <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(subtotalCents)}</p>
         </Card>
-        <Card className="p-5">
+        <Card className="min-w-0 p-5">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{commissionLabel}</p>
           <p className="mt-3 text-3xl font-semibold text-clinic-red">{formatCurrency(consultantCommissionCents)}</p>
         </Card>
       </div>
 
-      <form action={createOrderAction} className="grid gap-6 xl:grid-cols-[1fr_380px]">
+      <form action={createOrderAction} className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
         <input type="hidden" name="customerMode" value={customerMode} />
         <input type="hidden" name="pipelineStage" value="PAYMENT_PENDING" />
         <input type="hidden" name="paymentWorkflow" value={paymentWorkflow} />
@@ -182,15 +182,15 @@ export function SalesBuilderClient({
           <input key={product.id} type="hidden" name={`quantity:${product.id}`} value={quantities[product.id] ?? 0} />
         ))}
 
-        <div className="space-y-6">
-          <Card className="overflow-hidden rounded-2xl">
+        <div className="min-w-0 space-y-6">
+          <Card className="min-w-0 overflow-hidden rounded-2xl">
             <div className="border-b border-border p-5">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div>
+              <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="min-w-0">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Customer</p>
                   <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Assign this sale</h2>
                 </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center">
                   <div className="grid grid-cols-2 rounded-xl bg-clinic-mist p-1">
                     <button
                       type="button"
@@ -273,10 +273,10 @@ export function SalesBuilderClient({
             </div>
           </Card>
 
-          <Card className="overflow-hidden rounded-2xl">
+          <Card className="min-w-0 overflow-hidden rounded-2xl">
             <div className="border-b border-border p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
+              <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Shipping address</p>
                   <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Delivery details</h2>
                 </div>
@@ -318,7 +318,7 @@ export function SalesBuilderClient({
             </div>
           </Card>
 
-          <Card className="overflow-hidden rounded-2xl">
+          <Card className="min-w-0 overflow-hidden rounded-2xl">
             <div className="border-b border-border p-5">
               <div className="space-y-5">
                 <div className="max-w-3xl">
@@ -328,7 +328,7 @@ export function SalesBuilderClient({
                     Find the right products, add quantities, and review the order total before collecting payment or sending an invoice.
                   </p>
                 </div>
-                <div className="grid w-full gap-3 md:grid-cols-[minmax(240px,1fr)_190px_170px]">
+                <div className="grid w-full min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(140px,180px)_minmax(140px,170px)]">
                   <div className="relative">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products..." className="pl-9" />
@@ -355,12 +355,12 @@ export function SalesBuilderClient({
               </div>
             </div>
 
-            <div className="grid gap-4 p-5 md:grid-cols-2 2xl:grid-cols-3">
+            <div className="grid min-w-0 gap-4 p-5 md:grid-cols-2">
               {filteredProducts.map((product) => {
                 const quantity = quantities[product.id] ?? 0;
 
                 return (
-                  <div key={product.id} className={`rounded-2xl border p-3 transition ${quantity > 0 ? "border-clinic-navy bg-blue-50/40" : "border-border bg-white"}`}>
+                  <div key={product.id} className={`min-w-0 rounded-2xl border p-3 transition ${quantity > 0 ? "border-clinic-navy bg-blue-50/40" : "border-border bg-white"}`}>
                     <div className="flex gap-3">
                       <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-clinic-mist">
                         {product.imageUrl ? (
@@ -378,8 +378,8 @@ export function SalesBuilderClient({
                         </div>
                       </div>
                     </div>
-                    <div className="mt-4 flex items-end justify-between gap-3">
-                      <div>
+                    <div className="mt-4 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                      <div className="min-w-0">
                         <p className="text-lg font-semibold text-clinic-navy">{formatCurrency(product.priceCents)}</p>
                         <p className="text-xs font-semibold text-emerald-700">
                           {formatCurrency(product.estimatedCommissionCents)} {productEstimateLabel}
@@ -403,8 +403,8 @@ export function SalesBuilderClient({
           </Card>
         </div>
 
-        <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
-          <Card className="rounded-2xl p-5">
+        <div className="min-w-0 space-y-6 2xl:sticky 2xl:top-24 2xl:self-start">
+          <Card className="min-w-0 rounded-2xl p-5">
             <div className="flex items-center gap-2">
               <CircleDollarSign className="h-5 w-5 text-clinic-red" />
               <h2 className="text-lg font-semibold text-clinic-ink">Order summary</h2>
@@ -443,29 +443,29 @@ export function SalesBuilderClient({
 
             <div className="mt-5">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Payment action</p>
-              <div className="mt-2 grid grid-cols-2 gap-2 rounded-2xl bg-clinic-mist p-1">
+              <div className="mt-2 grid grid-cols-1 gap-2 rounded-2xl bg-clinic-mist p-1 sm:grid-cols-2 2xl:grid-cols-1 min-[1800px]:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => setPaymentWorkflow("collect_payment")}
-                  className={`flex min-h-14 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition ${
+                  className={`flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-xl px-3 text-center text-sm font-semibold transition ${
                     paymentWorkflow === "collect_payment" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"
                   }`}
                 >
-                  <ShieldCheck className="h-4 w-4" />
+                  <ShieldCheck className="h-4 w-4 shrink-0" />
                   Collect payment
                 </button>
                 <button
                   type="button"
                   onClick={() => setPaymentWorkflow("send_invoice")}
-                  className={`flex min-h-14 items-center justify-center gap-2 rounded-xl px-3 text-sm font-semibold transition ${
+                  className={`flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-xl px-3 text-center text-sm font-semibold transition ${
                     paymentWorkflow === "send_invoice" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"
                   }`}
                 >
-                  <Link2 className="h-4 w-4" />
+                  <Link2 className="h-4 w-4 shrink-0" />
                   Send invoice
                 </button>
               </div>
-              <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-clinic-navy">
+              <div className="mt-3 break-words rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs leading-5 text-clinic-navy">
                 {paymentWorkflow === "collect_payment"
                   ? "Opens secure Stripe Checkout after the order is created. Card data is collected by Stripe, not stored in the CRM."
                   : "Creates a Stripe invoice payment link and queues webhook metadata for the communication workflow."}
@@ -487,7 +487,7 @@ export function SalesBuilderClient({
             </SubmitButton>
           </Card>
 
-          <Card className="rounded-2xl p-5">
+          <Card className="min-w-0 rounded-2xl p-5">
             <div className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-clinic-red" />
               <h2 className="text-lg font-semibold text-clinic-ink">Ownership rule</h2>

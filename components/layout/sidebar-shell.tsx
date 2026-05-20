@@ -34,7 +34,7 @@ export async function SidebarShell({
     : [];
 
   return (
-    <div className="min-h-screen bg-clinic-mist">
+    <div className="min-h-screen overflow-x-hidden bg-clinic-mist">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-border bg-white lg:block">
         <div className="flex h-20 items-center border-b border-border px-6">
           <ClinicLogo />
@@ -58,7 +58,7 @@ export async function SidebarShell({
           })}
         </nav>
       </aside>
-      <main className="lg:pl-72">
+      <main className="min-w-0 lg:pl-72">
         {isImpersonating && user && realUser ? (
           <div className="sticky top-0 z-40 border-b border-amber-200 bg-amber-50 px-4 py-2 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-2 text-sm font-semibold text-amber-900 sm:flex-row sm:items-center sm:justify-between">
@@ -74,12 +74,12 @@ export async function SidebarShell({
           </div>
         ) : null}
         <header className="sticky top-0 z-30 border-b border-border bg-white/88 backdrop-blur-xl">
-          <div className="flex min-h-20 flex-col gap-3 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-            <div>
+          <div className="flex min-h-20 min-w-0 flex-col gap-3 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+            <div className="min-w-0">
               <h1 className="text-2xl font-semibold text-clinic-ink">{title}</h1>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="relative hidden min-w-72 md:block">
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="relative hidden w-72 max-w-[40vw] md:block">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input className="pl-9" placeholder="Search customers, orders, products..." />
               </div>
@@ -102,7 +102,7 @@ export async function SidebarShell({
             </div>
           </div>
         </header>
-        <div className="px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+        <div className="min-w-0 overflow-x-hidden px-4 py-6 sm:px-6 lg:px-8">{children}</div>
       </main>
     </div>
   );
