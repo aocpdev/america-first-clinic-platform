@@ -22,10 +22,12 @@ export default async function ConsultantOrderDetailPage({
   searchParams
 }: {
   params: Promise<{ orderId: string }>;
-  searchParams?: Promise<{ payment?: string }>;
+  searchParams?: Promise<{ payment?: string; receipt?: string }>;
 }) {
   const { orderId } = await params;
-  const paymentStatus = (await searchParams)?.payment;
+  const query = await searchParams;
+  const paymentStatus = query?.payment;
+  const receiptStatus = query?.receipt;
   const user = await requireApprovedConsultant();
   const order = user.consultantProfile
     ? await prisma.order.findFirst({
@@ -49,6 +51,11 @@ export default async function ConsultantOrderDetailPage({
             orderTotalCents={order.totalCents}
             commissionCents={consultantCommissionCents(order)}
           />
+        ) : null}
+        {receiptStatus === "sent" ? (
+          <div className="rounded-[24px] border border-blue-200 bg-blue-50 px-6 py-5 text-lg font-black text-clinic-navy">
+            Receipt resend webhook was queued.
+          </div>
         ) : null}
         <OrderDocument order={order} mode="consultant" variant="internal" />
         <OrderDocument order={order} mode="consultant" variant="receipt" />

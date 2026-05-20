@@ -116,7 +116,8 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
     customerPhone: order.customer.phone,
     customerName: [order.customer.firstName, order.customer.lastName].filter(Boolean).join(" ").trim() || order.customer.email,
     amountCents: order.totalCents,
-    currency: "USD"
+    currency: "USD",
+    receiptUrl: `${(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "")}/checkout/success?orderId=${order.id}`
   };
 
   await dispatchWebhookEvent({

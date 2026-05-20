@@ -11,10 +11,12 @@ export default async function PartnerOrderDetailPage({
   searchParams
 }: {
   params: Promise<{ orderId: string }>;
-  searchParams?: Promise<{ payment?: string }>;
+  searchParams?: Promise<{ payment?: string; receipt?: string }>;
 }) {
   const { orderId } = await params;
-  const paymentStatus = (await searchParams)?.payment;
+  const query = await searchParams;
+  const paymentStatus = query?.payment;
+  const receiptStatus = query?.receipt;
   const user = await requirePartner();
   const isGroupLeader = user.role === "GROUP_LEADER";
   const [partnerProfile, groupLeaderProfile] = await Promise.all([
@@ -51,6 +53,11 @@ export default async function PartnerOrderDetailPage({
         {paymentStatus === "success" ? (
           <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 px-6 py-5 text-lg font-black text-emerald-900">
             Payment completed. Stripe will confirm the final order status through the webhook.
+          </div>
+        ) : null}
+        {receiptStatus === "sent" ? (
+          <div className="rounded-[24px] border border-blue-200 bg-blue-50 px-6 py-5 text-lg font-black text-clinic-navy">
+            Receipt resend webhook was queued.
           </div>
         ) : null}
         <OrderDocument order={order} mode={isGroupLeader ? "group_leader" : "partner"} variant="internal" />

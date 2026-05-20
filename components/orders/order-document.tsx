@@ -1,4 +1,6 @@
+import { resendReceiptWebhook } from "@/app/orders/actions";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { currency } from "@/lib/utils";
 import type { OrderListRecord } from "@/lib/orders/queries";
@@ -52,9 +54,10 @@ export function OrderDocument({
   const paymentMetadata = paymentProviderMetadata(order);
   const paymentUrl = typeof paymentMetadata?.paymentUrl === "string" ? paymentMetadata.paymentUrl : null;
   const providerSessionId = typeof paymentMetadata?.providerSessionId === "string" ? paymentMetadata.providerSessionId : null;
+  const isCaptured = order.paymentStatus === "CAPTURED";
 
   return (
-    <Card className="overflow-hidden rounded-3xl bg-white shadow-line">
+    <Card id={isReceipt ? "customer-receipt" : undefined} className="overflow-hidden rounded-3xl bg-white shadow-line">
       <div className="border-b border-border bg-gradient-to-br from-white to-clinic-mist px-6 py-6">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-4">
@@ -159,18 +162,40 @@ export function OrderDocument({
 
           {!isReceipt && paymentUrl ? (
             <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Payment link</p>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
-                {order.paymentStatus === "CAPTURED" ? "Payment has been captured." : "Use this secure provider-hosted link to complete or resend payment."}
-              </p>
-              <a
-                href={paymentUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-clinic-navy px-4 text-sm font-semibold text-white shadow-soft transition hover:bg-clinic-blue"
-              >
-                Open payment link
-              </a>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">{isCaptured ? "Receipt" : "Payment link"}</p>
+              {isCaptured ? (
+                <>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Payment has been captured. View the customer receipt below or resend it through your configured receipt webhook.
+                  </p>
+                  <a
+                    href="#customer-receipt"
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-clinic-navy px-4 text-sm font-semibold text-white shadow-soft transition hover:bg-clinic-blue"
+                  >
+                    View customer receipt
+                  </a>
+                  <form action={resendReceiptWebhook} className="mt-3">
+                    <input type="hidden" name="orderId" value={order.id} />
+                    <Button type="submit" variant="outline" className="h-11 w-full rounded-xl bg-white">
+                      Resend receipt
+                    </Button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Use this secure provider-hosted link to complete or resend payment.
+                  </p>
+                  <a
+                    href={paymentUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-clinic-navy px-4 text-sm font-semibold text-white shadow-soft transition hover:bg-clinic-blue"
+                  >
+                    Open payment link
+                  </a>
+                </>
+              )}
               {providerSessionId ? <p className="mt-3 break-all text-xs text-slate-500">Session: {providerSessionId}</p> : null}
             </div>
           ) : null}
