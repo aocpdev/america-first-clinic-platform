@@ -1,6 +1,6 @@
 "use server";
 
-import { randomBytes } from "crypto";
+import { createHmac, randomBytes } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -58,6 +58,10 @@ function formBoolean(formData: FormData, key: string) {
 
 function formEvents(formData: FormData) {
   return formData.getAll("events").map(String);
+}
+
+function signWebhookPayload(secret: string, body: string) {
+  return createHmac("sha256", secret).update(body).digest("hex");
 }
 
 export async function updatePaymentSettings(formData: FormData) {
@@ -235,4 +239,87 @@ export async function updateWebhookEndpoint(formData: FormData) {
     }
   });
   revalidatePath("/admin/settings");
+}
+
+export async function testWebhookEndpoint(formData: FormData) {
+  const scope = String(formData.get("scope") || "admin");
+  const endpointId = String(formData.get("endpointId") || "");
+  const where =
+    scope === "partner"
+      ? await (async () => {
+          const user = await requirePartner();
+          if (user.role !== "PARTNER" || !user.partnerProfile) {
+            redirect("/partner/settings?error=access_denied");
+          }
+          return { id: endpointId, partnerProfileId: user.partnerProfile.id };
+        })()
+      : { id: endpointId, companyId: await requireAdminCompanyId() };
+
+  const endpoint = await prisma.webhookEndpoint.findFirst({ where });
+  if (!endpoint) {
+    redirect(scope === "partner" ? "/partner/settings?error=webhook_not_found" : "/admin/settings?error=webhook_not_found");
+  }
+
+  const delivery = await prisma.webhookDelivery.create({
+    data: {
+      companyId: endpoint.companyId,
+      endpointId: endpoint.id,
+      eventType: "webhook.test",
+      payload: {
+        source: "america_first_clinic_crm",
+        message: "This is a test webhook from America First Clinic CRM.",
+        endpointName: endpoint.name,
+        configuredEvents: endpoint.events,
+        sentAt: new Date().toISOString()
+      }
+    }
+  });
+
+  const body = JSON.stringify({
+    id: delivery.id,
+    event: "webhook.test",
+    createdAt: new Date().toISOString(),
+    data: {
+      source: "america_first_clinic_crm",
+      message: "This is a test webhook from America First Clinic CRM.",
+      endpointName: endpoint.name,
+      configuredEvents: endpoint.events
+    }
+  });
+
+  try {
+    const response = await fetch(endpoint.url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-afc-event": "webhook.test",
+        "x-afc-delivery": delivery.id,
+        "x-afc-signature": signWebhookPayload(endpoint.secret, body)
+      },
+      body
+    });
+
+    await prisma.webhookDelivery.update({
+      where: { id: delivery.id },
+      data: {
+        attempts: 1,
+        status: response.ok ? "DELIVERED" : "FAILED",
+        lastResponse: `${response.status} ${response.statusText}`,
+        deliveredAt: response.ok ? new Date() : null,
+        nextRetryAt: response.ok ? null : new Date(Date.now() + 1000 * 60 * 10)
+      }
+    });
+  } catch (error) {
+    await prisma.webhookDelivery.update({
+      where: { id: delivery.id },
+      data: {
+        attempts: 1,
+        status: "FAILED",
+        lastResponse: error instanceof Error ? error.message : "unknown_error",
+        nextRetryAt: new Date(Date.now() + 1000 * 60 * 10)
+      }
+    });
+  }
+
+  revalidatePath(scope === "partner" ? "/partner/settings" : "/admin/settings");
 }

@@ -1,10 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Edit3, Link2, Plus, Power, X } from "lucide-react";
+import { Edit3, Link2, Plus, Power, Send, X } from "lucide-react";
 import {
   createAdminWebhookEndpoint,
   createPartnerWebhookEndpoint,
+  testWebhookEndpoint,
   toggleWebhookEndpoint,
   updateWebhookEndpoint
 } from "@/app/settings/actions";
@@ -85,7 +86,7 @@ export function WebhookSettings({
               <h3 className="mt-3 text-2xl font-semibold text-clinic-ink">Connected workflows</h3>
               <p className="mt-1 text-sm text-slate-500">Edit endpoint details, event triggers, and connection status.</p>
             </div>
-            <p className="text-sm font-semibold text-clinic-navy">{endpoints.length} active connection{endpoints.length === 1 ? "" : "s"}</p>
+            <p className="text-sm font-semibold text-clinic-navy">{endpoints.length} connection{endpoints.length === 1 ? "" : "s"}</p>
           </div>
 
           <div className="space-y-3">
@@ -93,7 +94,6 @@ export function WebhookSettings({
               <ConnectionRow
                 key={endpoint.id}
                 endpoint={endpoint}
-                scope={scope}
                 onEdit={() => setEditingEndpoint(endpoint)}
               />
             ))}
@@ -123,46 +123,27 @@ export function WebhookSettings({
 
 function ConnectionRow({
   endpoint,
-  scope,
   onEdit
 }: {
   endpoint: WebhookEndpointRow;
-  scope: "admin" | "partner";
   onEdit: () => void;
 }) {
-  const visibleEvents = endpoint.events.slice(0, 3);
-  const extraEvents = endpoint.events.length - visibleEvents.length;
-
   return (
-    <div className="rounded-3xl border border-border bg-white p-4 shadow-line transition hover:-translate-y-0.5 hover:shadow-soft">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h4 className="truncate text-lg font-semibold text-clinic-ink">{endpoint.name}</h4>
-            <Badge>{endpoint.isActive ? "Active" : "Paused"}</Badge>
+    <div className="rounded-3xl border border-border bg-white px-4 py-3 shadow-line transition hover:-translate-y-0.5 hover:shadow-soft">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="grid size-10 shrink-0 place-items-center rounded-2xl bg-clinic-mist text-clinic-navy">
+            <Link2 className="size-4" />
           </div>
-          <p className="mt-1 max-w-2xl truncate text-sm text-slate-500">{endpoint.url}</p>
+          <h4 className="min-w-0 truncate text-lg font-semibold text-clinic-ink">{endpoint.name}</h4>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {visibleEvents.map((event) => <Badge key={event}>{event}</Badge>)}
-          {extraEvents > 0 ? <Badge>+{extraEvents}</Badge> : null}
-        </div>
-
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-3">
+          <Badge>{endpoint.isActive ? "Active" : "Paused"}</Badge>
           <Button type="button" variant="outline" size="sm" onClick={onEdit}>
             <Edit3 className="size-4" />
             Edit
           </Button>
-          <form action={toggleWebhookEndpoint}>
-            <input type="hidden" name="scope" value={scope} />
-            <input type="hidden" name="endpointId" value={endpoint.id} />
-            <input type="hidden" name="nextActive" value={endpoint.isActive ? "false" : "true"} />
-            <Button type="submit" variant="outline" size="sm">
-              <Power className="size-4" />
-              {endpoint.isActive ? "Pause" : "Enable"}
-            </Button>
-          </form>
         </div>
       </div>
     </div>
@@ -197,27 +178,57 @@ function EditWebhookModal({
           </button>
         </div>
 
-        <form action={updateWebhookEndpoint} className="space-y-5 p-6">
-          <input type="hidden" name="scope" value={scope} />
-          <input type="hidden" name="endpointId" value={endpoint.id} />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Connection name</span>
-              <Input name="name" defaultValue={endpoint.name} required />
-            </label>
-            <label className="space-y-2 sm:col-span-2">
-              <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Endpoint URL</span>
-              <Input name="url" defaultValue={endpoint.url} type="url" required />
-            </label>
+        <div className="max-h-[72vh] overflow-y-auto p-6">
+          <form id={`edit-webhook-${endpoint.id}`} action={updateWebhookEndpoint} className="space-y-5">
+            <input type="hidden" name="scope" value={scope} />
+            <input type="hidden" name="endpointId" value={endpoint.id} />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Connection name</span>
+                <Input name="name" defaultValue={endpoint.name} required />
+              </label>
+              <label className="space-y-2 sm:col-span-2">
+                <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Endpoint URL</span>
+                <Input name="url" defaultValue={endpoint.url} type="url" required />
+              </label>
+            </div>
+
+            <EventCheckboxGrid selectedEvents={endpoint.events} />
+          </form>
+
+          <div className="mt-5 rounded-3xl border border-border bg-clinic-mist p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-clinic-ink">Connection tools</p>
+                <p className="mt-1 text-sm text-slate-500">Send a sample payload or pause this connection without exposing the URL in the list.</p>
+              </div>
+              <div className="flex shrink-0 flex-wrap gap-2">
+                <form action={testWebhookEndpoint}>
+                  <input type="hidden" name="scope" value={scope} />
+                  <input type="hidden" name="endpointId" value={endpoint.id} />
+                  <Button type="submit" variant="outline">
+                    <Send className="size-4" />
+                    Send test
+                  </Button>
+                </form>
+                <form action={toggleWebhookEndpoint}>
+                  <input type="hidden" name="scope" value={scope} />
+                  <input type="hidden" name="endpointId" value={endpoint.id} />
+                  <input type="hidden" name="nextActive" value={endpoint.isActive ? "false" : "true"} />
+                  <Button type="submit" variant="outline">
+                    <Power className="size-4" />
+                    {endpoint.isActive ? "Pause" : "Enable"}
+                  </Button>
+                </form>
+              </div>
+            </div>
           </div>
 
-          <EventCheckboxGrid selectedEvents={endpoint.events} />
-
-          <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
+          <div className="mt-5 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" variant="accent">Save connection</Button>
+            <Button type="submit" form={`edit-webhook-${endpoint.id}`} variant="accent">Save connection</Button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );
