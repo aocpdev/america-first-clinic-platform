@@ -7,6 +7,7 @@ import { requireApprovedConsultant, requirePartner, requireRole } from "@/lib/au
 import { createMarginCommissionLedger } from "@/lib/commissions/margin-split";
 import { prisma } from "@/lib/db/prisma";
 import { getPaymentProvider } from "@/lib/payments/registry";
+import { appBaseUrl, fallbackOrderPaymentUrl, invoiceShortUrl, paymentShortUrl } from "@/lib/payments/short-links";
 import type { PaymentProviderCode } from "@/lib/payments/types";
 import { normalizePhoneToE164, phoneForWebhook } from "@/lib/phone";
 import { isCustomerPipelineStage } from "@/lib/sales/pipeline";
@@ -64,8 +65,7 @@ function paymentWorkflowFromForm(formData: FormData) {
 }
 
 function orderPaymentUrl(orderId: string, providerCode: PaymentProviderCode) {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-  return `${appUrl.replace(/\/$/, "")}/checkout?orderId=${orderId}&provider=${providerCode}`;
+  return fallbackOrderPaymentUrl(orderId, providerCode);
 }
 
 function orderDetailPath(workspace: "consultant" | "partner" | "group_leader" | "admin", orderId: string) {
@@ -412,12 +412,14 @@ async function createWorkspaceOrder(
   await createMarginCommissionLedger({ prisma, orderId: order.id, commissionMode });
 
   const fallbackInvoiceUrl = orderPaymentUrl(order.id, providerCode);
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  const appUrl = appBaseUrl();
   const internalOrderUrl = `${appUrl}${orderDetailPath(workspace, order.id)}`;
+  const shortInvoiceUrl = invoiceShortUrl(order.id);
+  const shortPaymentUrl = paymentShortUrl(order.id);
   const checkoutSuccessUrl =
     paymentWorkflow === "collect_payment" ? `${internalOrderUrl}?payment=success` : `${appUrl}/checkout/success?orderId=${order.id}`;
   const checkoutCancelUrl =
-    paymentWorkflow === "collect_payment" ? `${appUrl}${redirectBasePath}?created=${order.id}&payment=cancelled` : `${appUrl}/checkout/cancel?orderId=${order.id}`;
+    paymentWorkflow === "collect_payment" ? `${internalOrderUrl}?payment=cancelled` : shortInvoiceUrl;
   const checkoutResult = providerCode === "stripe"
     ? await getPaymentProvider(providerCode).createCheckoutSession({
         companyId,
@@ -444,7 +446,8 @@ async function createWorkspaceOrder(
         }
       })
     : null;
-  const invoiceUrl = checkoutResult?.redirectUrl ?? fallbackInvoiceUrl;
+  const providerPaymentUrl = checkoutResult?.redirectUrl ?? fallbackInvoiceUrl;
+  const invoiceUrl = shortInvoiceUrl;
 
   await prisma.order.update({
     where: { id: order.id },
@@ -463,6 +466,9 @@ async function createWorkspaceOrder(
           integration: paymentWorkflow === "collect_payment" ? "hosted_elements" : "checkout_session",
           amountCents: subtotalCents,
           paymentUrl: invoiceUrl,
+          shortPaymentUrl,
+          paymentRedirectUrl: shortPaymentUrl,
+          providerPaymentUrl,
           providerSessionId: checkoutResult?.providerSessionId,
           providerCustomerId: checkoutResult?.providerCustomerId,
           webhookRoute: `/api/webhooks/${providerCode === "authorize_net" ? "authorize-net" : providerCode}`
@@ -501,6 +507,7 @@ async function createWorkspaceOrder(
         provider: providerCode,
         providerSessionId: checkoutResult?.providerSessionId,
         paymentUrl: invoiceUrl,
+        providerPaymentUrl,
         shippingAddress: shippingAddress.data
       }
     }
