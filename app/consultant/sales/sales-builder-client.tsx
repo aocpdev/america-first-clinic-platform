@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { formatPhoneForDisplay } from "@/lib/phone";
 import { formatCurrency } from "@/lib/products/catalog";
 
 type CustomerOption = {
@@ -84,6 +85,13 @@ function customerDisplayName(customer: CustomerOption) {
   return customer.name || customer.email;
 }
 
+function customerInitials(customer: CustomerOption) {
+  const source = customerDisplayName(customer).trim();
+  const parts = source.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+  return source.slice(0, 2).toUpperCase() || "AF";
+}
+
 function ProductGuideBlock({ title, items }: { title: string; items: string[] }) {
   return (
     <div className="rounded-2xl border border-border bg-white p-4">
@@ -122,6 +130,8 @@ export function SalesBuilderClient({
   const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id ?? "");
   const [paymentWorkflow, setPaymentWorkflow] = useState<"collect_payment" | "send_invoice">("collect_payment");
   const [query, setQuery] = useState("");
+  const [customerQuery, setCustomerQuery] = useState("");
+  const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
   const [category, setCategory] = useState("All");
   const [priceRange, setPriceRange] = useState(priceRanges[0].label);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -162,6 +172,24 @@ export function SalesBuilderClient({
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId);
   const selectedProduct = products.find((product) => product.id === selectedProductId);
   const selectedItemCount = selectedLines.reduce((sum, line) => sum + line.quantity, 0);
+
+  const filteredCustomers = useMemo(() => {
+    const normalized = customerQuery.trim().toLowerCase();
+    const matches = customers.filter((customer) => {
+      const haystack = [
+        customerDisplayName(customer),
+        customer.email,
+        customer.phone ?? "",
+        formatPhoneForDisplay(customer.phone)
+      ]
+        .join(" ")
+        .toLowerCase();
+
+      return !normalized || haystack.includes(normalized);
+    });
+
+    return matches.slice(0, 8);
+  }, [customers, customerQuery]);
 
   function setQuantity(productId: string, value: number) {
     setQuantities((current) => {
@@ -241,28 +269,109 @@ export function SalesBuilderClient({
 
             <div className={`${customerOpen ? "block" : "hidden"} p-5`}>
               {customerMode === "existing" ? (
-                <div className="grid gap-4 md:grid-cols-[1fr_240px]">
-                  <div>
-                    <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Assigned customer</label>
-                    <select
-                      name="customerId"
-                      value={selectedCustomerId}
-                      onChange={(event) => setSelectedCustomerId(event.target.value)}
-                      className="mt-2 h-11 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      required={customerMode === "existing"}
-                    >
-                      {customers.map((customer) => (
-                        <option key={customer.id} value={customer.id}>
-                          {customerDisplayName(customer)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="rounded-xl border border-border bg-clinic-mist p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Customer value</p>
-                    <p className="mt-2 text-xl font-semibold text-clinic-navy">
-                      {selectedCustomer ? formatCurrency(selectedCustomer.lifetimeValueCents) : "$0.00"}
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+                  <input type="hidden" name="customerId" value={selectedCustomerId} />
+                  <div className="relative">
+                    <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Find customer</label>
+                    <div className="relative mt-2">
+                      <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                      <Input
+                        value={customerQuery}
+                        onChange={(event) => {
+                          setCustomerQuery(event.target.value);
+                          setCustomerPickerOpen(true);
+                        }}
+                        onFocus={() => setCustomerPickerOpen(true)}
+                        placeholder="Search by name, email, or phone..."
+                        className="h-14 rounded-2xl pl-12 pr-24 text-base font-semibold"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setCustomerPickerOpen((value) => !value)}
+                        className="absolute right-2 top-1/2 inline-flex h-10 -translate-y-1/2 items-center justify-center rounded-xl bg-clinic-mist px-4 text-sm font-bold text-clinic-navy transition hover:bg-white"
+                      >
+                        Browse
+                      </button>
+                    </div>
+
+                    {customerPickerOpen ? (
+                      <div className="mt-3 overflow-hidden rounded-3xl border border-border bg-white shadow-[0_18px_50px_rgba(15,35,58,0.12)]">
+                        <div className="max-h-[360px] overflow-y-auto p-2">
+                          {filteredCustomers.length > 0 ? (
+                            filteredCustomers.map((customer) => {
+                              const isSelected = customer.id === selectedCustomerId;
+
+                              return (
+                                <button
+                                  key={customer.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedCustomerId(customer.id);
+                                    setCustomerQuery(customerDisplayName(customer));
+                                    setCustomerPickerOpen(false);
+                                  }}
+                                  className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${
+                                    isSelected ? "bg-clinic-mist ring-1 ring-clinic-navy/15" : "hover:bg-clinic-mist"
+                                  }`}
+                                >
+                                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border bg-white text-sm font-black text-clinic-navy shadow-line">
+                                    {customerInitials(customer)}
+                                  </span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-sm font-black text-clinic-ink">{customerDisplayName(customer)}</span>
+                                    <span className="mt-1 grid gap-1 text-xs font-semibold text-slate-500 sm:grid-cols-2">
+                                      <span className="truncate">{customer.email}</span>
+                                      <span className="truncate">{formatPhoneForDisplay(customer.phone) || "No phone on file"}</span>
+                                    </span>
+                                  </span>
+                                  <span className="hidden rounded-full bg-white px-3 py-1 text-xs font-black text-clinic-navy ring-1 ring-border sm:inline-flex">
+                                    {formatCurrency(customer.lifetimeValueCents)}
+                                  </span>
+                                </button>
+                              );
+                            })
+                          ) : (
+                            <div className="rounded-2xl bg-clinic-mist p-5 text-sm font-semibold text-slate-600">
+                              No customer matches that name, email, or phone. Switch to New to create a record.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
+                    <p className="mt-3 text-sm leading-6 text-slate-500">
+                      Search the assigned customer list and confirm the email or phone before collecting payment.
                     </p>
+                  </div>
+
+                  <div className="rounded-3xl border border-border bg-gradient-to-b from-white to-clinic-mist p-4 shadow-line">
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Selected customer</p>
+                    {selectedCustomer ? (
+                      <div className="mt-4 space-y-4">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-border bg-white text-base font-black text-clinic-navy shadow-line">
+                            {customerInitials(selectedCustomer)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate text-base font-black text-clinic-ink">{customerDisplayName(selectedCustomer)}</p>
+                            <p className="truncate text-sm font-semibold text-slate-500">{selectedCustomer.email}</p>
+                          </div>
+                        </div>
+                        <div className="grid gap-2 text-sm font-semibold text-slate-600">
+                          <div className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2 ring-1 ring-border">
+                            <span>Phone</span>
+                            <span className="text-right text-clinic-ink">{formatPhoneForDisplay(selectedCustomer.phone) || "Not provided"}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2 ring-1 ring-border">
+                            <span>Customer value</span>
+                            <span className="text-right text-clinic-navy">{formatCurrency(selectedCustomer.lifetimeValueCents)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-4 rounded-2xl bg-white p-4 text-sm font-semibold text-slate-500 ring-1 ring-border">
+                        Select an existing customer to continue.
+                      </p>
+                    )}
                   </div>
                 </div>
               ) : (
