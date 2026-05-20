@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { DeleteCustomerButton, EditCustomerButton } from "@/components/customers/customer-crud";
+import { formatPhoneForDisplay } from "@/lib/phone";
 import { currency } from "@/lib/utils";
 import type { OrderListRecord } from "@/lib/orders/queries";
 
@@ -10,6 +12,8 @@ type CustomerRecordData = {
   lastName: string | null;
   email: string;
   phone: string | null;
+  dateOfBirth: Date | null;
+  birthSex: string | null;
   pipelineStage: string;
   tags: string[];
   notes: string | null;
@@ -29,6 +33,18 @@ function orderTotal(orders: OrderListRecord[]) {
   return orders.reduce((sum, order) => sum + order.totalCents, 0);
 }
 
+function dateLabel(date: Date | null) {
+  if (!date) return "Not provided";
+  return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(date);
+}
+
+function birthSexLabel(value: string | null) {
+  if (value === "MALE") return "Male";
+  if (value === "FEMALE") return "Female";
+  if (value === "PREFER_NOT_TO_SAY") return "Prefer not to say";
+  return "Not provided";
+}
+
 function basePathForMode(mode: "admin" | "partner" | "consultant") {
   if (mode === "admin") return "/admin";
   if (mode === "consultant") return "/consultant";
@@ -43,6 +59,7 @@ export function CustomerRecord({
   mode: "admin" | "partner" | "consultant";
 }) {
   const basePath = basePathForMode(mode);
+  const displayName = customerName(customer);
 
   return (
     <div className="space-y-6">
@@ -55,22 +72,28 @@ export function CustomerRecord({
               </div>
               <div>
                 <Badge>Customer record</Badge>
-                <h2 className="mt-3 text-3xl font-semibold text-clinic-ink">{customerName(customer)}</h2>
+                <h2 className="mt-3 text-3xl font-semibold text-clinic-ink">{displayName}</h2>
                 <p className="mt-1 text-sm text-slate-500">{customer.email}</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-3">
-              <div className="rounded-2xl bg-white px-4 py-3 shadow-line">
-                <p className="text-2xl font-semibold text-clinic-navy">{currency(customer.lifetimeValueCents / 100 || orderTotal(customer.orders) / 100)}</p>
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Lifetime value</p>
+            <div className="space-y-3">
+              <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                <EditCustomerButton customer={customer} returnTo={`${basePath}/customers/${customer.id}`} />
+                <DeleteCustomerButton customerId={customer.id} customerName={displayName} />
               </div>
-              <div className="rounded-2xl bg-white px-4 py-3 shadow-line">
-                <p className="text-2xl font-semibold text-clinic-navy">{customer.orders.length}</p>
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Orders</p>
-              </div>
-              <div className="rounded-2xl bg-white px-4 py-3 shadow-line">
-                <p className="text-2xl font-semibold text-clinic-red">{customer.pipelineStage.replaceAll("_", " ")}</p>
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Pipeline</p>
+              <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-3">
+                <div className="rounded-2xl bg-white px-4 py-3 shadow-line">
+                  <p className="text-2xl font-semibold text-clinic-navy">{currency(customer.lifetimeValueCents / 100 || orderTotal(customer.orders) / 100)}</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Lifetime value</p>
+                </div>
+                <div className="rounded-2xl bg-white px-4 py-3 shadow-line">
+                  <p className="text-2xl font-semibold text-clinic-navy">{customer.orders.length}</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Orders</p>
+                </div>
+                <div className="rounded-2xl bg-white px-4 py-3 shadow-line">
+                  <p className="text-2xl font-semibold text-clinic-red">{customer.pipelineStage.replaceAll("_", " ")}</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Pipeline</p>
+                </div>
               </div>
             </div>
           </div>
@@ -81,8 +104,10 @@ export function CustomerRecord({
             <div>
               <h3 className="text-lg font-semibold text-clinic-ink">Profile</h3>
               <div className="mt-3 grid gap-3 rounded-2xl border border-border bg-white p-4 text-sm text-slate-600 sm:grid-cols-2">
-                <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Phone</p><p className="mt-1">{customer.phone ?? "Not provided"}</p></div>
+                <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Phone</p><p className="mt-1">{formatPhoneForDisplay(customer.phone) || "Not provided"}</p></div>
                 <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Last purchase</p><p className="mt-1">{customer.lastPurchaseAt ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(customer.lastPurchaseAt) : "No purchases yet"}</p></div>
+                <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Date of birth</p><p className="mt-1">{dateLabel(customer.dateOfBirth)}</p></div>
+                <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Birth sex</p><p className="mt-1">{birthSexLabel(customer.birthSex)}</p></div>
                 <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Consultant</p><p className="mt-1">{customer.consultantName ?? "Unassigned"}</p></div>
                 <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Leader / Partner</p><p className="mt-1">{customer.leaderName ?? "No leader"} · {customer.partnerName ?? "No partner"}</p></div>
               </div>

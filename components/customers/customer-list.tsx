@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { CreateCustomerButton } from "@/components/customers/customer-crud";
+import { formatPhoneForDisplay } from "@/lib/phone";
 import { currency } from "@/lib/utils";
 
 type CustomerRow = {
@@ -57,12 +59,15 @@ export function CustomerList({
       </div>
 
       <Card className="overflow-hidden rounded-3xl">
-        <div className="border-b border-border bg-white p-6">
-          <Badge>Customer CRM</Badge>
-          <h2 className="mt-3 text-3xl font-semibold text-clinic-ink">Customer records</h2>
-          <p className="mt-2 max-w-2xl text-sm text-slate-500">
-            Each profile stores order history, attribution, notes, and the future telehealth/prescription record.
-          </p>
+        <div className="flex flex-col gap-5 border-b border-border bg-white p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <Badge>Customer CRM</Badge>
+            <h2 className="mt-3 text-3xl font-semibold text-clinic-ink">Customer records</h2>
+            <p className="mt-2 max-w-2xl text-sm text-slate-500">
+              Each profile stores order history, attribution, notes, and the future telehealth/prescription record.
+            </p>
+          </div>
+          <CreateCustomerButton returnTo={`${basePath}/customers`} />
         </div>
 
         <div className="overflow-x-auto">
@@ -85,7 +90,7 @@ export function CustomerList({
                       {customer.name}
                     </Link>
                     <p className="mt-1 text-xs text-slate-500">{customer.email}</p>
-                    <p className="mt-1 text-xs text-slate-500">{customer.phone ?? "No phone"}</p>
+                    <p className="mt-1 text-xs text-slate-500">{formatPhoneForDisplay(customer.phone) || "No phone"}</p>
                   </td>
                   <td className="px-6 py-5 text-slate-600">
                     <p className="font-semibold text-clinic-ink">{customer.consultantName}</p>

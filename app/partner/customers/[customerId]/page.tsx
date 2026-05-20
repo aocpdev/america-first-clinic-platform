@@ -22,11 +22,13 @@ export default async function PartnerCustomerRecordPage({
   const customer = await prisma.customer.findFirst({
     where: {
       id: customerId,
+      companyId: user.companyId!,
       ...(partnerProfile
         ? {
             OR: [
               { partnerProfileId: partnerProfile.id },
-              { consultantProfile: { partnerProfileId: partnerProfile.id } }
+              { consultantProfile: { partnerProfileId: partnerProfile.id } },
+              { groupLeaderProfile: { partnerProfileId: partnerProfile.id } }
             ]
           }
         : groupLeaderProfile

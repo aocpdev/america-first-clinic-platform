@@ -59,6 +59,8 @@ export function mapCustomerRecord(customer: CustomerRecordPayload) {
     lastName: customer.lastName,
     email: customer.email,
     phone: customer.phone,
+    dateOfBirth: customer.dateOfBirth,
+    birthSex: customer.birthSex,
     pipelineStage: customer.pipelineStage,
     tags: customer.tags,
     notes: customer.notes,
