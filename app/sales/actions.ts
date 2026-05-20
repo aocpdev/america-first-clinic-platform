@@ -204,20 +204,12 @@ async function createWorkspaceOrder(
   const pipelineStage = isCustomerPipelineStage(pipelineStageInput) ? pipelineStageInput : "CART_BUILT";
   const notes = formString(formData, "notes");
   const paymentWorkflow = paymentWorkflowFromForm(formData);
-  const shippingAddress = shippingAddressSchema.safeParse({
-    line1: formData.get("shippingAddressLine1"),
-    line2: formData.get("shippingAddressLine2"),
-    city: formData.get("shippingCity"),
-    state: formData.get("shippingState"),
-    postalCode: formData.get("shippingPostalCode"),
-    country: formData.get("shippingCountry") || "US"
-  });
+  const shippingAddressMode = formString(formData, "shippingAddressMode") === "saved" ? "saved" : "new";
+  const selectedShippingAddressId = formString(formData, "shippingAddressId");
+  const shippingAddressLabel = formString(formData, "shippingAddressLabel");
+  const makeShippingAddressDefault = formString(formData, "shippingAddressDefault") === "true";
   const selectedItems = selectedProductQuantities(formData);
   const providerCode = await activePaymentProviderCode(companyId);
-
-  if (!shippingAddress.success) {
-    redirect(`${redirectBasePath}?error=invalid_shipping_address`);
-  }
 
   if (selectedItems.length === 0) {
     redirect(`${redirectBasePath}?error=empty_order`);
@@ -338,6 +330,80 @@ async function createWorkspaceOrder(
     }
   });
 
+  let shippingAddressData: z.infer<typeof shippingAddressSchema>;
+  let persistedShippingAddressId: string | null = null;
+
+  if (shippingAddressMode === "saved" && selectedShippingAddressId) {
+    const savedAddress = await prisma.customerAddress.findFirst({
+      where: {
+        id: selectedShippingAddressId,
+        customerId: customer.id
+      }
+    });
+
+    if (!savedAddress) {
+      redirect(`${redirectBasePath}?error=invalid_shipping_address`);
+    }
+
+    await prisma.customerAddress.update({
+      where: { id: savedAddress.id },
+      data: { lastUsedAt: new Date() }
+    });
+
+    persistedShippingAddressId = savedAddress.id;
+    shippingAddressData = {
+      line1: savedAddress.line1,
+      line2: savedAddress.line2 || undefined,
+      city: savedAddress.city,
+      state: savedAddress.state,
+      postalCode: savedAddress.postalCode,
+      country: savedAddress.country
+    };
+  } else {
+    const shippingAddress = shippingAddressSchema.safeParse({
+      line1: formData.get("shippingAddressLine1"),
+      line2: formData.get("shippingAddressLine2"),
+      city: formData.get("shippingCity"),
+      state: formData.get("shippingState"),
+      postalCode: formData.get("shippingPostalCode"),
+      country: formData.get("shippingCountry") || "US"
+    });
+
+    if (!shippingAddress.success) {
+      redirect(`${redirectBasePath}?error=invalid_shipping_address`);
+    }
+
+    const existingAddressCount = await prisma.customerAddress.count({
+      where: { customerId: customer.id }
+    });
+    const isDefault = makeShippingAddressDefault || existingAddressCount === 0;
+
+    if (isDefault) {
+      await prisma.customerAddress.updateMany({
+        where: { customerId: customer.id },
+        data: { isDefault: false }
+      });
+    }
+
+    const savedAddress = await prisma.customerAddress.create({
+      data: {
+        customerId: customer.id,
+        label: shippingAddressLabel || (isDefault ? "Default shipping" : "Shipping address"),
+        line1: shippingAddress.data.line1,
+        line2: shippingAddress.data.line2 || null,
+        city: shippingAddress.data.city,
+        state: shippingAddress.data.state,
+        postalCode: shippingAddress.data.postalCode,
+        country: shippingAddress.data.country,
+        isDefault,
+        lastUsedAt: new Date()
+      }
+    });
+
+    persistedShippingAddressId = savedAddress.id;
+    shippingAddressData = shippingAddress.data;
+  }
+
   const productIds = selectedItems.map((item) => item.productId);
   const products = await prisma.product.findMany({
     where: {
@@ -386,7 +452,8 @@ async function createWorkspaceOrder(
         source: `${workspace}_sales_workspace`,
         commissionMode,
         paymentWorkflow,
-        shippingAddress: shippingAddress.data,
+        shippingAddress: shippingAddressData,
+        shippingAddressId: persistedShippingAddressId,
         provider: providerCode,
         paymentProvider: {
           integration: paymentWorkflow === "collect_payment" ? "hosted_elements" : "checkout_session",
@@ -460,7 +527,8 @@ async function createWorkspaceOrder(
         paymentWorkflow,
         internalOrderUrl,
         customerSuccessUrl: `${appUrl}/checkout/success?orderId=${order.id}`,
-        shippingAddress: shippingAddress.data,
+        shippingAddress: shippingAddressData,
+        shippingAddressId: persistedShippingAddressId,
         provider: providerCode,
         paymentProvider: {
           integration: paymentWorkflow === "collect_payment" ? "hosted_elements" : "checkout_session",
@@ -508,7 +576,8 @@ async function createWorkspaceOrder(
         providerSessionId: checkoutResult?.providerSessionId,
         paymentUrl: invoiceUrl,
         providerPaymentUrl,
-        shippingAddress: shippingAddress.data
+        shippingAddress: shippingAddressData,
+        shippingAddressId: persistedShippingAddressId
       }
     }
   });
@@ -525,7 +594,7 @@ async function createWorkspaceOrder(
       providerSessionId: checkoutResult?.providerSessionId,
       partnerProfileId,
       workspace,
-      shippingAddress: shippingAddress.data
+      shippingAddress: shippingAddressData
     });
   }
 

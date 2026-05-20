@@ -38,6 +38,11 @@ export default async function AdminSalesPage({
   const [customers, products, recentOrders] = await Promise.all([
     prisma.customer.findMany({
       where: { companyId: user.companyId },
+      include: {
+        addresses: {
+          orderBy: [{ isDefault: "desc" }, { lastUsedAt: "desc" }, { createdAt: "desc" }]
+        }
+      },
       orderBy: [{ lastPurchaseAt: "desc" }, { createdAt: "desc" }],
       take: 150
     }),
@@ -74,7 +79,18 @@ export default async function AdminSalesPage({
           name: personName(customer),
           email: customer.email,
           phone: customer.phone,
-          lifetimeValueCents: customer.lifetimeValueCents
+          lifetimeValueCents: customer.lifetimeValueCents,
+          addresses: customer.addresses.map((address) => ({
+            id: address.id,
+            label: address.label,
+            line1: address.line1,
+            line2: address.line2,
+            city: address.city,
+            state: address.state,
+            postalCode: address.postalCode,
+            country: address.country,
+            isDefault: address.isDefault
+          }))
         }))}
         products={products.map((product) => ({
           id: product.id,

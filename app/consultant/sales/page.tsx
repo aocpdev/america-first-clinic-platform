@@ -55,6 +55,11 @@ export default async function ConsultantSalesPage({
         companyId,
         consultantProfileId
       },
+      include: {
+        addresses: {
+          orderBy: [{ isDefault: "desc" }, { lastUsedAt: "desc" }, { createdAt: "desc" }]
+        }
+      },
       orderBy: [{ lastPurchaseAt: "desc" }, { createdAt: "desc" }],
       take: 80
     }),
@@ -99,7 +104,18 @@ export default async function ConsultantSalesPage({
           name: customerName(customer),
           email: customer.email,
           phone: customer.phone,
-          lifetimeValueCents: customer.lifetimeValueCents
+          lifetimeValueCents: customer.lifetimeValueCents,
+          addresses: customer.addresses.map((address) => ({
+            id: address.id,
+            label: address.label,
+            line1: address.line1,
+            line2: address.line2,
+            city: address.city,
+            state: address.state,
+            postalCode: address.postalCode,
+            country: address.country,
+            isDefault: address.isDefault
+          }))
         }))}
         products={products.map((product) => ({
           id: product.id,

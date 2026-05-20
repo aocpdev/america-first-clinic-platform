@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { CheckCircle2, ChevronDown, CircleDollarSign, Info, Link2, Search, ShieldCheck, ShoppingBag, UserPlus, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { CheckCircle2, ChevronDown, CircleDollarSign, Home, Info, Link2, Search, ShieldCheck, ShoppingBag, UserPlus, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,19 @@ type CustomerOption = {
   email: string;
   phone: string | null;
   lifetimeValueCents: number;
+  addresses: CustomerAddressOption[];
+};
+
+type CustomerAddressOption = {
+  id: string;
+  label: string | null;
+  line1: string;
+  line2: string | null;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  isDefault: boolean;
 };
 
 type ProductOption = {
@@ -92,6 +105,16 @@ function customerInitials(customer: CustomerOption) {
   return source.slice(0, 2).toUpperCase() || "AF";
 }
 
+function addressLabel(address: CustomerAddressOption) {
+  return address.label || (address.isDefault ? "Default shipping" : "Saved address");
+}
+
+function addressSummary(address: CustomerAddressOption) {
+  return [address.line1, address.line2, `${address.city}, ${address.state} ${address.postalCode}`, address.country]
+    .filter(Boolean)
+    .join(", ");
+}
+
 function ProductGuideBlock({ title, items }: { title: string; items: string[] }) {
   return (
     <div className="rounded-2xl border border-border bg-white p-4">
@@ -132,6 +155,8 @@ export function SalesBuilderClient({
   const [query, setQuery] = useState("");
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
+  const [shippingMode, setShippingMode] = useState<"saved" | "new">("new");
+  const [selectedShippingAddressId, setSelectedShippingAddressId] = useState("");
   const [category, setCategory] = useState("All");
   const [priceRange, setPriceRange] = useState(priceRanges[0].label);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -170,6 +195,7 @@ export function SalesBuilderClient({
     0
   );
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId);
+  const selectedShippingAddress = selectedCustomer?.addresses.find((address) => address.id === selectedShippingAddressId) ?? null;
   const selectedProduct = products.find((product) => product.id === selectedProductId);
   const selectedItemCount = selectedLines.reduce((sum, line) => sum + line.quantity, 0);
 
@@ -190,6 +216,18 @@ export function SalesBuilderClient({
 
     return matches.slice(0, 8);
   }, [customers, customerQuery]);
+
+  useEffect(() => {
+    const firstAddress = selectedCustomer?.addresses[0];
+
+    if (customerMode === "existing" && firstAddress) {
+      setShippingMode("saved");
+      setSelectedShippingAddressId(firstAddress.id);
+    } else {
+      setShippingMode("new");
+      setSelectedShippingAddressId("");
+    }
+  }, [customerMode, selectedCustomerId, selectedCustomer]);
 
   function setQuantity(productId: string, value: number) {
     setQuantities((current) => {
@@ -420,6 +458,9 @@ export function SalesBuilderClient({
                 <div className="min-w-0">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Shipping address</p>
                   <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Delivery details</h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                    Confirm the customer&apos;s shipping address before payment. Saved addresses can be reused to move faster on future orders.
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -431,30 +472,121 @@ export function SalesBuilderClient({
                 </button>
               </div>
             </div>
-            <div className={`${shippingOpen ? "grid" : "hidden"} gap-4 p-5 md:grid-cols-2`}>
-              <div className="md:col-span-2">
-                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 1</label>
-                <Input name="shippingAddressLine1" placeholder="Street address" className="mt-2" />
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 2</label>
-                <Input name="shippingAddressLine2" placeholder="Apt, suite, unit, optional" className="mt-2" />
-              </div>
-              <div>
-                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">City</label>
-                <Input name="shippingCity" placeholder="City" className="mt-2" />
-              </div>
-              <div>
-                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">State</label>
-                <Input name="shippingState" placeholder="State" className="mt-2" />
-              </div>
-              <div>
-                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">ZIP code</label>
-                <Input name="shippingPostalCode" placeholder="ZIP code" className="mt-2" />
-              </div>
-              <div>
-                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Country</label>
-                <Input name="shippingCountry" defaultValue="US" placeholder="Country" className="mt-2" />
+            <div className={`${shippingOpen ? "block" : "hidden"} space-y-5 p-5`}>
+              <input type="hidden" name="shippingAddressMode" value={shippingMode} />
+              <input type="hidden" name="shippingAddressId" value={selectedShippingAddressId} />
+
+              {customerMode === "existing" && selectedCustomer?.addresses.length ? (
+                <div className="space-y-3">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Confirm saved address</p>
+                      <p className="mt-1 text-sm text-slate-500">Choose the address the customer wants to use for this order.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShippingMode("new");
+                        setSelectedShippingAddressId("");
+                      }}
+                      className={`inline-flex h-11 items-center justify-center rounded-xl border px-4 text-sm font-bold transition ${
+                        shippingMode === "new"
+                          ? "border-clinic-navy bg-clinic-navy text-white"
+                          : "border-border bg-white text-clinic-navy hover:bg-clinic-mist"
+                      }`}
+                    >
+                      Add new address
+                    </button>
+                  </div>
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    {selectedCustomer.addresses.map((address) => {
+                      const selected = shippingMode === "saved" && selectedShippingAddressId === address.id;
+
+                      return (
+                        <button
+                          key={address.id}
+                          type="button"
+                          onClick={() => {
+                            setShippingMode("saved");
+                            setSelectedShippingAddressId(address.id);
+                          }}
+                          className={`rounded-3xl border p-4 text-left transition ${
+                            selected
+                              ? "border-clinic-navy bg-white shadow-[0_18px_45px_rgba(10,65,111,0.14)]"
+                              : "border-border bg-clinic-mist hover:bg-white"
+                          }`}
+                        >
+                          <span className="flex items-start gap-3">
+                            <span className={`mt-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${selected ? "bg-clinic-navy text-white" : "bg-white text-clinic-navy"}`}>
+                              <Home className="h-4 w-4" />
+                            </span>
+                            <span className="min-w-0">
+                              <span className="flex items-center gap-2 text-sm font-black text-clinic-ink">
+                                {addressLabel(address)}
+                                {address.isDefault ? (
+                                  <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.12em] text-emerald-700">
+                                    Default
+                                  </span>
+                                ) : null}
+                              </span>
+                              <span className="mt-1 block text-sm leading-6 text-slate-600">{addressSummary(address)}</span>
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedShippingAddress ? (
+                    <div className="rounded-3xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">
+                      Confirmed for this order: {addressSummary(selectedShippingAddress)}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div className={`${shippingMode === "new" ? "grid" : "hidden"} gap-4 md:grid-cols-2`}>
+                {customerMode === "existing" && selectedCustomer?.addresses.length ? (
+                  <div className="md:col-span-2 rounded-3xl border border-blue-100 bg-blue-50 p-4">
+                    <p className="text-sm font-black text-clinic-navy">New shipping address</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      This address will be saved to the customer record after the order is created.
+                    </p>
+                  </div>
+                ) : null}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address label</label>
+                  <Input name="shippingAddressLabel" placeholder="Home, Office, Billing..." className="mt-2" />
+                </div>
+                <div className="flex items-end">
+                  <label className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-border bg-clinic-mist px-4 text-sm font-bold text-clinic-navy">
+                    <input name="shippingAddressDefault" type="checkbox" value="true" className="h-4 w-4 rounded border-slate-300" />
+                    Make this the default address
+                  </label>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 1</label>
+                  <Input name="shippingAddressLine1" placeholder="Street address" className="mt-2" />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 2</label>
+                  <Input name="shippingAddressLine2" placeholder="Apt, suite, unit, optional" className="mt-2" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">City</label>
+                  <Input name="shippingCity" placeholder="City" className="mt-2" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">State</label>
+                  <Input name="shippingState" placeholder="State" className="mt-2" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">ZIP code</label>
+                  <Input name="shippingPostalCode" placeholder="ZIP code" className="mt-2" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Country</label>
+                  <Input name="shippingCountry" defaultValue="US" placeholder="Country" className="mt-2" />
+                </div>
               </div>
             </div>
           </Card>
