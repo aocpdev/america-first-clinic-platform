@@ -218,8 +218,8 @@ export function SalesBuilderClient({
           <input key={product.id} type="hidden" name={`quantity:${product.id}`} value={quantities[product.id] ?? 0} />
         ))}
 
-        <div className="min-w-0 space-y-6">
-          <Card className="min-w-0 overflow-hidden rounded-2xl">
+        <div className="flex min-w-0 flex-col gap-6">
+          <Card className="order-2 min-w-0 overflow-hidden rounded-2xl">
             <div className="border-b border-border p-5">
               <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0">
@@ -309,7 +309,7 @@ export function SalesBuilderClient({
             </div>
           </Card>
 
-          <Card className="min-w-0 overflow-hidden rounded-2xl">
+          <Card className="order-3 min-w-0 overflow-hidden rounded-2xl">
             <div className="border-b border-border p-5">
               <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
@@ -354,7 +354,7 @@ export function SalesBuilderClient({
             </div>
           </Card>
 
-          <Card className="min-w-0 overflow-hidden rounded-2xl">
+          <Card className="order-1 min-w-0 overflow-hidden rounded-2xl">
             <div className="border-b border-border p-5">
               <div className="space-y-5">
                 <div className="max-w-3xl">
