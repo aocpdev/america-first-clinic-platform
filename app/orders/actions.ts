@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
+import { phoneForWebhook } from "@/lib/phone";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 function appUrl() {
@@ -78,7 +79,7 @@ export async function resendReceiptWebhook(formData: FormData) {
       customerId: order.customerId,
       customerName: personName(order.customer),
       customerEmail: order.customer.email,
-      customerPhone: order.customer.phone,
+      customerPhone: phoneForWebhook(order.customer.phone),
       amountCents: order.totalCents,
       currency: "USD",
       receiptUrl,

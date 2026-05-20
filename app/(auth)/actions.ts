@@ -10,6 +10,7 @@ import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/sup
 import { roleSchema } from "@/lib/validations/core";
 import { getAuthenticatedUser, IMPERSONATION_COOKIE, requireRole, requireUser } from "@/lib/auth/current-user";
 import { dashboardPathForRole } from "@/lib/auth/redirects";
+import { normalizePhoneToE164 } from "@/lib/phone";
 
 function formValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -22,11 +23,6 @@ function bpsFromPercentInput(value: string, fallbackBps: number) {
     return fallbackBps;
   }
   return Math.max(0, Math.min(10000, Math.round(parsed * 100)));
-}
-
-function normalizePhoneInput(value: string) {
-  const digits = value.replace(/\D/g, "");
-  return digits || null;
 }
 
 function redirectWithError(path: string, error: string): never {
@@ -83,7 +79,7 @@ export async function registerUser(formData: FormData) {
   const lastName = formValue(formData, "lastName");
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
-  const phone = normalizePhoneInput(formValue(formData, "phone"));
+  const phone = normalizePhoneToE164(formValue(formData, "phone"));
   const requestedRole = roleSchema.extract(["CONSULTANT"]).catch("CONSULTANT").parse("CONSULTANT");
   const requestedPartnerProfileId = formValue(formData, "requestedPartnerProfileId");
   const requestedGroupLeaderProfileId = formValue(formData, "requestedGroupLeaderProfileId") || null;
@@ -480,7 +476,7 @@ export async function createPartnerByAdmin(formData: FormData) {
   const lastName = formValue(formData, "lastName");
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
-  const phone = normalizePhoneInput(formValue(formData, "phone"));
+  const phone = normalizePhoneToE164(formValue(formData, "phone"));
   const companyName = formValue(formData, "companyName");
   const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
 
@@ -575,7 +571,7 @@ export async function createGroupLeader(formData: FormData) {
   const lastName = formValue(formData, "lastName");
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
-  const phone = normalizePhoneInput(formValue(formData, "phone"));
+  const phone = normalizePhoneToE164(formValue(formData, "phone"));
   const selectedPartnerProfileId = formValue(formData, "partnerProfileId");
   const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
   const consultantOverrideBps = bpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
@@ -699,7 +695,7 @@ export async function createConsultantByAdmin(formData: FormData) {
   const lastName = formValue(formData, "lastName");
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
-  const phone = normalizePhoneInput(formValue(formData, "phone"));
+  const phone = normalizePhoneToE164(formValue(formData, "phone"));
   const selectedPartnerProfileId = formValue(formData, "partnerProfileId");
   const selectedGroupLeaderProfileId = formValue(formData, "groupLeaderProfileId") || null;
   const commissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
@@ -878,7 +874,7 @@ export async function updatePartnerProfileByAdmin(formData: FormData) {
   const lastName = formValue(formData, "lastName") || null;
   const displayName = formValue(formData, "displayName");
   const companyName = formValue(formData, "companyName");
-  const phone = formValue(formData, "phone") || null;
+  const phone = normalizePhoneToE164(formValue(formData, "phone"));
   const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
 
   if (!partnerProfileId || !displayName || !companyName) {
@@ -1003,7 +999,7 @@ export async function updateConsultantCommercials(formData: FormData) {
       : `/admin/consultants?partnerId=${partnerProfileId ?? consultant.partnerProfileId ?? ""}&section=network&updated=consultant_updated`;
   const errorPath = actor.role === "PARTNER" ? "/partner/consultants" : `/admin/consultants?partnerId=${partnerProfileId ?? consultant.partnerProfileId ?? ""}&section=network`;
   const nextEmail = email || consultant.user.email;
-  const phone = formData.has("phone") ? normalizePhoneInput(formValue(formData, "phone")) : consultant.user.phone;
+  const phone = formData.has("phone") ? normalizePhoneToE164(formValue(formData, "phone")) : consultant.user.phone;
   const userUpdateData = hasProfileFields
     ? {
         ...(formData.has("firstName") ? { firstName: firstName || null } : {}),

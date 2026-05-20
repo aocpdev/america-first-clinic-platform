@@ -6,6 +6,7 @@ import { Pencil, X } from "lucide-react";
 import { updateConsultantCommercials } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 type LeaderOption = {
@@ -100,7 +101,7 @@ export function EditConsultantModal({
                   <Input name="email" type="email" defaultValue={consultant.email} placeholder="consultant@company.com" required />
                 </Field>
                 <Field label="Phone">
-                  <Input name="phone" type="tel" defaultValue={consultant.phone ?? ""} placeholder="(555) 123-4567" />
+                  <PhoneInput name="phone" defaultValue={consultant.phone ?? ""} />
                 </Field>
                 <Field label="Leader assignment">
                   <select

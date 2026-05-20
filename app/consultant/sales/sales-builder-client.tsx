@@ -5,6 +5,7 @@ import { CheckCircle2, ChevronDown, CircleDollarSign, Info, Link2, Search, Shiel
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { formatCurrency } from "@/lib/products/catalog";
 
@@ -280,7 +281,7 @@ export function SalesBuilderClient({
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Phone</label>
-                    <Input name="phone" placeholder="Phone" className="mt-2" />
+                    <PhoneInput name="phone" className="mt-2" />
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Date of birth</label>

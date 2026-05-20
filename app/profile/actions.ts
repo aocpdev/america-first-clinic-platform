@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
+import { normalizePhoneToE164 } from "@/lib/phone";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 
 function textValue(formData: FormData, key: string) {
@@ -22,14 +23,14 @@ export async function updateProfile(formData: FormData) {
   const user = await requireUser();
   const firstName = textValue(formData, "firstName");
   const lastName = textValue(formData, "lastName");
-  const phone = textValue(formData, "phone");
+  const phone = normalizePhoneToE164(textValue(formData, "phone"));
 
   await prisma.user.update({
     where: { id: user.id },
     data: {
       firstName: firstName || null,
       lastName: lastName || null,
-      phone: phone || null
+      phone
     }
   });
 

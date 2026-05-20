@@ -6,6 +6,7 @@ import { Plus, X } from "lucide-react";
 import { createConsultantByAdmin } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 function Field({
@@ -88,7 +89,7 @@ export function CreateConsultantModal({
                   <Input name="email" type="email" placeholder="consultant@company.com" required />
                 </Field>
                 <Field label="Phone">
-                  <Input name="phone" type="tel" placeholder="(555) 123-4567" />
+                  <PhoneInput name="phone" />
                 </Field>
                 <Field label="Temporary password">
                   <Input name="password" type="password" minLength={8} placeholder="Minimum 8 characters" required />

@@ -4,6 +4,7 @@ import { LegalFooter } from "@/components/layout/legal-footer";
 import { ClinicLogo } from "@/components/layout/logo";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { prisma } from "@/lib/db/prisma";
 
@@ -54,7 +55,7 @@ export default async function RegisterPage({
             <Input name="firstName" placeholder="First name" required />
             <Input name="lastName" placeholder="Last name" required />
             <Input className="sm:col-span-2" name="email" placeholder="Email address" type="email" required />
-            <Input className="sm:col-span-2" name="phone" placeholder="Phone number" type="tel" />
+            <PhoneInput className="sm:col-span-2" name="phone" />
             <Input className="sm:col-span-2" name="password" placeholder="Password" type="password" minLength={8} required />
             <label className="sm:col-span-2 text-sm font-semibold text-clinic-ink">
               Partner company

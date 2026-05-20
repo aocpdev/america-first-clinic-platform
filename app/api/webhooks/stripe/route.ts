@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/db/prisma";
 import { StripeProvider } from "@/lib/payments/providers/stripe-provider";
+import { phoneForWebhook } from "@/lib/phone";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 function jsonSafe(value: unknown) {
@@ -113,7 +114,7 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
     orderId: order.id,
     customerId: order.customerId,
     customerEmail: order.customer.email,
-    customerPhone: order.customer.phone,
+    customerPhone: phoneForWebhook(order.customer.phone),
     customerName: [order.customer.firstName, order.customer.lastName].filter(Boolean).join(" ").trim() || order.customer.email,
     amountCents: order.totalCents,
     currency: "USD",
@@ -168,7 +169,7 @@ async function markOrderFailed(orderId: string, providerTransactionId: string | 
       orderId: order.id,
       customerId: order.customerId,
       customerEmail: order.customer.email,
-      customerPhone: order.customer.phone,
+      customerPhone: phoneForWebhook(order.customer.phone),
       amountCents: order.totalCents,
       currency: "USD"
     }

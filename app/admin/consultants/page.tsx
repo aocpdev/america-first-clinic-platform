@@ -12,6 +12,7 @@ import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { SalesHierarchyView } from "@/components/network/sales-hierarchy-view";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { adminNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
@@ -293,7 +294,7 @@ export default async function AdminConsultantsPage({
                     </label>
                     <label className="space-y-2">
                       <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Phone</span>
-                      <input name="phone" defaultValue={selectedPartner.user.phone ?? ""} className={inputClass("w-full")} />
+                      <PhoneInput name="phone" defaultValue={selectedPartner.user.phone ?? ""} className={inputClass("w-full")} />
                     </label>
                     <label className="space-y-2">
                       <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Partner margin pool</span>

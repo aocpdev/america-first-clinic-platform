@@ -7,6 +7,7 @@ import { createGroupLeader, updateGroupLeaderProfile } from "@/app/(auth)/action
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { percentLabel } from "@/lib/network/sales-hierarchy";
 
@@ -90,7 +91,7 @@ export function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: stri
                   <Input name="email" type="email" placeholder="leader@company.com" required />
                 </Field>
                 <Field label="Phone">
-                  <Input name="phone" type="tel" placeholder="(555) 123-4567" />
+                  <PhoneInput name="phone" />
                 </Field>
                 <Field label="Temporary password">
                   <Input name="password" type="password" minLength={8} placeholder="Minimum 8 characters" required />

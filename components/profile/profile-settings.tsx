@@ -2,6 +2,7 @@ import Image from "next/image";
 import { Upload } from "lucide-react";
 import type { User } from "@prisma/client";
 import { uploadAvatar, updateProfile } from "@/app/profile/actions";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 const errors: Record<string, string> = {
@@ -115,7 +116,7 @@ export function ProfileSettings({
           </label>
           <label className="space-y-2">
             <span className="text-sm font-semibold text-clinic-ink">Phone</span>
-            <input
+            <PhoneInput
               name="phone"
               defaultValue={user.phone ?? ""}
               className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"

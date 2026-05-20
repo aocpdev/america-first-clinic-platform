@@ -8,6 +8,7 @@ import { createMarginCommissionLedger } from "@/lib/commissions/margin-split";
 import { prisma } from "@/lib/db/prisma";
 import { getPaymentProvider } from "@/lib/payments/registry";
 import type { PaymentProviderCode } from "@/lib/payments/types";
+import { normalizePhoneToE164, phoneForWebhook } from "@/lib/phone";
 import { isCustomerPipelineStage } from "@/lib/sales/pipeline";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
@@ -15,7 +16,7 @@ const newCustomerSchema = z.object({
   firstName: z.string().trim().min(1),
   lastName: z.string().trim().optional(),
   email: z.string().trim().email(),
-  phone: z.string().trim().optional(),
+  phone: z.string().trim().optional().transform((value) => normalizePhoneToE164(value)),
   dateOfBirth: z.string().trim().optional(),
   birthSex: z.enum(["MALE", "FEMALE", "PREFER_NOT_TO_SAY"]).optional()
 });
@@ -134,7 +135,7 @@ async function queueInvoiceWebhook(input: {
       orderId: input.orderId,
       customerId: input.customer.id,
       customerEmail: input.customer.email,
-      customerPhone: input.customer.phone,
+      customerPhone: phoneForWebhook(input.customer.phone),
       customerName: [input.customer.firstName, input.customer.lastName].filter(Boolean).join(" ").trim() || input.customer.email,
       amountCents: input.totalCents,
       currency: "USD",
@@ -159,7 +160,7 @@ async function queueInvoiceWebhook(input: {
         orderId: input.orderId,
         customerId: input.customer.id,
         customerEmail: input.customer.email,
-        customerPhone: input.customer.phone,
+        customerPhone: phoneForWebhook(input.customer.phone),
         customerName: [input.customer.firstName, input.customer.lastName].filter(Boolean).join(" ").trim() || input.customer.email,
         amountCents: input.totalCents,
         currency: "USD",
