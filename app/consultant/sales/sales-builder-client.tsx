@@ -113,7 +113,6 @@ export function SalesBuilderClient({
   error,
   createOrderAction,
   commissionLabel = "Your estimated commission",
-  commissionDetailLabel = "Estimated consultant commission",
   productEstimateLabel = "est. commission",
   successMessage = "Order created successfully. Your commission is pending approval.",
   ownershipCopy = "You can only create orders for customers assigned to you. The operations team can reassign customers when the sales relationship changes."
@@ -176,7 +175,7 @@ export function SalesBuilderClient({
   }
 
   return (
-    <div className="min-w-0 space-y-6">
+    <div className="min-w-0 space-y-6 pb-28 xl:pb-0">
       {createdOrderId && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
           {successMessage}
@@ -193,24 +192,7 @@ export function SalesBuilderClient({
         </div>
       )}
 
-      <div className="sticky top-20 z-20 rounded-2xl border border-white/70 bg-white/90 p-3 shadow-[0_18px_40px_rgba(7,55,99,0.08)] backdrop-blur-xl">
-        <div className="grid min-w-0 gap-3 md:grid-cols-[1fr_1fr_auto] md:items-center">
-          <div className="rounded-xl bg-clinic-mist px-4 py-3">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Selected total</p>
-            <p className="mt-1 text-2xl font-semibold text-clinic-navy">{formatCurrency(subtotalCents)}</p>
-          </div>
-          <div className="rounded-xl bg-emerald-50 px-4 py-3">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">{commissionLabel}</p>
-            <p className="mt-1 text-2xl font-semibold text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
-          </div>
-          <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-white px-4 py-3 md:min-w-48 md:flex-col md:items-start md:gap-1">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Order</p>
-            <p className="text-sm font-semibold text-clinic-ink">{selectedItemCount} item{selectedItemCount === 1 ? "" : "s"} selected</p>
-          </div>
-        </div>
-      </div>
-
-      <form action={createOrderAction} className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
+      <form action={createOrderAction} className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
         <input type="hidden" name="customerMode" value={customerMode} />
         <input type="hidden" name="pipelineStage" value="PAYMENT_PENDING" />
         <input type="hidden" name="paymentWorkflow" value={paymentWorkflow} />
@@ -449,7 +431,35 @@ export function SalesBuilderClient({
           </Card>
         </div>
 
-        <div className="min-w-0 space-y-6 2xl:sticky 2xl:top-24 2xl:self-start">
+        <div className="min-w-0 space-y-6 xl:sticky xl:top-24 xl:self-start">
+          <Card className="min-w-0 rounded-[2rem] border-white/80 bg-white/95 p-4 shadow-[0_22px_60px_rgba(7,55,99,0.10)] backdrop-blur-xl">
+            <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Live checkout</p>
+                <p className="mt-1 text-sm font-semibold text-clinic-ink">
+                  {selectedItemCount} item{selectedItemCount === 1 ? "" : "s"} selected
+                </p>
+              </div>
+              <div className="inline-flex items-center gap-2 rounded-full bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                Pending
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3">
+              <div className="rounded-3xl bg-clinic-mist px-4 py-4">
+                <div className="flex items-center justify-between gap-4">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Order total</p>
+                  <p className="text-xs font-semibold text-slate-500">Live</p>
+                </div>
+                <p className="mt-2 text-4xl font-semibold tracking-tight text-clinic-navy">{formatCurrency(subtotalCents)}</p>
+              </div>
+              <div className="rounded-3xl bg-emerald-50 px-4 py-4">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">{commissionLabel}</p>
+                <p className="mt-2 text-3xl font-semibold tracking-tight text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
+              </div>
+            </div>
+          </Card>
+
           <Card className="min-w-0 rounded-2xl p-5">
             <div className="flex items-center gap-2">
               <CircleDollarSign className="h-5 w-5 text-clinic-red" />
@@ -481,15 +491,11 @@ export function SalesBuilderClient({
                 <span className="text-slate-500">Payment status</span>
                 <span className="font-semibold text-clinic-ink">Pending</span>
               </div>
-              <div className="rounded-xl bg-emerald-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">{commissionDetailLabel}</p>
-                <p className="mt-2 text-3xl font-semibold text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
-              </div>
             </div>
 
             <div className="mt-5">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Payment action</p>
-              <div className="mt-2 grid grid-cols-1 gap-2 rounded-2xl bg-clinic-mist p-1 sm:grid-cols-2 2xl:grid-cols-1 min-[1800px]:grid-cols-2">
+              <div className="mt-2 grid grid-cols-1 gap-2 rounded-2xl bg-clinic-mist p-1 sm:grid-cols-2 xl:grid-cols-1 min-[1800px]:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => setPaymentWorkflow("collect_payment")}
@@ -544,6 +550,23 @@ export function SalesBuilderClient({
           </Card>
         </div>
       </form>
+
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/70 bg-white/92 p-3 shadow-[0_-18px_50px_rgba(7,55,99,0.12)] backdrop-blur-xl lg:left-72 xl:hidden">
+        <div className="mx-auto grid max-w-5xl grid-cols-[1fr_1fr_auto] items-center gap-2">
+          <div className="min-w-0 rounded-2xl bg-clinic-mist px-3 py-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Total</p>
+            <p className="truncate text-lg font-semibold text-clinic-navy">{formatCurrency(subtotalCents)}</p>
+          </div>
+          <div className="min-w-0 rounded-2xl bg-emerald-50 px-3 py-2">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Commission</p>
+            <p className="truncate text-lg font-semibold text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
+          </div>
+          <div className="rounded-2xl border border-border bg-white px-3 py-2 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Items</p>
+            <p className="text-lg font-semibold text-clinic-ink">{selectedItemCount}</p>
+          </div>
+        </div>
+      </div>
 
       <Card className="overflow-hidden rounded-2xl">
         <div className="border-b border-border p-5">
