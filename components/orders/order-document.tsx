@@ -33,6 +33,12 @@ function paymentProviderMetadata(order: OrderListRecord) {
   return paymentProvider as Record<string, unknown>;
 }
 
+function referralMetadata(order: OrderListRecord) {
+  const metadata = order.referralMetadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  return metadata as Record<string, unknown>;
+}
+
 export function OrderDocument({
   order,
   mode,
@@ -52,6 +58,9 @@ export function OrderDocument({
   const canSeeLeaderProfit = mode === "admin" || mode === "partner" || mode === "group_leader";
   const canSeeConsultantCommission = !isReceipt;
   const paymentMetadata = paymentProviderMetadata(order);
+  const metadata = referralMetadata(order);
+  const commissionMode = typeof metadata?.commissionMode === "string" ? metadata.commissionMode : null;
+  const isAdminDirectSale = commissionMode === "ADMIN_DIRECT" || (!order.partnerProfileId && !order.groupLeaderProfileId && !order.consultantProfileId);
   const paymentUrl = typeof paymentMetadata?.paymentUrl === "string" ? paymentMetadata.paymentUrl : null;
   const providerSessionId = typeof paymentMetadata?.providerSessionId === "string" ? paymentMetadata.providerSessionId : null;
   const isCaptured = order.paymentStatus === "CAPTURED";
@@ -207,12 +216,16 @@ export function OrderDocument({
                 {mode === "admin" ? (
                   <>
                     <div className="flex justify-between"><span className="text-slate-500">Gross margin</span><span className="font-semibold text-clinic-ink">{money(order.grossMarginCents)}</span></div>
-                    <div className="flex justify-between"><span className="text-slate-500">Commission pool</span><span className="font-semibold text-clinic-ink">{money(order.commissionPoolCents)}</span></div>
+                    {isAdminDirectSale ? (
+                      <div className="flex justify-between"><span className="text-slate-500">Admin direct profit</span><span className="font-semibold text-emerald-700">{money(order.grossMarginCents)}</span></div>
+                    ) : (
+                      <div className="flex justify-between"><span className="text-slate-500">Commission pool</span><span className="font-semibold text-clinic-ink">{money(order.commissionPoolCents)}</span></div>
+                    )}
                   </>
                 ) : null}
-                {canSeePartnerProfit ? <div className="flex justify-between"><span className="text-slate-500">Partner profit</span><span className="font-semibold text-clinic-navy">{money(partnerProfitCents)}</span></div> : null}
-                {canSeeLeaderProfit ? <div className="flex justify-between"><span className="text-slate-500">Leader profit</span><span className="font-semibold text-clinic-navy">{money(leaderProfitCents)}</span></div> : null}
-                {canSeeConsultantCommission ? <div className="flex justify-between"><span className="text-slate-500">Consultant commission</span><span className="font-semibold text-clinic-red">{money(consultantCommissionCents)}</span></div> : null}
+                {!isAdminDirectSale && canSeePartnerProfit ? <div className="flex justify-between"><span className="text-slate-500">Partner profit</span><span className="font-semibold text-clinic-navy">{money(partnerProfitCents)}</span></div> : null}
+                {!isAdminDirectSale && canSeeLeaderProfit ? <div className="flex justify-between"><span className="text-slate-500">Leader profit</span><span className="font-semibold text-clinic-navy">{money(leaderProfitCents)}</span></div> : null}
+                {!isAdminDirectSale && canSeeConsultantCommission ? <div className="flex justify-between"><span className="text-slate-500">Consultant commission</span><span className="font-semibold text-clinic-red">{money(consultantCommissionCents)}</span></div> : null}
               </div>
             </div>
           ) : (

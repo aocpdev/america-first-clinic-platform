@@ -39,9 +39,9 @@ export default async function AdminDashboardPage() {
     <SidebarShell nav={adminNav} eyebrow="Company admin" title="Revenue command center">
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Collected revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders`} />
-        <MetricCard label="Gross profit" value={currency(metrics.grossProfitCents / 100)} change="Real margin from captured payments" tone="green" />
+        <MetricCard label="Gross margin" value={currency(metrics.grossProfitCents / 100)} change="Total margin from captured payments" tone="green" />
+        <MetricCard label="Admin direct profit" value={currency(metrics.adminDirectProfitCents / 100)} change={`${metrics.adminDirectOrderCount} admin direct sales`} tone="green" />
         <MetricCard label="Pending payouts" value={currency(metrics.pendingPayoutCents / 100)} change="Commission splits awaiting payout" tone="red" />
-        <MetricCard label="Customers" value={`${metrics.customerCount}`} change="CRM customer records" />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_.6fr]">
         <Card>

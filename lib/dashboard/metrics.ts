@@ -145,9 +145,19 @@ async function pendingSplitSum(input: {
 }
 
 export async function getAdminDashboardMetrics(companyId: string) {
-  const [orders, splitsPending, customers, chartData] = await Promise.all([
+  const [orders, adminDirectOrders, splitsPending, customers, chartData] = await Promise.all([
     prisma.order.aggregate({
       where: paidOrderWhere(companyId),
+      _count: { id: true },
+      _sum: { totalCents: true, grossMarginCents: true }
+    }),
+    prisma.order.aggregate({
+      where: {
+        ...paidOrderWhere(companyId),
+        consultantProfileId: null,
+        partnerProfileId: null,
+        groupLeaderProfileId: null
+      },
       _count: { id: true },
       _sum: { totalCents: true, grossMarginCents: true }
     }),
@@ -166,6 +176,9 @@ export async function getAdminDashboardMetrics(companyId: string) {
   return {
     revenueCents: orders._sum.totalCents ?? 0,
     grossProfitCents: orders._sum.grossMarginCents ?? 0,
+    adminDirectRevenueCents: adminDirectOrders._sum.totalCents ?? 0,
+    adminDirectProfitCents: adminDirectOrders._sum.grossMarginCents ?? 0,
+    adminDirectOrderCount: adminDirectOrders._count.id,
     paidOrderCount: orders._count.id,
     pendingPayoutCents: splitsPending._sum.amountCents ?? 0,
     customerCount: customers,
