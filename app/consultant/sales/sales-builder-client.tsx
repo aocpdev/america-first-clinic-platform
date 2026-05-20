@@ -192,7 +192,7 @@ export function SalesBuilderClient({
         </div>
       )}
 
-      <form action={createOrderAction} className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
+      <form action={createOrderAction} className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
         <input type="hidden" name="customerMode" value={customerMode} />
         <input type="hidden" name="pipelineStage" value="PAYMENT_PENDING" />
         <input type="hidden" name="paymentWorkflow" value={paymentWorkflow} />
@@ -444,8 +444,8 @@ export function SalesBuilderClient({
           </Card>
         </div>
 
-        <div className="min-w-0 space-y-6 xl:sticky xl:top-24 xl:self-start">
-          <Card className="min-w-0 rounded-[2rem] border-white/80 bg-white/95 p-4 shadow-[0_22px_60px_rgba(7,55,99,0.10)] backdrop-blur-xl">
+        <div className="min-w-0 space-y-6 xl:sticky xl:top-28 xl:self-start">
+          <Card className="min-w-0 rounded-[2rem] border-white/80 bg-white/95 p-4 shadow-[0_18px_46px_rgba(7,55,99,0.08)] backdrop-blur-xl">
             <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Live checkout</p>
