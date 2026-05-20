@@ -406,7 +406,7 @@ export function SalesBuilderClient({
         ))}
 
         <div className="flex min-w-0 flex-col gap-6">
-          <Card className="order-2 min-w-0 overflow-hidden rounded-2xl">
+          <Card className="order-2 min-w-0 overflow-visible rounded-2xl">
             <div className="border-b border-border p-5">
               <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0">
