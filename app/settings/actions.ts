@@ -192,3 +192,47 @@ export async function toggleWebhookEndpoint(formData: FormData) {
   });
   revalidatePath("/admin/settings");
 }
+
+export async function updateWebhookEndpoint(formData: FormData) {
+  const scope = String(formData.get("scope") || "admin");
+  const endpointId = String(formData.get("endpointId") || "");
+  const parsed = webhookSchema.parse({
+    name: formData.get("name"),
+    url: formData.get("url"),
+    events: formEvents(formData)
+  });
+
+  if (scope === "partner") {
+    const user = await requirePartner();
+    if (user.role !== "PARTNER" || !user.partnerProfile) {
+      redirect("/partner/settings?error=access_denied");
+    }
+    await prisma.webhookEndpoint.updateMany({
+      where: {
+        id: endpointId,
+        partnerProfileId: user.partnerProfile.id
+      },
+      data: {
+        name: parsed.name.trim(),
+        url: parsed.url,
+        events: parsed.events
+      }
+    });
+    revalidatePath("/partner/settings");
+    return;
+  }
+
+  const companyId = await requireAdminCompanyId();
+  await prisma.webhookEndpoint.updateMany({
+    where: {
+      id: endpointId,
+      companyId
+    },
+    data: {
+      name: parsed.name.trim(),
+      url: parsed.url,
+      events: parsed.events
+    }
+  });
+  revalidatePath("/admin/settings");
+}
