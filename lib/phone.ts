@@ -95,7 +95,8 @@ export function normalizePhoneToE164(value?: string | null) {
 }
 
 export function phoneForWebhook(value?: string | null) {
-  return normalizePhoneToE164(value);
+  const normalized = normalizePhoneToE164(value);
+  return normalized ? digitsOnly(normalized) : null;
 }
 
 export function formatPhoneForDisplay(value?: string | null) {
