@@ -173,13 +173,13 @@ export function SalesBuilderClient({
 }: SalesBuilderClientProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [customerMode, setCustomerMode] = useState<"existing" | "new">(customers.length > 0 ? "existing" : "new");
-  const [selectedCustomerId, setSelectedCustomerId] = useState(customers[0]?.id ?? "");
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
   const [paymentWorkflow, setPaymentWorkflow] = useState<"collect_payment" | "send_invoice">("collect_payment");
   const [query, setQuery] = useState("");
   const [customerQuery, setCustomerQuery] = useState("");
   const [customerPickerOpen, setCustomerPickerOpen] = useState(false);
-  const [shippingMode, setShippingMode] = useState<"saved" | "new">(customers[0]?.addresses.length ? "saved" : "new");
-  const [selectedShippingAddressId, setSelectedShippingAddressId] = useState(customers[0]?.addresses[0]?.id ?? "");
+  const [shippingMode, setShippingMode] = useState<"saved" | "new">("new");
+  const [selectedShippingAddressId, setSelectedShippingAddressId] = useState("");
   const [category, setCategory] = useState("All");
   const [priceRange, setPriceRange] = useState(priceRanges[0].label);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
@@ -222,9 +222,9 @@ export function SalesBuilderClient({
   const selectedProduct = products.find((product) => product.id === selectedProductId);
   const selectedItemCount = selectedLines.reduce((sum, line) => sum + line.quantity, 0);
 
-  const filteredCustomers = useMemo(() => {
+  const matchingCustomers = useMemo(() => {
     const normalized = customerQuery.trim().toLowerCase();
-    const matches = customers.filter((customer) => {
+    return customers.filter((customer) => {
       const haystack = [
         customerDisplayName(customer),
         customer.email,
@@ -236,9 +236,8 @@ export function SalesBuilderClient({
 
       return !normalized || haystack.includes(normalized);
     });
-
-    return matches.slice(0, 8);
   }, [customers, customerQuery]);
+  const filteredCustomers = matchingCustomers.slice(0, 8);
 
   useEffect(() => {
     const firstAddress = selectedCustomer?.addresses[0];
@@ -448,7 +447,7 @@ export function SalesBuilderClient({
               {customerMode === "existing" ? (
                 <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(360px,440px)]">
                   <input type="hidden" name="customerId" value={selectedCustomerId} />
-                  <div className="relative">
+                  <div className="relative z-20">
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Find customer</label>
                     <div className="relative mt-2">
                       <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
@@ -472,7 +471,7 @@ export function SalesBuilderClient({
                     </div>
 
                     {customerPickerOpen ? (
-                      <div className="mt-3 overflow-hidden rounded-3xl border border-border bg-white shadow-[0_18px_50px_rgba(15,35,58,0.12)]">
+                      <div className="absolute left-0 right-0 top-full z-30 mt-3 overflow-hidden rounded-3xl border border-border bg-white shadow-[0_24px_70px_rgba(15,35,58,0.16)]">
                         <div className="max-h-[360px] overflow-y-auto p-2">
                           {filteredCustomers.length > 0 ? (
                             filteredCustomers.map((customer) => {
@@ -510,6 +509,11 @@ export function SalesBuilderClient({
                             </div>
                           )}
                         </div>
+                        {matchingCustomers.length > filteredCustomers.length ? (
+                          <div className="border-t border-border bg-clinic-mist px-4 py-3 text-xs font-semibold text-slate-500">
+                            Showing the first {filteredCustomers.length} matches. Keep typing to narrow the list.
+                          </div>
+                        ) : null}
                       </div>
                     ) : null}
                     <p className="mt-3 text-sm leading-6 text-slate-500">
