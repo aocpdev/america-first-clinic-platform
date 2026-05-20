@@ -128,7 +128,7 @@ function customerInitials(customer: CustomerOption) {
 }
 
 function addressLabel(address: CustomerAddressOption) {
-  return address.label || (address.isDefault ? "Default shipping" : "Saved address");
+  return address.isDefault ? "Default address" : "Saved address";
 }
 
 function addressSummary(address: CustomerAddressOption) {
@@ -685,11 +685,7 @@ export function SalesBuilderClient({
                     </p>
                   </div>
                 ) : null}
-                <div>
-                  <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address label</label>
-                  <Input name="shippingAddressLabel" placeholder="Home, Office, Billing..." className="mt-2" />
-                </div>
-                <div className="flex items-end">
+                <div className="flex items-end md:col-span-2">
                   <label className="flex min-h-11 w-full items-center gap-3 rounded-xl border border-border bg-clinic-mist px-4 text-sm font-bold text-clinic-navy">
                     <input name="shippingAddressDefault" type="checkbox" value="true" className="h-4 w-4 rounded border-slate-300" />
                     Make this the default address

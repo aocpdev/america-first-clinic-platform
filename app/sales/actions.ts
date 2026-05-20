@@ -206,7 +206,6 @@ async function createWorkspaceOrder(
   const paymentWorkflow = paymentWorkflowFromForm(formData);
   const shippingAddressMode = formString(formData, "shippingAddressMode") === "saved" ? "saved" : "new";
   const selectedShippingAddressId = formString(formData, "shippingAddressId");
-  const shippingAddressLabel = formString(formData, "shippingAddressLabel");
   const makeShippingAddressDefault = formString(formData, "shippingAddressDefault") === "true";
   const selectedItems = selectedProductQuantities(formData);
   const providerCode = await activePaymentProviderCode(companyId);
@@ -388,7 +387,7 @@ async function createWorkspaceOrder(
     const savedAddress = await prisma.customerAddress.create({
       data: {
         customerId: customer.id,
-        label: shippingAddressLabel || (isDefault ? "Default shipping" : "Shipping address"),
+        label: null,
         line1: shippingAddress.data.line1,
         line2: shippingAddress.data.line2 || null,
         city: shippingAddress.data.city,
