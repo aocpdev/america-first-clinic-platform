@@ -184,8 +184,48 @@ function CampaignModal({
   products: RewardProduct[];
   onClose: () => void;
 }) {
-  const selected = new Set(campaign?.products.map((item) => item.productId) ?? []);
-  const campaignQuantity = (productId: string) => campaign?.products.find((item) => item.productId === productId)?.targetQuantity ?? 1;
+  const initialSelectedProductIds = useMemo(() => campaign?.products.map((item) => item.productId) ?? [], [campaign]);
+  const initialQuantities = useMemo(
+    () =>
+      Object.fromEntries(
+        (campaign?.products ?? []).map((item) => [item.productId, String(item.targetQuantity)])
+      ) as Record<string, string>,
+    [campaign]
+  );
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>(initialSelectedProductIds);
+  const [targetQuantities, setTargetQuantities] = useState<Record<string, string>>(initialQuantities);
+  const [rewardValueDollars, setRewardValueDollars] = useState(campaign ? String(campaign.rewardValueCents / 100) : "0");
+
+  const campaignQuantity = (productId: string) => targetQuantities[productId] ?? "1";
+  const rewardValueCents = Math.max(Math.round((Number(rewardValueDollars) || 0) * 100), 0);
+  const selectedProductIdSet = useMemo(() => new Set(selectedProductIds), [selectedProductIds]);
+  const projection = useMemo(() => {
+    return products.reduce(
+      (total, product) => {
+        if (!selectedProductIdSet.has(product.id)) return total;
+
+        const quantity = Math.max(Number(targetQuantities[product.id] || 1), 1);
+        const productMarginCents = Math.max(product.priceCents - product.internalCostCents, 0);
+
+        return {
+          units: total.units + quantity,
+          revenueCents: total.revenueCents + product.priceCents * quantity,
+          marginCents: total.marginCents + productMarginCents * quantity
+        };
+      },
+      { units: 0, revenueCents: 0, marginCents: 0 }
+    );
+  }, [products, selectedProductIdSet, targetQuantities]);
+  const projectedNetCents = projection.marginCents - rewardValueCents;
+  const isProjectedLoss = projectedNetCents < 0;
+
+  function toggleProduct(productId: string, checked: boolean) {
+    setSelectedProductIds((current) => {
+      if (checked) return current.includes(productId) ? current : [...current, productId];
+      return current.filter((id) => id !== productId);
+    });
+    setTargetQuantities((current) => ({ ...current, [productId]: current[productId] ?? "1" }));
+  }
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-clinic-ink/30 px-4 py-6 backdrop-blur-sm">
@@ -242,7 +282,14 @@ function CampaignModal({
                 return (
                   <label key={product.id} className="grid gap-3 rounded-2xl border border-border bg-white p-4 shadow-line">
                     <div className="flex items-start gap-3">
-                      <input name="productId" value={product.id} type="checkbox" defaultChecked={selected.has(product.id)} className="mt-1 size-5 rounded border-slate-300" />
+                      <input
+                        name="productId"
+                        value={product.id}
+                        type="checkbox"
+                        checked={selectedProductIdSet.has(product.id)}
+                        onChange={(event) => toggleProduct(product.id, event.target.checked)}
+                        className="mt-1 size-5 rounded border-slate-300"
+                      />
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-clinic-ink">{product.title}</p>
                         <p className="text-sm text-slate-500">{product.category.name}</p>
@@ -251,10 +298,59 @@ function CampaignModal({
                         </p>
                       </div>
                     </div>
-                    <Input name={`targetQuantity:${product.id}`} type="number" min={1} defaultValue={campaignQuantity(product.id)} placeholder="Target units" />
+                    <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
+                      <Input
+                        name={`targetQuantity:${product.id}`}
+                        type="number"
+                        min={1}
+                        value={campaignQuantity(product.id)}
+                        onChange={(event) => setTargetQuantities((current) => ({ ...current, [product.id]: event.target.value }))}
+                        placeholder="Target units"
+                      />
+                      <div className="rounded-2xl bg-clinic-mist px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-clinic-navy">
+                        {money(marginCents * Math.max(Number(campaignQuantity(product.id) || 1), 1))} margin
+                      </div>
+                    </div>
                   </label>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="rounded-[1.75rem] border border-border bg-white p-5 shadow-[0_20px_60px_rgba(7,55,99,0.08)]">
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Campaign projection</p>
+                <h4 className="mt-1 text-2xl font-semibold text-clinic-ink">Reward economics</h4>
+                <p className="mt-1 text-sm leading-6 text-slate-500">
+                  Calculated from the selected products, target units, margin, and reward value.
+                </p>
+              </div>
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${isProjectedLoss ? "bg-red-50 text-clinic-red" : "bg-emerald-50 text-emerald-800"}`}>
+                {isProjectedLoss ? "Projected loss" : "Projected gain"}
+              </span>
+            </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              <div className="rounded-2xl bg-clinic-mist p-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Target units</p>
+                <p className="mt-1 text-2xl font-semibold text-clinic-navy">{projection.units}</p>
+              </div>
+              <div className="rounded-2xl bg-clinic-mist p-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Sales revenue</p>
+                <p className="mt-1 text-2xl font-semibold text-clinic-navy">{money(projection.revenueCents)}</p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Gross margin</p>
+                <p className="mt-1 text-2xl font-semibold text-emerald-800">{money(projection.marginCents)}</p>
+              </div>
+              <div className={`rounded-2xl p-4 ${isProjectedLoss ? "bg-red-50" : "bg-white shadow-line"}`}>
+                <p className={`text-[11px] font-bold uppercase tracking-[0.12em] ${isProjectedLoss ? "text-clinic-red" : "text-slate-500"}`}>
+                  Net after reward
+                </p>
+                <p className={`mt-1 text-2xl font-semibold ${isProjectedLoss ? "text-clinic-red" : "text-clinic-navy"}`}>
+                  {money(projectedNetCents)}
+                </p>
+              </div>
             </div>
           </div>
 
@@ -271,8 +367,15 @@ function CampaignModal({
               </select>
             </label>
             <label className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Valued at</span>
-              <Input name="rewardValueDollars" type="number" min={0} step="0.01" defaultValue={campaign ? campaign.rewardValueCents / 100 : 0} />
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Reward value / company cost</span>
+              <Input
+                name="rewardValueDollars"
+                type="number"
+                min={0}
+                step="0.01"
+                value={rewardValueDollars}
+                onChange={(event) => setRewardValueDollars(event.target.value)}
+              />
             </label>
             <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Image URL</span>
@@ -308,6 +411,8 @@ export function AdminRewardsEditor({
     () => ({
       levelMargin: levels.reduce((sum, level) => sum + level.projectedMarginCents, 0),
       campaignMargin: campaigns.reduce((sum, campaign) => sum + campaign.projectedMarginCents, 0),
+      campaignRewardCost: campaigns.reduce((sum, campaign) => sum + campaign.rewardValueCents, 0),
+      campaignNet: campaigns.reduce((sum, campaign) => sum + campaign.projectedMarginCents - campaign.rewardValueCents, 0),
       activeCampaigns: campaigns.filter((campaign) => campaign.status === "ACTIVE").length
     }),
     [levels, campaigns]
@@ -316,7 +421,7 @@ export function AdminRewardsEditor({
   return (
     <div className="space-y-6">
       <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_22px_70px_rgba(7,55,99,0.08)]">
-        <div className="grid gap-4 p-6 md:grid-cols-3">
+        <div className="grid gap-4 p-6 md:grid-cols-4">
           <div className="rounded-3xl bg-clinic-mist p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Active campaigns</p>
             <p className="mt-2 text-3xl font-semibold text-clinic-navy">{totals.activeCampaigns}</p>
@@ -326,8 +431,14 @@ export function AdminRewardsEditor({
             <p className="mt-2 text-3xl font-semibold text-emerald-800">{money(totals.campaignMargin)}</p>
           </div>
           <div className="rounded-3xl bg-white p-5 shadow-line">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Configured levels</p>
-            <p className="mt-2 text-3xl font-semibold text-clinic-navy">{levels.length}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Reward cost</p>
+            <p className="mt-2 text-3xl font-semibold text-clinic-navy">{money(totals.campaignRewardCost)}</p>
+          </div>
+          <div className="rounded-3xl bg-white p-5 shadow-line">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Net after rewards</p>
+            <p className={`mt-2 text-3xl font-semibold ${totals.campaignNet < 0 ? "text-clinic-red" : "text-clinic-navy"}`}>
+              {money(totals.campaignNet)}
+            </p>
           </div>
         </div>
       </Card>
@@ -410,13 +521,15 @@ export function AdminRewardsEditor({
 
         <div className="grid gap-4 p-6 xl:grid-cols-2">
           {campaigns.length ? (
-            campaigns.map((campaign) => (
-              <button
-                type="button"
-                key={campaign.id}
-                onClick={() => setEditingCampaign(campaign)}
-                className="rounded-[1.75rem] border border-border bg-white p-5 text-left shadow-line transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(7,55,99,0.10)]"
-              >
+            campaigns.map((campaign) => {
+              const netCents = campaign.projectedMarginCents - campaign.rewardValueCents;
+              return (
+                <button
+                  type="button"
+                  key={campaign.id}
+                  onClick={() => setEditingCampaign(campaign)}
+                  className="rounded-[1.75rem] border border-border bg-white p-5 text-left shadow-line transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(7,55,99,0.10)]"
+                >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{campaign.status}</p>
@@ -432,7 +545,7 @@ export function AdminRewardsEditor({
                     {campaign.rewardValueType === "CASH" ? "Cash" : "Reward"}
                   </span>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="mt-4 grid gap-3 sm:grid-cols-4">
                   <div className="rounded-2xl bg-clinic-mist p-4">
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Revenue</p>
                     <p className="mt-1 font-semibold text-clinic-navy">{money(campaign.projectedRevenueCents)}</p>
@@ -445,13 +558,18 @@ export function AdminRewardsEditor({
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Reward</p>
                     <p className="mt-1 font-semibold text-clinic-navy">{money(campaign.rewardValueCents)}</p>
                   </div>
+                  <div className={`rounded-2xl p-4 ${netCents < 0 ? "bg-red-50" : "bg-white shadow-line"}`}>
+                    <p className={`text-[11px] font-bold uppercase tracking-[0.12em] ${netCents < 0 ? "text-clinic-red" : "text-slate-500"}`}>Net</p>
+                    <p className={`mt-1 font-semibold ${netCents < 0 ? "text-clinic-red" : "text-clinic-navy"}`}>{money(netCents)}</p>
+                  </div>
                 </div>
                 <div className="mt-4 flex items-center gap-2 border-t border-border pt-4 text-sm font-semibold text-clinic-navy">
                   <Gift className="h-4 w-4 text-clinic-red" />
                   {campaign.rewardTitle}
                 </div>
               </button>
-            ))
+              );
+            })
           ) : (
             <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500 xl:col-span-2">
               No timed campaigns yet. Create the first one to give consultants a focused sales target.
