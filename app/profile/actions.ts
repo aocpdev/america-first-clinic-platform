@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
@@ -23,11 +24,43 @@ export async function updateProfile(formData: FormData) {
   const user = await requireUser();
   const firstName = textValue(formData, "firstName");
   const lastName = textValue(formData, "lastName");
+  const emailResult = z.string().trim().email().safeParse(textValue(formData, "email"));
   const phone = normalizePhoneToE164(textValue(formData, "phone"));
+  const nextEmail = emailResult.success ? emailResult.data.toLowerCase() : null;
+  const profilePath = profilePathForRole(user.role);
+
+  if (!nextEmail) {
+    redirect(`${profilePath}?error=invalid_email`);
+  }
+
+  if (nextEmail !== user.email.toLowerCase()) {
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: nextEmail,
+        NOT: { id: user.id }
+      },
+      select: { id: true }
+    });
+
+    if (existingUser) {
+      redirect(`${profilePath}?error=email_taken`);
+    }
+
+    const adminClient = createSupabaseAdminClient();
+    const { error } = await adminClient.auth.admin.updateUserById(user.authUserId, {
+      email: nextEmail,
+      email_confirm: true
+    });
+
+    if (error) {
+      redirect(`${profilePath}?error=email_update_failed`);
+    }
+  }
 
   await prisma.user.update({
     where: { id: user.id },
     data: {
+      email: nextEmail,
       firstName: firstName || null,
       lastName: lastName || null,
       phone
@@ -35,7 +68,7 @@ export async function updateProfile(formData: FormData) {
   });
 
   await revalidateUserProfilePaths(user.role);
-  redirect(`${profilePathForRole(user.role)}?updated=profile`);
+  redirect(`${profilePath}?updated=profile`);
 }
 
 export async function uploadAvatar(formData: FormData) {

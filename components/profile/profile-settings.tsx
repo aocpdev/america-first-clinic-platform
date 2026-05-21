@@ -9,7 +9,10 @@ const errors: Record<string, string> = {
   missing_avatar: "Choose an image before uploading.",
   invalid_avatar: "Upload a JPG, PNG, WebP, or GIF image.",
   avatar_too_large: "Avatar images must be 3 MB or smaller.",
-  missing_company_name: "Enter a company name before saving."
+  missing_company_name: "Enter a company name before saving.",
+  invalid_email: "Enter a valid email address before saving.",
+  email_taken: "That email is already connected to another CRM account.",
+  email_update_failed: "We could not update that email. Try another email or contact support."
 };
 
 const updatedMessages: Record<string, string> = {
@@ -125,9 +128,11 @@ export function ProfileSettings({
           <label className="space-y-2">
             <span className="text-sm font-semibold text-clinic-ink">Email</span>
             <input
-              value={user.email}
-              disabled
-              className="h-11 w-full rounded-xl border border-border bg-slate-50 px-3 text-sm text-slate-500"
+              name="email"
+              type="email"
+              defaultValue={user.email}
+              required
+              className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
             />
           </label>
           <div className="md:col-span-2">
