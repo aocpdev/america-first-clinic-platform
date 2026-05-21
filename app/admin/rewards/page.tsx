@@ -1,11 +1,10 @@
 import { Trophy } from "lucide-react";
 import { AdminRewardsEditor } from "@/components/rewards/admin-rewards-editor";
-import { RewardDashboard } from "@/components/rewards/reward-dashboard";
 import { Card } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
-import { getCompanyRewardLeaderboard, getRewardLevels } from "@/lib/rewards/reward-engine";
+import { getRewardCampaigns, getRewardLevelAdminModels, getRewardProducts } from "@/lib/rewards/reward-engine";
 
 export default async function AdminRewardsPage() {
   const user = await requireRole("COMPANY_ADMIN");
@@ -21,10 +20,50 @@ export default async function AdminRewardsPage() {
     );
   }
 
-  const [levels, leaderboard] = await Promise.all([
-    getRewardLevels(user.companyId),
-    getCompanyRewardLeaderboard(user.companyId)
+  const [levels, products, campaigns] = await Promise.all([
+    getRewardLevelAdminModels(user.companyId),
+    getRewardProducts(user.companyId),
+    getRewardCampaigns(user.companyId)
   ]);
+  const serializedLevels = levels.map((level) => ({
+    id: level.id,
+    level: level.level,
+    name: level.name,
+    salesThreshold: level.salesThreshold,
+    accentColor: level.accentColor,
+    projectedRevenueCents: level.projectedRevenueCents,
+    projectedMarginCents: level.projectedMarginCents,
+    averageRevenueCents: level.averageRevenueCents,
+    averageMarginCents: level.averageMarginCents,
+    rewards: level.rewards.map((reward) => ({
+      id: reward.id,
+      title: reward.title,
+      description: reward.description,
+      imageUrl: reward.imageUrl,
+      valueCents: reward.valueCents
+    }))
+  }));
+  const serializedCampaigns = campaigns.map((campaign) => ({
+    id: campaign.id,
+    title: campaign.title,
+    description: campaign.description,
+    startsAt: campaign.startsAt.toISOString(),
+    endsAt: campaign.endsAt.toISOString(),
+    status: campaign.status,
+    rewardTitle: campaign.rewardTitle,
+    rewardDescription: campaign.rewardDescription,
+    rewardImageUrl: campaign.rewardImageUrl,
+    rewardValueType: campaign.rewardValueType,
+    rewardValueCents: campaign.rewardValueCents,
+    projectedRevenueCents: campaign.projectedRevenueCents,
+    projectedMarginCents: campaign.projectedMarginCents,
+    totalTargetQuantity: campaign.totalTargetQuantity,
+    products: campaign.products.map((item) => ({
+      productId: item.productId,
+      targetQuantity: item.targetQuantity,
+      product: item.product
+    }))
+  }));
 
   return (
     <SidebarShell nav={adminNav} eyebrow="Admin" title="Rewards">
@@ -33,9 +72,9 @@ export default async function AdminRewardsPage() {
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-3xl">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Sales gamification</p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-tight text-clinic-ink">Reward captured sales without touching commissions.</h2>
+              <h2 className="mt-2 text-3xl font-semibold tracking-tight text-clinic-ink">Control rewards without making admins or partners competitors.</h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Levels are based on paid/captured sales. Admins control each threshold, reward, image, and estimated value.
+                Configure seller levels, reward value, images, and weekly campaigns while previewing projected revenue and gross margin before launch.
               </p>
             </div>
             <div className="grid size-20 place-items-center rounded-3xl bg-clinic-navy text-white shadow-soft">
@@ -44,20 +83,7 @@ export default async function AdminRewardsPage() {
           </div>
         </Card>
 
-        <RewardDashboard
-          sellerName="America First Clinic"
-          salesCount={leaderboard.reduce((sum, row) => sum + row.salesCount, 0)}
-          levels={levels}
-          currentLevel={null}
-          nextLevel={levels[0] ?? null}
-          progressPercent={0}
-          salesToNextLevel={0}
-          earnedRewards={[]}
-          leaderboard={leaderboard}
-          showAdminSummary
-        />
-
-        <AdminRewardsEditor levels={levels} />
+        <AdminRewardsEditor levels={serializedLevels} products={products} campaigns={serializedCampaigns} />
       </div>
     </SidebarShell>
   );

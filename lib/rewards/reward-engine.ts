@@ -115,6 +115,50 @@ export async function getRewardLevels(companyId: string) {
   });
 }
 
+export async function getRewardLevelAdminModels(companyId: string) {
+  await ensureDefaultRewardLevels(companyId);
+
+  const [levels, products] = await Promise.all([
+    prisma.rewardLevel.findMany({
+      where: { companyId },
+      include: { rewards: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
+      orderBy: { salesThreshold: "asc" }
+    }),
+    prisma.product.findMany({
+      where: { companyId, active: true },
+      select: { priceCents: true, internalCostCents: true }
+    })
+  ]);
+
+  const productCount = Math.max(products.length, 1);
+  const averageRevenueCents = Math.round(products.reduce((sum, product) => sum + product.priceCents, 0) / productCount);
+  const averageMarginCents = Math.round(
+    products.reduce((sum, product) => sum + Math.max(product.priceCents - product.internalCostCents, 0), 0) / productCount
+  );
+
+  return levels.map((level) => ({
+    ...level,
+    projectedRevenueCents: level.salesThreshold * averageRevenueCents,
+    projectedMarginCents: level.salesThreshold * averageMarginCents,
+    averageRevenueCents,
+    averageMarginCents
+  }));
+}
+
+export async function getRewardProducts(companyId: string) {
+  return prisma.product.findMany({
+    where: { companyId, active: true },
+    select: {
+      id: true,
+      title: true,
+      priceCents: true,
+      internalCostCents: true,
+      category: { select: { name: true } }
+    },
+    orderBy: [{ category: { name: "asc" } }, { title: "asc" }]
+  });
+}
+
 function displayName(user: Pick<User, "firstName" | "lastName" | "email">) {
   return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
 }
@@ -194,50 +238,165 @@ export async function getRewardProgress(input: {
 }
 
 export async function getCompanyRewardLeaderboard(companyId: string) {
-  const [consultants, leaders, partners] = await Promise.all([
-    prisma.consultantProfile.findMany({
-      where: { companyId, user: { status: "ACTIVE", isActive: true } },
-      include: { user: true },
-      orderBy: { createdAt: "asc" }
-    }),
-    prisma.groupLeaderProfile.findMany({
-      where: { companyId, user: { status: "ACTIVE", isActive: true } },
-      include: { user: true },
-      orderBy: { createdAt: "asc" }
-    }),
-    prisma.partnerProfile.findMany({
-      where: { companyId, user: { status: "ACTIVE", isActive: true } },
-      include: { user: true },
-      orderBy: { createdAt: "asc" }
-    })
-  ]);
+  const consultants = await prisma.consultantProfile.findMany({
+    where: { companyId, user: { status: "ACTIVE", isActive: true } },
+    include: { user: true },
+    orderBy: { createdAt: "asc" }
+  });
 
-  const rows = await Promise.all([
-    ...consultants.map(async (profile) => ({
+  const rows = await Promise.all(
+    consultants.map(async (profile) => ({
       id: profile.id,
       name: displayName(profile.user),
       email: profile.user.email,
       avatarUrl: profile.user.avatarUrl,
       role: "Consultant",
       salesCount: await getSellerSalesCount({ companyId, consultantProfileId: profile.id })
-    })),
-    ...leaders.map(async (profile) => ({
-      id: profile.id,
-      name: profile.displayName || displayName(profile.user),
-      email: profile.user.email,
-      avatarUrl: profile.user.avatarUrl,
-      role: "Group leader",
-      salesCount: await getSellerSalesCount({ companyId, groupLeaderProfileId: profile.id })
-    })),
-    ...partners.map(async (profile) => ({
-      id: profile.id,
-      name: profile.companyName || profile.displayName || displayName(profile.user),
-      email: profile.user.email,
-      avatarUrl: profile.user.avatarUrl,
-      role: "Partner",
-      salesCount: await getSellerSalesCount({ companyId, partnerProfileId: profile.id })
     }))
-  ]);
+  );
 
   return rows.sort((a, b) => b.salesCount - a.salesCount).slice(0, 12);
+}
+
+export async function getScopedRewardLeaderboard(input: {
+  companyId: string;
+  partnerProfileId?: string | null;
+  groupLeaderProfileId?: string | null;
+}) {
+  const consultants = await prisma.consultantProfile.findMany({
+    where: {
+      companyId: input.companyId,
+      user: { status: "ACTIVE", isActive: true },
+      ...(input.groupLeaderProfileId
+        ? { groupLeaderProfileId: input.groupLeaderProfileId }
+        : input.partnerProfileId
+          ? { partnerProfileId: input.partnerProfileId }
+          : {})
+    },
+    include: { user: true },
+    orderBy: { createdAt: "asc" }
+  });
+
+  const rows = await Promise.all(
+    consultants.map(async (profile) => ({
+      id: profile.id,
+      name: displayName(profile.user),
+      email: profile.user.email,
+      avatarUrl: profile.user.avatarUrl,
+      role: "Consultant",
+      salesCount: await getSellerSalesCount({ companyId: input.companyId, consultantProfileId: profile.id })
+    }))
+  );
+
+  return rows.sort((a, b) => b.salesCount - a.salesCount).slice(0, 12);
+}
+
+export async function getRewardCampaigns(companyId: string) {
+  const now = new Date();
+
+  const campaigns = await prisma.rewardCampaign.findMany({
+    where: { companyId },
+    include: {
+      products: {
+        include: {
+          product: {
+            select: {
+              id: true,
+              title: true,
+              priceCents: true,
+              internalCostCents: true,
+              category: { select: { name: true } }
+            }
+          }
+        },
+        orderBy: { createdAt: "asc" }
+      }
+    },
+    orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }]
+  });
+
+  return campaigns.map((campaign) => {
+    const projectedRevenueCents = campaign.products.reduce(
+      (sum, item) => sum + item.product.priceCents * item.targetQuantity,
+      0
+    );
+    const projectedMarginCents = campaign.products.reduce(
+      (sum, item) => sum + Math.max(item.product.priceCents - item.product.internalCostCents, 0) * item.targetQuantity,
+      0
+    );
+
+    return {
+      ...campaign,
+      isLive: campaign.status === "ACTIVE" && campaign.startsAt <= now && campaign.endsAt >= now,
+      projectedRevenueCents,
+      projectedMarginCents,
+      totalTargetQuantity: campaign.products.reduce((sum, item) => sum + item.targetQuantity, 0)
+    };
+  });
+}
+
+export async function getActiveRewardCampaignProgress(input: {
+  companyId: string;
+  consultantProfileId: string;
+}) {
+  const now = new Date();
+  const campaigns = await prisma.rewardCampaign.findMany({
+    where: {
+      companyId: input.companyId,
+      status: "ACTIVE",
+      startsAt: { lte: now },
+      endsAt: { gte: now }
+    },
+    include: {
+      products: {
+        include: {
+          product: {
+            select: {
+              id: true,
+              title: true,
+              priceCents: true,
+              internalCostCents: true
+            }
+          }
+        }
+      }
+    },
+    orderBy: { endsAt: "asc" }
+  });
+
+  return Promise.all(
+    campaigns.map(async (campaign) => {
+      const productIds = campaign.products.map((item) => item.productId);
+      const targetQuantity = Math.max(campaign.products.reduce((sum, item) => sum + item.targetQuantity, 0), 1);
+      const orderItems = await prisma.orderItem.findMany({
+        where: {
+          productId: { in: productIds },
+          order: {
+            companyId: input.companyId,
+            consultantProfileId: input.consultantProfileId,
+            paymentStatus: "CAPTURED",
+            createdAt: { gte: campaign.startsAt, lte: campaign.endsAt }
+          }
+        },
+        include: { product: { select: { priceCents: true, internalCostCents: true } } }
+      });
+
+      const soldQuantity = orderItems.reduce((sum, item) => sum + item.quantity, 0);
+      const revenueCents = orderItems.reduce((sum, item) => sum + item.totalCents, 0);
+      const marginCents = orderItems.reduce(
+        (sum, item) => sum + Math.max(item.product.priceCents - item.product.internalCostCents, 0) * item.quantity,
+        0
+      );
+
+      return {
+        ...campaign,
+        soldQuantity,
+        targetQuantity,
+        revenueCents,
+        marginCents,
+        progressPercent: Math.min(Math.round((soldQuantity / targetQuantity) * 100), 100),
+        remainingQuantity: Math.max(targetQuantity - soldQuantity, 0)
+      };
+    })
+  );
 }

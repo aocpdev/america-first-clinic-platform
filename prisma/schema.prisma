@@ -77,6 +77,18 @@ enum PayoutResponsibility {
   PARTNER
 }
 
+enum RewardCampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+}
+
+enum RewardValueType {
+  CASH
+  NON_CASH
+}
+
 model User {
   id                String             @id @default(uuid()) @db.Uuid
   authUserId        String             @unique
@@ -132,6 +144,7 @@ model Company {
   webhookDeliveries WebhookDelivery[]
   rewardLevels      RewardLevel[]
   rewards           Reward[]
+  rewardCampaigns   RewardCampaign[]
   partnerProfiles   PartnerProfile[]
   groupLeaderProfiles GroupLeaderProfile[]
   teams             Team[]
@@ -308,6 +321,7 @@ model Product {
   images                ProductImage[]
   inventory             Inventory?
   orderItems            OrderItem[]
+  rewardCampaignProducts RewardCampaignProduct[]
   commissionRules       CommissionRule[]
   createdAt             DateTime         @default(now())
   updatedAt             DateTime         @updatedAt
@@ -615,6 +629,41 @@ model Reward {
   updatedAt   DateTime    @updatedAt
 
   @@index([companyId, levelId, isActive])
+}
+
+model RewardCampaign {
+  id                String                 @id @default(uuid()) @db.Uuid
+  companyId         String                 @db.Uuid
+  company           Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  title             String
+  description       String?
+  startsAt          DateTime
+  endsAt            DateTime
+  status            RewardCampaignStatus   @default(ACTIVE)
+  rewardTitle       String
+  rewardDescription String?
+  rewardImageUrl    String?
+  rewardValueType   RewardValueType        @default(NON_CASH)
+  rewardValueCents  Int                    @default(0)
+  products          RewardCampaignProduct[]
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([companyId, status])
+  @@index([startsAt, endsAt])
+}
+
+model RewardCampaignProduct {
+  id             String         @id @default(uuid()) @db.Uuid
+  campaignId     String         @db.Uuid
+  campaign       RewardCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  productId      String         @db.Uuid
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  targetQuantity Int            @default(1)
+  createdAt      DateTime       @default(now())
+
+  @@unique([campaignId, productId])
+  @@index([productId])
 }
 
 model ReferralLink {

@@ -1,4 +1,4 @@
-import { Award, Gift, Lock, Medal, Trophy } from "lucide-react";
+import { Award, CalendarDays, Gift, Lock, Medal, Trophy } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { currency } from "@/lib/utils";
 
@@ -26,6 +26,24 @@ type LeaderboardRow = {
   salesCount: number;
 };
 
+type CampaignProgress = {
+  id: string;
+  title: string;
+  description: string | null;
+  startsAt: Date | string;
+  endsAt: Date | string;
+  rewardTitle: string;
+  rewardDescription: string | null;
+  rewardImageUrl: string | null;
+  rewardValueType: "CASH" | "NON_CASH";
+  rewardValueCents: number;
+  soldQuantity: number;
+  targetQuantity: number;
+  progressPercent: number;
+  remainingQuantity: number;
+  products: Array<{ product: { title: string } }>;
+};
+
 export function RewardDashboard({
   sellerName,
   avatarUrl,
@@ -36,6 +54,7 @@ export function RewardDashboard({
   progressPercent,
   salesToNextLevel,
   earnedRewards,
+  campaignProgress = [],
   leaderboard = [],
   showAdminSummary = false
 }: {
@@ -48,6 +67,7 @@ export function RewardDashboard({
   progressPercent: number;
   salesToNextLevel: number;
   earnedRewards: Array<{ level: RewardLevel; reward: RewardLevel["rewards"][number] }>;
+  campaignProgress?: CampaignProgress[];
   leaderboard?: LeaderboardRow[];
   showAdminSummary?: boolean;
 }) {
@@ -126,6 +146,58 @@ export function RewardDashboard({
           </div>
         </div>
       </Card>
+
+      {campaignProgress.length ? (
+        <Card className="overflow-hidden rounded-[2rem]">
+          <div className="border-b border-border p-6">
+            <div className="flex items-center gap-3">
+              <CalendarDays className="h-5 w-5 text-clinic-red" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Weekly rewards</p>
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Active campaigns</h2>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 p-6 lg:grid-cols-2">
+            {campaignProgress.map((campaign) => (
+              <div key={campaign.id} className="overflow-hidden rounded-3xl border border-border bg-white shadow-line">
+                <div className="flex items-start gap-4 p-5">
+                  <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-clinic-mist">
+                    {campaign.rewardImageUrl ? (
+                      <img src={campaign.rewardImageUrl} alt={campaign.rewardTitle} className="h-full w-full object-cover" />
+                    ) : (
+                      <Gift className="h-7 w-7 text-clinic-red" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="font-semibold text-clinic-ink">{campaign.title}</p>
+                      <span className="rounded-full bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">
+                        {campaign.soldQuantity}/{campaign.targetQuantity}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {campaign.remainingQuantity > 0
+                        ? `${campaign.remainingQuantity} more eligible sale${campaign.remainingQuantity === 1 ? "" : "s"} to unlock`
+                        : "Reward unlocked"}
+                    </p>
+                    <div className="mt-4 h-3 rounded-full bg-clinic-mist">
+                      <div className="h-3 rounded-full bg-clinic-red transition-all" style={{ width: `${campaign.progressPercent}%` }} />
+                    </div>
+                    <div className="mt-4 rounded-2xl bg-emerald-50 p-3">
+                      <p className="text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">Reward</p>
+                      <p className="mt-1 text-sm font-semibold text-emerald-900">
+                        {campaign.rewardTitle}
+                        {campaign.rewardValueCents > 0 ? ` · ${currency(campaign.rewardValueCents / 100)}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1fr_.8fr]">
         <Card className="overflow-hidden rounded-[2rem]">
