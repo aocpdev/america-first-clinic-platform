@@ -19,7 +19,7 @@ const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
     return (
       <div className="relative">
         <div
-          className="pointer-events-none absolute left-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1.5 rounded-md bg-clinic-mist px-2 py-1 text-xs font-semibold text-slate-600"
+          className="pointer-events-none absolute left-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1 rounded-md bg-clinic-mist px-1.5 py-1 text-xs font-semibold text-slate-600"
           aria-hidden="true"
           title={country.label}
         >
@@ -34,7 +34,7 @@ const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
           autoComplete="tel"
           placeholder={placeholder}
           value={displayValue}
-          className={cn(className, "pl-24")}
+          className={cn(className, "pl-[5.75rem]")}
           onChange={(event) => {
             const nextValue = maskPhoneInput(event.target.value);
             event.target.value = nextValue;
