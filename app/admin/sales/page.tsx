@@ -102,7 +102,7 @@ export default async function AdminSalesPage({
         commissionDetailLabel="Profit generated"
         productEstimateLabel="est. profit"
         successMessage="Order created successfully. No commission was generated for this admin sale."
-        ownershipCopy="Admins can create orders for any company customer. Admin-created sales do not generate partner or consultant commission."
+        ownershipCopy={null}
         createdOrderId={params.created}
         error={params.error}
       />

@@ -62,7 +62,7 @@ type SalesBuilderClientProps = {
   commissionDetailLabel?: string;
   productEstimateLabel?: string;
   successMessage?: string;
-  ownershipCopy?: string;
+  ownershipCopy?: string | null;
 };
 
 const errorCopy: Record<string, string> = {
@@ -931,15 +931,17 @@ export function SalesBuilderClient({
             </div>
           </Card>
 
-          <Card className="min-w-0 rounded-2xl p-5">
-            <div className="flex items-center gap-2">
-              <UserPlus className="h-5 w-5 text-clinic-red" />
-              <h2 className="text-lg font-semibold text-clinic-ink">Ownership rule</h2>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              {ownershipCopy}
-            </p>
-          </Card>
+          {ownershipCopy ? (
+            <Card className="min-w-0 rounded-2xl p-5">
+              <div className="flex items-center gap-2">
+                <UserPlus className="h-5 w-5 text-clinic-red" />
+                <h2 className="text-lg font-semibold text-clinic-ink">Ownership rule</h2>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                {ownershipCopy}
+              </p>
+            </Card>
+          ) : null}
         </div>
       </form>
 
