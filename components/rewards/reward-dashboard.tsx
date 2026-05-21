@@ -341,21 +341,34 @@ export function RewardDashboard({
             </div>
           </div>
         </div>
-        <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-5 p-6 md:grid-cols-2 xl:grid-cols-3">
           {earnedRewards.length ? (
             earnedRewards.map(({ level, reward }) => (
-              <div key={reward.id} className="overflow-hidden rounded-[1.75rem] border border-border bg-white shadow-line">
-                <div className="grid h-36 place-items-center bg-clinic-mist">
+              <div
+                key={reward.id}
+                className="overflow-hidden rounded-[1.75rem] border border-border bg-white shadow-[0_18px_50px_rgba(7,55,99,0.08)]"
+              >
+                <div className="grid aspect-[16/10] place-items-center overflow-hidden bg-clinic-mist">
                   {reward.imageUrl ? (
                     <img src={reward.imageUrl} alt={reward.title} className="h-full w-full object-cover" />
                   ) : (
                     <Award className="h-10 w-10 text-clinic-navy" />
                   )}
                 </div>
-                <div className="p-5">
-                  <p className="text-xs font-bold uppercase text-slate-500">Level {level.level}</p>
-                  <p className="mt-1 font-semibold text-clinic-ink">{reward.title}</p>
-                  <p className="mt-2 text-sm font-semibold text-emerald-700">Valued at {money(reward.valueCents)}</p>
+                <div className="relative bg-white p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase text-slate-500">Level {level.level}</p>
+                      <h3 className="mt-1 text-lg font-semibold leading-tight text-clinic-ink">{reward.title}</h3>
+                    </div>
+                    <div className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                      {money(reward.valueCents)}
+                    </div>
+                  </div>
+                  {reward.description ? (
+                    <p className="mt-3 line-clamp-2 text-sm leading-6 text-slate-500">{reward.description}</p>
+                  ) : null}
+                  <p className="mt-4 text-sm font-semibold text-emerald-700">Unlocked reward</p>
                 </div>
               </div>
             ))
