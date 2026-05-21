@@ -161,17 +161,6 @@ export default async function PartnerSalesPage({
               supportsSubscription: product.supportsSubscription,
               salesGuide: extractProductSalesGuide(product.metadata)
             }))}
-            recentOrders={orders.slice(0, 8).map((order) => ({
-              id: order.id,
-              customerName: personName(order.customer),
-              totalCents: order.totalCents,
-              commissionCents: order.commissionSplits
-                .filter((split) => split.participantRole === (groupLeaderProfile ? "GROUP_LEADER" : "PARTNER"))
-                .reduce((sum, split) => sum + split.amountCents, 0),
-              orderStatus: order.orderStatus,
-              paymentStatus: order.paymentStatus,
-              createdAt: order.createdAt.toISOString()
-            }))}
             canCreateOrders={Boolean(effectivePartnerProfileId)}
             createOrderAction={createPartnerOrder}
             commissionLabel="Profit generated"

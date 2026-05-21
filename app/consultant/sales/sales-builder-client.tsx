@@ -50,20 +50,9 @@ type ProductOption = {
   };
 };
 
-type RecentOrder = {
-  id: string;
-  customerName: string;
-  totalCents: number;
-  commissionCents: number;
-  orderStatus: string;
-  paymentStatus: string;
-  createdAt: string;
-};
-
 type SalesBuilderClientProps = {
   customers: CustomerOption[];
   products: ProductOption[];
-  recentOrders: RecentOrder[];
   canCreateOrders: boolean;
   setupMessage?: string;
   createdOrderId?: string;
@@ -160,7 +149,6 @@ function ProductGuideBlock({ title, items }: { title: string; items: string[] })
 export function SalesBuilderClient({
   customers,
   products,
-  recentOrders,
   canCreateOrders,
   setupMessage,
   createdOrderId,
@@ -951,33 +939,6 @@ export function SalesBuilderClient({
           </div>
         </div>
       </div>
-
-      <Card className="overflow-hidden rounded-2xl">
-        <div className="border-b border-border p-5">
-          <h2 className="text-lg font-semibold text-clinic-ink">Recent orders</h2>
-          <p className="mt-1 text-sm text-slate-500">Your latest manually created sales and commission previews.</p>
-        </div>
-        <div className="divide-y divide-border">
-          {recentOrders.length > 0 ? (
-            recentOrders.map((order) => (
-              <div key={order.id} className="grid gap-3 p-5 text-sm md:grid-cols-5 md:items-center">
-                <div className="md:col-span-2">
-                  <p className="font-semibold text-clinic-ink">{order.customerName}</p>
-                  <p className="mt-1 text-xs text-slate-500">{new Date(order.createdAt).toLocaleDateString()}</p>
-                </div>
-                <p className="font-semibold text-clinic-navy">{formatCurrency(order.totalCents)}</p>
-                <p className="font-semibold text-emerald-700">{formatCurrency(order.commissionCents)}</p>
-                <div className="flex flex-wrap gap-2 md:justify-end">
-                  <Badge>{order.orderStatus}</Badge>
-                  <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{order.paymentStatus}</Badge>
-                </div>
-              </div>
-            ))
-          ) : (
-            <p className="p-8 text-center text-sm text-slate-500">No orders yet. Create the first pending order above.</p>
-          )}
-        </div>
-      </Card>
 
       {selectedProduct ? (
         <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">

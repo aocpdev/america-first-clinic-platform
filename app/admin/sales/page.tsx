@@ -35,7 +35,7 @@ export default async function AdminSalesPage({
     );
   }
 
-  const [customers, products, recentOrders] = await Promise.all([
+  const [customers, products] = await Promise.all([
     prisma.customer.findMany({
       where: { companyId: user.companyId },
       include: {
@@ -59,15 +59,6 @@ export default async function AdminSalesPage({
         }
       },
       orderBy: [{ category: { name: "asc" } }, { title: "asc" }]
-    }),
-    prisma.order.findMany({
-      where: { companyId: user.companyId },
-      include: {
-        customer: true,
-        commissionSplits: true
-      },
-      orderBy: { createdAt: "desc" },
-      take: 8
     })
   ]);
 
@@ -104,15 +95,6 @@ export default async function AdminSalesPage({
           supportsRecurring: product.supportsRecurring,
           supportsSubscription: product.supportsSubscription,
           salesGuide: extractProductSalesGuide(product.metadata)
-        }))}
-        recentOrders={recentOrders.map((order) => ({
-          id: order.id,
-          customerName: personName(order.customer),
-          totalCents: order.totalCents,
-          commissionCents: order.commissionSplits.reduce((sum, split) => sum + split.amountCents, 0),
-          orderStatus: order.orderStatus,
-          paymentStatus: order.paymentStatus,
-          createdAt: order.createdAt.toISOString()
         }))}
         canCreateOrders
         createOrderAction={createAdminOrder}

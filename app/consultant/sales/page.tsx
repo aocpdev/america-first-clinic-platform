@@ -45,7 +45,7 @@ export default async function ConsultantSalesPage({
     );
   }
 
-  const [consultantProfile, customers, products, recentOrders] = await Promise.all([
+  const [consultantProfile, customers, products] = await Promise.all([
     prisma.consultantProfile.findUnique({
       where: { id: consultantProfileId },
       include: { partnerProfile: true, groupLeaderProfile: true }
@@ -76,21 +76,6 @@ export default async function ConsultantSalesPage({
         }
       },
       orderBy: [{ category: { name: "asc" } }, { title: "asc" }]
-    }),
-    prisma.order.findMany({
-      where: {
-        companyId,
-        consultantProfileId
-      },
-      include: {
-        customer: true,
-        commissionSplits: {
-          where: { participantRole: "CONSULTANT" },
-          take: 1
-        }
-      },
-      orderBy: { createdAt: "desc" },
-      take: 8
     })
   ]);
 
@@ -135,15 +120,6 @@ export default async function ConsultantSalesPage({
           supportsRecurring: product.supportsRecurring,
           supportsSubscription: product.supportsSubscription,
           salesGuide: extractProductSalesGuide(product.metadata)
-        }))}
-        recentOrders={recentOrders.map((order) => ({
-          id: order.id,
-          customerName: customerName(order.customer),
-          totalCents: order.totalCents,
-          commissionCents: order.commissionSplits[0]?.amountCents ?? 0,
-          orderStatus: order.orderStatus,
-          paymentStatus: order.paymentStatus,
-          createdAt: order.createdAt.toISOString()
         }))}
         canCreateOrders={canCreateOrders}
         createOrderAction={createConsultantOrder}
