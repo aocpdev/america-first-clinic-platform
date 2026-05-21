@@ -136,26 +136,31 @@ export function maskPhoneInput(value?: string | null) {
   const rawDigits = digitsOnly(raw);
 
   if (!rawDigits) return "";
-  if (!raw.startsWith("+")) {
+
+  const isNanpNumber =
+    rawDigits.length === 10 ||
+    (rawDigits.length === 11 && rawDigits.startsWith("1")) ||
+    (rawDigits.length === 12 && rawDigits.startsWith("11")) ||
+    (rawDigits.length === 13 && rawDigits.startsWith("111"));
+
+  if (isNanpNumber || !raw.startsWith("+")) {
     const local =
-      rawDigits.length === 11 && rawDigits.startsWith("1")
-        ? rawDigits.slice(1)
-        : rawDigits.length === 12 && rawDigits.startsWith("11")
-          ? rawDigits.slice(2, 12)
-          : rawDigits.slice(0, 10);
+      rawDigits.length > 10 && rawDigits.startsWith("1")
+        ? normalizeDigits(rawDigits).slice(1, 11)
+        : rawDigits.slice(0, 10);
     const area = local.slice(0, 3);
     const prefix = local.slice(3, 6);
     const line = local.slice(6, 10);
 
-    if (local.length <= 3) return area ? `+1 (${area}` : "+1";
-    if (local.length <= 6) return `+1 (${area}) ${prefix}`;
-    return `+1 (${area}) ${prefix}-${line}`;
+    if (local.length <= 3) return area ? `(${area}` : "";
+    if (local.length <= 6) return `(${area}) ${prefix}`;
+    return `(${area}) ${prefix}-${line}`;
   }
 
   const digits = normalizeDigits(raw);
   if (raw.trim().startsWith("+") && digits.length === 11 && digits.startsWith("1")) {
     const local = digits.slice(1);
-    return `+1 (${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6, 10)}`;
+    return `(${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6, 10)}`;
   }
   if (raw.trim().startsWith("+")) return `+${digits}`;
   return `+${digits}`;

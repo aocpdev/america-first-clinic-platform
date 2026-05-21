@@ -10,7 +10,7 @@ export interface PhoneInputProps extends Omit<InputProps, "type" | "onChange"> {
 }
 
 const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
-  ({ defaultValue, value, onChange, placeholder = "+1 (555) 123-4567", className, ...props }, ref) => {
+  ({ defaultValue, value, onChange, placeholder = "(555) 123-4567", className, ...props }, ref) => {
     const controlled = value !== undefined;
     const [innerValue, setInnerValue] = React.useState(() => maskPhoneInput(String(defaultValue ?? "")));
     const displayValue = controlled ? maskPhoneInput(String(value ?? "")) : innerValue;
@@ -34,7 +34,7 @@ const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
           autoComplete="tel"
           placeholder={placeholder}
           value={displayValue}
-          className={cn("pl-24", className)}
+          className={cn("pl-28", className)}
           onChange={(event) => {
             const nextValue = maskPhoneInput(event.target.value);
             event.target.value = nextValue;
