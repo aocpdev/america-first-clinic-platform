@@ -339,6 +339,14 @@ export function SalesBuilderClient({
     });
   }
 
+  function clearSelectedCustomer() {
+    setSelectedCustomerId("");
+    setCustomerQuery("");
+    setCustomerPickerOpen(false);
+    setShippingMode("new");
+    setSelectedShippingAddressId("");
+  }
+
   return (
     <div className="min-w-0 space-y-6 pb-28 xl:pb-0">
       {createdOrderId && (
@@ -456,61 +464,73 @@ export function SalesBuilderClient({
                       >
                         Browse
                       </button>
-                    </div>
 
-                    {customerPickerOpen ? (
-                      <div className="absolute left-0 right-0 top-full z-30 mt-3 overflow-hidden rounded-3xl border border-border bg-white shadow-[0_24px_70px_rgba(15,35,58,0.16)]">
-                        <div className="max-h-[360px] overflow-y-auto p-2">
-                          {filteredCustomers.length > 0 ? (
-                            filteredCustomers.map((customer) => {
-                              const isSelected = customer.id === selectedCustomerId;
+                      {customerPickerOpen ? (
+                        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-3xl border border-border bg-white shadow-[0_24px_70px_rgba(15,35,58,0.16)]">
+                          <div className="max-h-[360px] overflow-y-auto p-2">
+                            {filteredCustomers.length > 0 ? (
+                              filteredCustomers.map((customer) => {
+                                const isSelected = customer.id === selectedCustomerId;
 
-                              return (
-                                <button
-                                  key={customer.id}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedCustomerId(customer.id);
-                                    setCustomerQuery(customerDisplayName(customer));
-                                    setCustomerPickerOpen(false);
-                                  }}
-                                  className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${
-                                    isSelected ? "bg-clinic-mist ring-1 ring-clinic-navy/15" : "hover:bg-clinic-mist"
-                                  }`}
-                                >
-                                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border bg-white text-sm font-black text-clinic-navy shadow-line">
-                                    {customerInitials(customer)}
-                                  </span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block truncate text-sm font-black text-clinic-ink">{customerDisplayName(customer)}</span>
-                                    <span className="mt-1 grid gap-1 text-xs font-semibold text-slate-500 sm:grid-cols-2">
-                                      <span className="truncate">{customer.email}</span>
-                                      <span className="truncate">{formatPhoneForDisplay(customer.phone) || "No phone on file"}</span>
+                                return (
+                                  <button
+                                    key={customer.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedCustomerId(customer.id);
+                                      setCustomerQuery(customerDisplayName(customer));
+                                      setCustomerPickerOpen(false);
+                                    }}
+                                    className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${
+                                      isSelected ? "bg-clinic-mist ring-1 ring-clinic-navy/15" : "hover:bg-clinic-mist"
+                                    }`}
+                                  >
+                                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border bg-white text-sm font-black text-clinic-navy shadow-line">
+                                      {customerInitials(customer)}
                                     </span>
-                                  </span>
-                                </button>
-                              );
-                            })
-                          ) : (
-                            <div className="rounded-2xl bg-clinic-mist p-5 text-sm font-semibold text-slate-600">
-                              No customer matches that name, email, or phone. Switch to New to create a record.
-                            </div>
-                          )}
-                        </div>
-                        {matchingCustomers.length > filteredCustomers.length ? (
-                          <div className="border-t border-border bg-clinic-mist px-4 py-3 text-xs font-semibold text-slate-500">
-                            Showing the first {filteredCustomers.length} matches. Keep typing to narrow the list.
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block truncate text-sm font-black text-clinic-ink">{customerDisplayName(customer)}</span>
+                                      <span className="mt-1 grid gap-1 text-xs font-semibold text-slate-500 sm:grid-cols-2">
+                                        <span className="truncate">{customer.email}</span>
+                                        <span className="truncate">{formatPhoneForDisplay(customer.phone) || "No phone on file"}</span>
+                                      </span>
+                                    </span>
+                                  </button>
+                                );
+                              })
+                            ) : (
+                              <div className="rounded-2xl bg-clinic-mist p-5 text-sm font-semibold text-slate-600">
+                                No customer matches that name, email, or phone. Switch to New to create a record.
+                              </div>
+                            )}
                           </div>
-                        ) : null}
-                      </div>
-                    ) : null}
+                          {matchingCustomers.length > filteredCustomers.length ? (
+                            <div className="border-t border-border bg-clinic-mist px-4 py-3 text-xs font-semibold text-slate-500">
+                              Showing the first {filteredCustomers.length} matches. Keep typing to narrow the list.
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
                     <p className="mt-3 text-sm leading-6 text-slate-500">
                       Search the assigned customer list and confirm the email or phone before collecting payment.
                     </p>
                   </div>
 
                   <div className="rounded-3xl border border-border bg-gradient-to-b from-white to-clinic-mist p-4 shadow-line">
-                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Selected customer</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Selected customer</p>
+                      {selectedCustomer ? (
+                        <button
+                          type="button"
+                          onClick={clearSelectedCustomer}
+                          className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-white px-3 text-xs font-bold text-slate-500 transition hover:border-red-100 hover:bg-red-50 hover:text-red-700"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                          Clear
+                        </button>
+                      ) : null}
+                    </div>
                     {selectedCustomer ? (
                       <div className="mt-4 space-y-4">
                         <div className="flex items-center gap-3">
