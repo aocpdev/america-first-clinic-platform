@@ -74,7 +74,7 @@ export default async function AdminRewardsPage() {
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Sales gamification</p>
               <h2 className="mt-2 text-3xl font-semibold tracking-tight text-clinic-ink">Control rewards without making admins or partners competitors.</h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Configure seller levels, reward value, images, and weekly campaigns while previewing projected revenue and gross margin before launch.
+                Configure seller levels, reward value, images, and timed campaigns while previewing projected revenue and gross margin before launch.
               </p>
             </div>
             <div className="grid size-20 place-items-center rounded-3xl bg-clinic-navy text-white shadow-soft">

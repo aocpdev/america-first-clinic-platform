@@ -192,7 +192,7 @@ export async function saveRewardCampaign(formData: FormData) {
   const productIds = formData.getAll("productId").map(String).filter(Boolean);
   const uniqueProductIds = [...new Set(productIds)];
   if (uniqueProductIds.length === 0) {
-    throw new Error("Select at least one product for the weekly reward campaign.");
+    throw new Error("Select at least one product for the reward campaign.");
   }
 
   const products = await prisma.product.findMany({

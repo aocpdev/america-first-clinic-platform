@@ -62,6 +62,16 @@ function formatShortDate(value: Date | string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value));
 }
 
+function durationLabel(startsAt: Date | string, endsAt: Date | string) {
+  const start = new Date(startsAt).getTime();
+  const end = new Date(endsAt).getTime();
+  const days = Math.max(Math.ceil((end - start) / 86_400_000), 1);
+
+  if (days <= 8) return "Weekly sprint";
+  if (days <= 35) return "Monthly goal";
+  return `${days}-day challenge`;
+}
+
 export function RewardDashboard({
   sellerName,
   avatarUrl,
@@ -229,7 +239,7 @@ export function RewardDashboard({
             <div className="flex items-center gap-3">
               <CalendarDays className="h-5 w-5 text-clinic-red" />
               <div>
-                <p className="text-xs font-bold uppercase text-slate-500">Weekly challenges</p>
+                <p className="text-xs font-bold uppercase text-slate-500">Timed challenges</p>
                 <h2 className="mt-1 text-2xl font-semibold text-clinic-ink">Active reward campaigns</h2>
               </div>
             </div>
@@ -251,7 +261,7 @@ export function RewardDashboard({
                         <div>
                           <h3 className="text-lg font-semibold text-clinic-ink">{campaign.title}</h3>
                           <p className="mt-1 text-sm text-slate-500">
-                            {formatShortDate(campaign.startsAt)} to {formatShortDate(campaign.endsAt)}
+                            {durationLabel(campaign.startsAt, campaign.endsAt)} · {formatShortDate(campaign.startsAt)} to {formatShortDate(campaign.endsAt)}
                           </p>
                         </div>
                         <span className="rounded-full bg-clinic-mist px-4 py-2 text-sm font-bold text-clinic-navy">
@@ -279,7 +289,7 @@ export function RewardDashboard({
               ))
             ) : (
               <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500">
-                No weekly campaigns are active right now. Keep closing sales to move up your level path.
+                No reward campaigns are active right now. Keep closing sales to move up your level path.
               </div>
             )}
           </div>

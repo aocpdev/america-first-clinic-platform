@@ -67,17 +67,32 @@ function dateInputValue(value: Date | string) {
   return new Date(date.getTime() - offset * 60000).toISOString().slice(0, 16);
 }
 
-function nextWeekStart() {
+function defaultCampaignStart() {
   const date = new Date();
   date.setHours(8, 0, 0, 0);
   return dateInputValue(date);
 }
 
-function nextWeekEnd() {
+function defaultCampaignEnd() {
   const date = new Date();
-  date.setDate(date.getDate() + 7);
+  date.setDate(date.getDate() + 30);
   date.setHours(23, 59, 0, 0);
   return dateInputValue(date);
+}
+
+function formatDateRange(startsAt: Date | string, endsAt: Date | string) {
+  const formatter = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
+  return `${formatter.format(new Date(startsAt))} - ${formatter.format(new Date(endsAt))}`;
+}
+
+function durationLabel(startsAt: Date | string, endsAt: Date | string) {
+  const start = new Date(startsAt).getTime();
+  const end = new Date(endsAt).getTime();
+  const days = Math.max(Math.ceil((end - start) / 86_400_000), 1);
+
+  if (days <= 8) return "Weekly sprint";
+  if (days <= 35) return "Monthly campaign";
+  return `${days}-day campaign`;
 }
 
 function LevelModal({ level, onClose }: { level: RewardLevel; onClose: () => void }) {
@@ -177,9 +192,9 @@ function CampaignModal({
       <div className="max-h-[92vh] w-full max-w-5xl overflow-y-auto rounded-[2rem] border border-white/80 bg-white shadow-[0_30px_90px_rgba(7,55,99,0.22)]">
         <div className="flex items-start justify-between gap-4 border-b border-border p-6">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Weekly campaign</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Timed campaign</p>
             <h3 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">{campaign ? "Edit reward campaign" : "Create reward campaign"}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">Choose products, quantities, date window, and the reward sellers unlock.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Choose products, quantities, a custom date window, and the reward sellers unlock.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-clinic-navy">
             Close
@@ -191,7 +206,7 @@ function CampaignModal({
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Campaign name</span>
-              <Input name="title" defaultValue={campaign?.title ?? ""} placeholder="B-12 Sprint Week" />
+              <Input name="title" defaultValue={campaign?.title ?? ""} placeholder="B-12 Spring Push" />
             </label>
             <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Status</span>
@@ -204,11 +219,11 @@ function CampaignModal({
             </label>
             <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Starts</span>
-              <Input name="startsAt" type="datetime-local" defaultValue={campaign ? dateInputValue(campaign.startsAt) : nextWeekStart()} />
+              <Input name="startsAt" type="datetime-local" defaultValue={campaign ? dateInputValue(campaign.startsAt) : defaultCampaignStart()} />
             </label>
             <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Ends</span>
-              <Input name="endsAt" type="datetime-local" defaultValue={campaign ? dateInputValue(campaign.endsAt) : nextWeekEnd()} />
+              <Input name="endsAt" type="datetime-local" defaultValue={campaign ? dateInputValue(campaign.endsAt) : defaultCampaignEnd()} />
             </label>
             <label className="space-y-2 md:col-span-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Description</span>
@@ -382,9 +397,9 @@ export function AdminRewardsEditor({
           <div className="flex items-center gap-3">
             <CalendarDays className="h-5 w-5 text-clinic-red" />
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Weekly rewards</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Timed reward campaigns</p>
               <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Campaigns</h2>
-              <p className="mt-1 text-sm leading-6 text-slate-500">Create product-specific weekly sales pushes and track expected company revenue before launch.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">Create weekly, monthly, or custom-date sales pushes and preview expected company revenue before launch.</p>
             </div>
           </div>
           <Button type="button" variant="accent" onClick={() => setEditingCampaign("new")}>
@@ -408,6 +423,9 @@ export function AdminRewardsEditor({
                     <h3 className="mt-1 truncate text-xl font-semibold text-clinic-ink">{campaign.title}</h3>
                     <p className="mt-1 text-sm text-slate-500">
                       {campaign.totalTargetQuantity} target units across {campaign.products.length} product{campaign.products.length === 1 ? "" : "s"}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-clinic-navy">
+                      {durationLabel(campaign.startsAt, campaign.endsAt)} · {formatDateRange(campaign.startsAt, campaign.endsAt)}
                     </p>
                   </div>
                   <span className="rounded-full bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">
@@ -436,7 +454,7 @@ export function AdminRewardsEditor({
             ))
           ) : (
             <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500 xl:col-span-2">
-              No weekly campaigns yet. Create the first one to give consultants a short-term sales target.
+              No timed campaigns yet. Create the first one to give consultants a focused sales target.
             </div>
           )}
         </div>
