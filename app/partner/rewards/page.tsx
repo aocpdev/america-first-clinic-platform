@@ -1,13 +1,31 @@
-import { CalendarDays, Medal, Trophy } from "lucide-react";
+import { CalendarDays, Medal, Target, Trophy, Users } from "lucide-react";
+import { RewardDashboard } from "@/components/rewards/reward-dashboard";
 import { Card } from "@/components/ui/card";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requirePartner } from "@/lib/auth/current-user";
 import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
-import { getRewardCampaigns, getScopedRewardLeaderboard } from "@/lib/rewards/reward-engine";
+import {
+  getActiveRewardCampaignProgress,
+  getCompanyRewardLeaderboard,
+  getRewardCampaigns,
+  getRewardLevels,
+  getRewardProgress,
+  getScopedRewardLeaderboard
+} from "@/lib/rewards/reward-engine";
 import { currency } from "@/lib/utils";
 
 function money(cents: number) {
   return currency(cents / 100);
+}
+
+function initialsFor(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 function formatDateRange(startsAt: Date | string, endsAt: Date | string) {
@@ -41,64 +59,146 @@ export default async function PartnerRewardsPage() {
     );
   }
 
-  const [leaderboard, campaigns] = await Promise.all([
+  if (isGroupLeader && user.groupLeaderProfile?.id) {
+    const sellerName = user.groupLeaderProfile.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+    const [progress, leaderboard, campaignProgress] = await Promise.all([
+      getRewardProgress({
+        companyId: user.companyId,
+        sellerName,
+        avatarUrl: user.avatarUrl,
+        groupLeaderProfileId: user.groupLeaderProfile.id
+      }),
+      getCompanyRewardLeaderboard(user.companyId),
+      getActiveRewardCampaignProgress({
+        companyId: user.companyId,
+        groupLeaderProfileId: user.groupLeaderProfile.id
+      })
+    ]);
+
+    return (
+      <SidebarShell nav={nav} eyebrow="Group leader" title="Rewards">
+        <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} />
+      </SidebarShell>
+    );
+  }
+
+  const [networkRows, campaigns, levels] = await Promise.all([
     getScopedRewardLeaderboard({
       companyId: user.companyId,
-      partnerProfileId: user.partnerProfile?.id,
-      groupLeaderProfileId: user.groupLeaderProfile?.id
+      partnerProfileId: user.partnerProfile?.id
     }),
-    getRewardCampaigns(user.companyId)
+    getRewardCampaigns(user.companyId),
+    getRewardLevels(user.companyId)
   ]);
 
+  const activeCampaigns = campaigns.filter((campaign) => campaign.isLive);
+  const totalSales = networkRows.reduce((sum, row) => sum + row.salesCount, 0);
+  const topSeller = networkRows[0] ?? null;
+
   return (
-    <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Rewards">
+    <SidebarShell nav={nav} eyebrow="Partner" title="Rewards">
       <div className="space-y-6">
-        <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white p-6 shadow-[0_22px_70px_rgba(7,55,99,0.08)]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Network rewards</p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-tight text-clinic-ink">Track seller motivation across your team.</h2>
-              <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-500">
-                Partners and group leaders do not compete in the rewards program. This view shows the eligible consultants underneath your network.
+        <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.10)]">
+          <div className="grid gap-6 p-6 lg:grid-cols-[1fr_360px] lg:p-8">
+            <div className="rounded-[1.75rem] bg-clinic-navy p-6 text-white shadow-soft">
+              <p className="text-sm font-semibold text-white/70">Partner rewards command center</p>
+              <h2 className="mt-2 max-w-3xl text-3xl font-semibold">Track reward progress across your seller network.</h2>
+              <p className="mt-3 max-w-3xl text-sm leading-6 text-white/75">
+                Partners do not compete for seller rewards. This page shows how group leaders and consultants are progressing toward active levels and timed campaigns.
               </p>
+              <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-3xl border border-white/15 bg-white/10 p-4">
+                  <p className="text-xs font-bold uppercase text-white/60">Eligible sellers</p>
+                  <p className="mt-2 text-3xl font-semibold">{networkRows.length}</p>
+                </div>
+                <div className="rounded-3xl border border-white/15 bg-white/10 p-4">
+                  <p className="text-xs font-bold uppercase text-white/60">Captured sales</p>
+                  <p className="mt-2 text-3xl font-semibold">{totalSales}</p>
+                </div>
+                <div className="rounded-3xl border border-white/15 bg-white/10 p-4">
+                  <p className="text-xs font-bold uppercase text-white/60">Live campaigns</p>
+                  <p className="mt-2 text-3xl font-semibold">{activeCampaigns.length}</p>
+                </div>
+              </div>
             </div>
-            <div className="grid size-20 place-items-center rounded-3xl bg-clinic-navy text-white shadow-soft">
-              <Trophy className="h-8 w-8" />
+
+            <div className="grid gap-4">
+              <div className="rounded-[1.75rem] border border-border bg-clinic-mist p-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-bold uppercase text-slate-500">Top performer</p>
+                    <h3 className="mt-2 truncate text-xl font-semibold text-clinic-ink">{topSeller?.name ?? "No captured sales yet"}</h3>
+                  </div>
+                  <div className="grid size-12 place-items-center rounded-2xl bg-white text-clinic-red shadow-line">
+                    <Trophy className="h-5 w-5" />
+                  </div>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  {topSeller ? `${topSeller.role} · ${topSeller.salesCount} captured sale${topSeller.salesCount === 1 ? "" : "s"}` : "Seller progress will appear as captured payments come in."}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-[1.5rem] border border-border bg-white p-4 shadow-line">
+                  <p className="text-xs font-bold uppercase text-slate-500">Configured levels</p>
+                  <p className="mt-2 text-3xl font-semibold text-clinic-navy">{levels.length}</p>
+                </div>
+                <div className="rounded-[1.5rem] border border-border bg-white p-4 shadow-line">
+                  <p className="text-xs font-bold uppercase text-slate-500">Active sellers</p>
+                  <p className="mt-2 text-3xl font-semibold text-clinic-navy">{networkRows.filter((row) => row.salesCount > 0).length}</p>
+                </div>
+              </div>
             </div>
           </div>
         </Card>
 
-        <div className="grid gap-6 xl:grid-cols-[1fr_.9fr]">
+        <div className="grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
           <Card className="overflow-hidden rounded-[2rem]">
             <div className="border-b border-border p-6">
               <div className="flex items-center gap-3">
-                <Medal className="h-5 w-5 text-clinic-red" />
+                <Users className="h-5 w-5 text-clinic-red" />
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Eligible consultants</p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Leaderboard</h2>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Network progress</p>
+                  <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Sellers moving through rewards</h2>
                 </div>
               </div>
             </div>
             <div className="space-y-3 p-5">
-              {leaderboard.length ? (
-                leaderboard.map((row, index) => (
-                  <div key={row.id} className="flex items-center gap-3 rounded-2xl border border-border bg-white p-3">
-                    <div className="grid size-9 shrink-0 place-items-center rounded-full bg-clinic-mist text-sm font-bold text-clinic-navy">
-                      {index + 1}
+              {networkRows.length ? (
+                networkRows.map((row, index) => {
+                  const nextLevel = levels.find((level) => level.salesThreshold > row.salesCount);
+                  const currentLevel = [...levels].reverse().find((level) => row.salesCount >= level.salesThreshold);
+                  const previousThreshold = currentLevel?.salesThreshold ?? 0;
+                  const nextThreshold = nextLevel?.salesThreshold ?? Math.max(row.salesCount, previousThreshold);
+                  const progressPercent = nextLevel
+                    ? Math.round((Math.max(Math.min(row.salesCount - previousThreshold, nextThreshold - previousThreshold), 0) / Math.max(nextThreshold - previousThreshold, 1)) * 100)
+                    : 100;
+
+                  return (
+                    <div key={row.id} className="rounded-[1.5rem] border border-border bg-white p-4 shadow-line">
+                      <div className="flex items-center gap-3">
+                        <div className="grid size-9 shrink-0 place-items-center rounded-full bg-clinic-mist text-sm font-bold text-clinic-navy">{index + 1}</div>
+                        <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-clinic-navy text-sm font-bold text-white">
+                          {row.avatarUrl ? <img src={row.avatarUrl} alt={row.name} className="h-full w-full object-cover" /> : initialsFor(row.name)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-semibold text-clinic-ink">{row.name}</p>
+                          <p className="truncate text-sm text-slate-500">{row.role}</p>
+                        </div>
+                        <p className="text-sm font-bold text-clinic-navy">{row.salesCount} sales</p>
+                      </div>
+                      <div className="mt-4 h-3 rounded-full bg-clinic-mist p-1">
+                        <div className="h-1.5 rounded-full bg-clinic-red transition-all" style={{ width: `${progressPercent}%` }} />
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-slate-500">
+                        {nextLevel ? `${Math.max(nextLevel.salesThreshold - row.salesCount, 0)} sale${nextLevel.salesThreshold - row.salesCount === 1 ? "" : "s"} to Level ${nextLevel.level}` : "Top level unlocked"}
+                      </p>
                     </div>
-                    <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-clinic-navy text-xs font-bold text-white">
-                      {row.avatarUrl ? <img src={row.avatarUrl} alt={row.name} className="h-full w-full object-cover" /> : row.name.slice(0, 2).toUpperCase()}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-clinic-ink">{row.name}</p>
-                      <p className="truncate text-xs text-slate-500">{row.email}</p>
-                    </div>
-                    <p className="text-sm font-bold text-clinic-navy">{row.salesCount} sales</p>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500">
-                  Captured consultant sales will appear here.
+                  Eligible group leaders and consultants will appear here after they are active.
                 </div>
               )}
             </div>
@@ -115,36 +215,34 @@ export default async function PartnerRewardsPage() {
               </div>
             </div>
             <div className="space-y-3 p-5">
-              {campaigns.filter((campaign) => campaign.status === "ACTIVE").length ? (
-                campaigns
-                  .filter((campaign) => campaign.status === "ACTIVE")
-                  .map((campaign) => (
-                    <div key={campaign.id} className="rounded-3xl border border-border bg-white p-4 shadow-line">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate font-semibold text-clinic-ink">{campaign.title}</p>
-                          <p className="mt-1 text-sm text-slate-500">{campaign.totalTargetQuantity} target units</p>
-                          <p className="mt-1 text-sm font-semibold text-clinic-navy">
-                            {durationLabel(campaign.startsAt, campaign.endsAt)} · {formatDateRange(campaign.startsAt, campaign.endsAt)}
-                          </p>
-                        </div>
-                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Active</span>
+              {activeCampaigns.length ? (
+                activeCampaigns.map((campaign) => (
+                  <div key={campaign.id} className="rounded-3xl border border-border bg-white p-4 shadow-line">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold text-clinic-ink">{campaign.title}</p>
+                        <p className="mt-1 text-sm text-slate-500">{campaign.totalTargetQuantity} target units</p>
+                        <p className="mt-1 text-sm font-semibold text-clinic-navy">
+                          {durationLabel(campaign.startsAt, campaign.endsAt)} · {formatDateRange(campaign.startsAt, campaign.endsAt)}
+                        </p>
                       </div>
-                      <div className="mt-4 grid grid-cols-2 gap-3">
-                        <div className="rounded-2xl bg-clinic-mist p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Revenue</p>
-                          <p className="mt-1 font-semibold text-clinic-navy">{money(campaign.projectedRevenueCents)}</p>
-                        </div>
-                        <div className="rounded-2xl bg-emerald-50 p-3">
-                          <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Margin</p>
-                          <p className="mt-1 font-semibold text-emerald-800">{money(campaign.projectedMarginCents)}</p>
-                        </div>
+                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Live</span>
+                    </div>
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <div className="rounded-2xl bg-clinic-mist p-3">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Revenue target</p>
+                        <p className="mt-1 font-semibold text-clinic-navy">{money(campaign.projectedRevenueCents)}</p>
+                      </div>
+                      <div className="rounded-2xl bg-emerald-50 p-3">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Margin target</p>
+                        <p className="mt-1 font-semibold text-emerald-800">{money(campaign.projectedMarginCents)}</p>
                       </div>
                     </div>
-                  ))
+                  </div>
+                ))
               ) : (
                 <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500">
-                  No active reward campaigns yet.
+                  No live reward campaigns yet.
                 </div>
               )}
             </div>
