@@ -13,7 +13,7 @@ function customerName(customer: { firstName: string | null; lastName: string | n
 function normalizeStage(stage: string): CustomerPipelineStage {
   return CUSTOMER_PIPELINE_STAGES.some((item) => item.value === stage)
     ? (stage as CustomerPipelineStage)
-    : "NEW_LEAD";
+    : "NEW_SALE";
 }
 
 export default async function ConsultantPipelinePage() {

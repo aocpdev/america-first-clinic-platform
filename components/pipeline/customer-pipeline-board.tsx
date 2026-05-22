@@ -63,7 +63,7 @@ export function CustomerPipelineBoard({
     const map = new Map<CustomerPipelineStage, PipelineCustomer[]>();
     CUSTOMER_PIPELINE_STAGES.forEach((stage) => map.set(stage.value, []));
     customers.forEach((customer) => {
-      const bucket = map.get(customer.pipelineStage) ?? map.get("NEW_LEAD");
+      const bucket = map.get(customer.pipelineStage) ?? map.get("NEW_SALE");
       bucket?.push(customer);
     });
     return map;

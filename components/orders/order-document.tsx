@@ -2,6 +2,8 @@ import { resendReceiptWebhook } from "@/app/orders/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { OrderStageForm } from "@/components/orders/order-stage-form";
+import { ORDER_PROGRESS_STAGES, orderPipelineDescription, orderPipelineLabel } from "@/lib/sales/pipeline";
 import { currency } from "@/lib/utils";
 import type { OrderListRecord } from "@/lib/orders/queries";
 
@@ -64,6 +66,11 @@ export function OrderDocument({
   const paymentUrl = typeof paymentMetadata?.paymentUrl === "string" ? paymentMetadata.paymentUrl : null;
   const providerSessionId = typeof paymentMetadata?.providerSessionId === "string" ? paymentMetadata.providerSessionId : null;
   const isCaptured = order.paymentStatus === "CAPTURED";
+  const currentStage = order.orderPipelineStage || "NEW_SALE";
+  const currentStageLabel = orderPipelineLabel(currentStage);
+  const currentProgressIndex = ORDER_PROGRESS_STAGES.findIndex((stage) => stage.value === currentStage);
+  const isDeferred = currentStage === "DEFERRED";
+  const canManageOrderStage = mode === "admin" && !isReceipt;
 
   return (
     <Card id={isReceipt ? "customer-receipt" : undefined} className="overflow-hidden rounded-3xl bg-white shadow-line">
@@ -89,6 +96,57 @@ export function OrderDocument({
         </div>
       </div>
 
+      {!isReceipt ? (
+        <div className="border-b border-border bg-white px-6 py-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Order pipeline</p>
+              <h3 className="mt-2 text-xl font-semibold text-clinic-ink">{currentStageLabel}</h3>
+              <p className="mt-1 text-sm text-slate-500">{orderPipelineDescription(currentStage)}</p>
+            </div>
+            <Badge className={isDeferred ? "border-red-100 bg-red-50 text-clinic-red" : "border-blue-100 bg-blue-50 text-clinic-navy"}>
+              {isDeferred ? "Deferred" : `${Math.max(currentProgressIndex + 1, 1)} of ${ORDER_PROGRESS_STAGES.length}`}
+            </Badge>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-5">
+            {ORDER_PROGRESS_STAGES.map((stage, index) => {
+              const isComplete = !isDeferred && currentProgressIndex >= index;
+              const isActive = !isDeferred && currentStage === stage.value;
+              return (
+                <div
+                  key={stage.value}
+                  className={[
+                    "rounded-2xl border p-3 transition",
+                    isActive
+                      ? "border-clinic-blue bg-blue-50 shadow-line"
+                      : isComplete
+                        ? "border-emerald-100 bg-emerald-50"
+                        : "border-border bg-clinic-mist"
+                  ].join(" ")}
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={[
+                        "grid size-6 place-items-center rounded-full text-xs font-bold",
+                        isComplete ? "bg-clinic-navy text-white" : "bg-white text-slate-500"
+                      ].join(" ")}
+                    >
+                      {index + 1}
+                    </span>
+                    <p className="text-sm font-semibold text-clinic-ink">{stage.label}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {isDeferred ? (
+            <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700">
+              This order was deferred. Captured payment should be refunded and commissions remain rejected.
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       <div className="grid gap-6 p-6 lg:grid-cols-[1fr_320px]">
         <div className="space-y-6">
           <section>
@@ -111,7 +169,7 @@ export function OrderDocument({
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Status</p>
-                <p className="mt-1">{order.orderStatus}</p>
+                <p className="mt-1">{currentStageLabel}</p>
               </div>
             </div>
           </section>
@@ -226,6 +284,10 @@ export function OrderDocument({
                 {!isAdminDirectSale && canSeePartnerProfit ? <div className="flex justify-between"><span className="text-slate-500">Partner profit</span><span className="font-semibold text-clinic-navy">{money(partnerProfitCents)}</span></div> : null}
                 {!isAdminDirectSale && canSeeLeaderProfit ? <div className="flex justify-between"><span className="text-slate-500">Leader profit</span><span className="font-semibold text-clinic-navy">{money(leaderProfitCents)}</span></div> : null}
                 {!isAdminDirectSale && canSeeConsultantCommission ? <div className="flex justify-between"><span className="text-slate-500">Consultant commission</span><span className="font-semibold text-clinic-red">{money(consultantCommissionCents)}</span></div> : null}
+                <div className="border-t border-border pt-3">
+                  <div className="flex justify-between"><span className="text-slate-500">Commission status</span><span className="font-semibold text-clinic-ink">{order.commissionStatus}</span></div>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">Seller commissions stay pending until the order is shipped.</p>
+                </div>
               </div>
             </div>
           ) : (
@@ -234,6 +296,35 @@ export function OrderDocument({
               <p className="mt-2">This receipt confirms the order amount and items. Clinical eligibility, fulfillment, prescriptions, or telehealth requirements may require additional review.</p>
             </div>
           )}
+
+          {canManageOrderStage ? (
+            <div className="rounded-3xl border border-border bg-white p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Admin workflow</p>
+              <h3 className="mt-2 text-lg font-semibold text-clinic-ink">Manage order step</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-500">Prescription details are admin-only and hidden from partners, leaders, and consultants.</p>
+              <div className="mt-4">
+                <OrderStageForm
+                  orderId={order.id}
+                  currentStage={currentStage}
+                  paymentStatus={order.paymentStatus}
+                  prescriptionDocumentUrl={order.prescriptionDocumentUrl}
+                  prescriptionNotes={order.prescriptionNotes}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {mode === "admin" && !isReceipt && (order.prescriptionDocumentUrl || order.prescriptionNotes) ? (
+            <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Admin-only prescription</p>
+              {order.prescriptionDocumentUrl ? (
+                <a href={order.prescriptionDocumentUrl} target="_blank" rel="noreferrer" className="mt-3 block break-all text-sm font-semibold text-clinic-navy underline">
+                  {order.prescriptionDocumentUrl}
+                </a>
+              ) : null}
+              {order.prescriptionNotes ? <p className="mt-3 text-sm leading-6 text-slate-600">{order.prescriptionNotes}</p> : null}
+            </div>
+          ) : null}
         </aside>
       </div>
     </Card>

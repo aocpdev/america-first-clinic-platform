@@ -196,7 +196,7 @@ function CustomerModal({
             <Field label="Pipeline">
               <select
                 name="pipelineStage"
-                defaultValue={customer?.pipelineStage ?? "NEW_LEAD"}
+                defaultValue={customer?.pipelineStage ?? "NEW_SALE"}
                 className="h-11 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {CUSTOMER_PIPELINE_STAGES.map((stage) => (

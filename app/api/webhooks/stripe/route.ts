@@ -70,7 +70,9 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
       data: {
         paymentStatus: "CAPTURED",
         orderStatus: "PROCESSING",
-        commissionStatus: "APPROVED"
+        orderPipelineStage: "GFE",
+        orderPipelineUpdatedAt: new Date(),
+        commissionStatus: "PENDING"
       }
     }),
     prisma.paymentTransaction.create({
@@ -85,14 +87,6 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
         rawEvent: jsonSafe(rawEvent)
       }
     }),
-    prisma.commission.updateMany({
-      where: { orderId: order.id },
-      data: { status: "APPROVED", approvedAt: new Date() }
-    }),
-    prisma.commissionSplit.updateMany({
-      where: { orderId: order.id },
-      data: { status: "APPROVED" }
-    }),
     ...(wasCaptured
       ? []
       : [
@@ -101,7 +95,7 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
             data: {
               lifetimeValueCents: { increment: order.totalCents },
               lastPurchaseAt: new Date(),
-              pipelineStage: "PAID",
+              pipelineStage: "GFE",
               pipelineUpdatedAt: new Date()
             }
           })
@@ -226,8 +220,18 @@ export async function POST(request: Request) {
         data: {
           paymentStatus: "REFUNDED",
           orderStatus: "REFUNDED",
+          orderPipelineStage: "DEFERRED",
+          orderPipelineUpdatedAt: new Date(),
           commissionStatus: "REJECTED"
         }
+      });
+      await prisma.commission.updateMany({
+        where: { orderId: transaction.orderId },
+        data: { status: "REJECTED" }
+      });
+      await prisma.commissionSplit.updateMany({
+        where: { orderId: transaction.orderId },
+        data: { status: "REJECTED" }
       });
       await prisma.paymentTransaction.create({
         data: {

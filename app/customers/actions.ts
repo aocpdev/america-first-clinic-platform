@@ -151,7 +151,7 @@ export async function createCustomer(formData: FormData) {
     returnTo: formValue(formData, "returnTo")
   });
   const email = parsed.email.toLowerCase();
-  const pipelineStage = parsed.pipelineStage && isCustomerPipelineStage(parsed.pipelineStage) ? parsed.pipelineStage : "NEW_LEAD";
+  const pipelineStage = parsed.pipelineStage && isCustomerPipelineStage(parsed.pipelineStage) ? parsed.pipelineStage : "NEW_SALE";
 
   await assertEmailAvailable(scope.companyId, email);
   const customer = await prisma.customer.create({
@@ -199,7 +199,7 @@ export async function updateCustomer(formData: FormData) {
   if (!existing) redirect(`${scope.basePath}?error=customer_not_found`);
 
   const email = parsed.email.toLowerCase();
-  const pipelineStage = parsed.pipelineStage && isCustomerPipelineStage(parsed.pipelineStage) ? parsed.pipelineStage : "NEW_LEAD";
+  const pipelineStage = parsed.pipelineStage && isCustomerPipelineStage(parsed.pipelineStage) ? parsed.pipelineStage : "NEW_SALE";
 
   await assertEmailAvailable(scope.companyId, email, parsed.customerId);
   await prisma.customer.update({

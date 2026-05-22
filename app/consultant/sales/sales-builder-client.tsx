@@ -395,7 +395,7 @@ export function SalesBuilderClient({
         className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]"
       >
         <input type="hidden" name="customerMode" value={customerMode} />
-        <input type="hidden" name="pipelineStage" value="PAYMENT_PENDING" />
+        <input type="hidden" name="pipelineStage" value="NEW_SALE" />
         <input type="hidden" name="paymentWorkflow" value={paymentWorkflow} />
         {products.map((product) => (
           <input key={product.id} type="hidden" name={`quantity:${product.id}`} value={quantities[product.id] ?? 0} />

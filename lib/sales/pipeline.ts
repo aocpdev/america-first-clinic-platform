@@ -1,18 +1,63 @@
 export const CUSTOMER_PIPELINE_STAGES = [
-  { value: "NEW_LEAD", label: "New lead" },
-  { value: "CONTACTED", label: "Contacted" },
-  { value: "QUALIFIED", label: "Qualified" },
-  { value: "INTAKE_SENT", label: "Intake sent" },
-  { value: "INTAKE_COMPLETE", label: "Intake complete" },
-  { value: "CART_BUILT", label: "Cart built" },
-  { value: "PAYMENT_PENDING", label: "Payment pending" },
-  { value: "PAID", label: "Paid" },
+  { value: "NEW_SALE", label: "New Sale" },
+  { value: "GFE", label: "GFE" },
+  { value: "APPROVAL", label: "Approval" },
+  { value: "DEFERRED", label: "Deferred" },
   { value: "FULFILLMENT", label: "Fulfillment" },
-  { value: "FOLLOW_UP", label: "Follow-up" }
+  { value: "SHIPPED", label: "Shipped" }
 ] as const;
 
 export type CustomerPipelineStage = (typeof CUSTOMER_PIPELINE_STAGES)[number]["value"];
 
 export function isCustomerPipelineStage(value: string): value is CustomerPipelineStage {
   return CUSTOMER_PIPELINE_STAGES.some((stage) => stage.value === value);
+}
+
+export const ORDER_PIPELINE_STAGES = [
+  {
+    value: "NEW_SALE",
+    label: "New Sale",
+    description: "The order was created and is waiting for payment or clinical intake."
+  },
+  {
+    value: "GFE",
+    label: "GFE",
+    description: "Good Faith Exam or intake review is in progress."
+  },
+  {
+    value: "APPROVAL",
+    label: "Approval",
+    description: "The order has been clinically approved. Prescription records stay admin-only."
+  },
+  {
+    value: "FULFILLMENT",
+    label: "Fulfillment",
+    description: "The approved order is being prepared for shipment."
+  },
+  {
+    value: "SHIPPED",
+    label: "Shipped",
+    description: "The product has shipped and seller commissions can be approved."
+  },
+  {
+    value: "DEFERRED",
+    label: "Deferred",
+    description: "The order was deferred and refund handling is required when payment was captured."
+  }
+] as const;
+
+export const ORDER_PROGRESS_STAGES = ORDER_PIPELINE_STAGES.filter((stage) => stage.value !== "DEFERRED");
+
+export type OrderPipelineStage = (typeof ORDER_PIPELINE_STAGES)[number]["value"];
+
+export function isOrderPipelineStage(value: string): value is OrderPipelineStage {
+  return ORDER_PIPELINE_STAGES.some((stage) => stage.value === value);
+}
+
+export function orderPipelineLabel(value: string | null | undefined) {
+  return ORDER_PIPELINE_STAGES.find((stage) => stage.value === value)?.label ?? "New Sale";
+}
+
+export function orderPipelineDescription(value: string | null | undefined) {
+  return ORDER_PIPELINE_STAGES.find((stage) => stage.value === value)?.description ?? ORDER_PIPELINE_STAGES[0].description;
 }

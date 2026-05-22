@@ -55,6 +55,8 @@ export function mapOrderRows(orders: OrderListRecord[]) {
       consultantCommissionCents: splitAmount(order, "CONSULTANT"),
       paymentStatus: order.paymentStatus,
       orderStatus: order.orderStatus,
+      orderPipelineStage: order.orderPipelineStage,
+      commissionStatus: order.commissionStatus,
       createdAt: new Intl.DateTimeFormat("en-US", {
         month: "short",
         day: "numeric",

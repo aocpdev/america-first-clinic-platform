@@ -248,7 +248,7 @@ model Customer {
   dateOfBirth         DateTime?
   birthSex            String?
   phone               String?
-  pipelineStage       String              @default("NEW_LEAD")
+  pipelineStage       String              @default("NEW_SALE")
   pipelineUpdatedAt   DateTime?
   tags                String[]
   notes               String?
@@ -373,10 +373,16 @@ model Order {
   paymentProviderCode  String
   paymentStatus        PaymentStatus       @default(PENDING)
   orderStatus          OrderStatus         @default(PENDING)
+  orderPipelineStage   String              @default("NEW_SALE")
+  orderPipelineUpdatedAt DateTime?
   subscriptionStatus   SubscriptionStatus?
   commissionStatus     CommissionStatus    @default(PENDING)
   referralSource       String?
   referralMetadata     Json?
+  prescriptionDocumentUrl String?
+  prescriptionNotes    String?
+  prescriptionStoredAt DateTime?
+  prescriptionStoredByUserId String?       @db.Uuid
   items                OrderItem[]
   commissions          Commission[]
   commissionSplits     CommissionSplit[]
@@ -389,6 +395,7 @@ model Order {
   @@index([consultantProfileId])
   @@index([partnerProfileId])
   @@index([groupLeaderProfileId])
+  @@index([companyId, orderPipelineStage])
 }
 
 model OrderItem {

@@ -201,7 +201,7 @@ async function createWorkspaceOrder(
   const { workspace, companyId, actorUserId, consultantProfileId = null, partnerProfileId = null, groupLeaderProfileId = null, redirectBasePath } = context;
   const customerMode = formString(formData, "customerMode") || "existing";
   const pipelineStageInput = formString(formData, "pipelineStage");
-  const pipelineStage = isCustomerPipelineStage(pipelineStageInput) ? pipelineStageInput : "CART_BUILT";
+  const pipelineStage = isCustomerPipelineStage(pipelineStageInput) ? pipelineStageInput : "NEW_SALE";
   const notes = formString(formData, "notes");
   const paymentWorkflow = paymentWorkflowFromForm(formData);
   const shippingAddressMode = formString(formData, "shippingAddressMode") === "saved" ? "saved" : "new";
@@ -444,6 +444,8 @@ async function createWorkspaceOrder(
       paymentStatus: "PENDING",
       orderStatus: "PENDING",
       commissionStatus: "PENDING",
+      orderPipelineStage: "NEW_SALE",
+      orderPipelineUpdatedAt: new Date(),
       referralSource: `${workspace}_manual`,
       referralMetadata: {
         pipelineStage,

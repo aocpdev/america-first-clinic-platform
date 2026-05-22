@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
+import { orderPipelineLabel } from "@/lib/sales/pipeline";
 import { currency } from "@/lib/utils";
 
 export type OrdersTableMode = "admin" | "partner" | "group_leader" | "consultant";
@@ -21,6 +22,8 @@ export type OrderRow = {
   consultantCommissionCents: number;
   paymentStatus: string;
   orderStatus: string;
+  orderPipelineStage: string;
+  commissionStatus: string;
   createdAt: string;
   customerId: string;
 };
@@ -65,7 +68,8 @@ export function OrdersTable({
               {showAdminFinancials || showPartnerFinancials || showLeaderFinancials ? <th className="px-5 py-3">Leader profit</th> : null}
               {(showAdminFinancials || showPartnerFinancials || showLeaderFinancials || showConsultantFinancials) ? <th className="px-5 py-3">Consultant commission</th> : null}
               <th className="px-5 py-3">Payment</th>
-              <th className="px-5 py-3">Status</th>
+              <th className="px-5 py-3">Step</th>
+              <th className="px-5 py-3">Commission</th>
               <th className="px-5 py-3">Created</th>
             </tr>
           </thead>
@@ -96,13 +100,14 @@ export function OrdersTable({
                 {showAdminFinancials || showPartnerFinancials || showLeaderFinancials ? <td className="px-5 py-4 font-semibold text-clinic-navy">{money(order.leaderProfitCents)}</td> : null}
                 <td className="px-5 py-4 font-semibold text-clinic-red">{money(order.consultantCommissionCents)}</td>
                 <td className="px-5 py-4"><Badge>{order.paymentStatus}</Badge></td>
-                <td className="px-5 py-4"><Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{order.orderStatus}</Badge></td>
+                <td className="px-5 py-4"><Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{orderPipelineLabel(order.orderPipelineStage)}</Badge></td>
+                <td className="px-5 py-4"><Badge>{order.commissionStatus}</Badge></td>
                 <td className="px-5 py-4 text-slate-600">{order.createdAt}</td>
               </tr>
             ))}
             {orders.length === 0 ? (
               <tr>
-                <td className="px-5 py-10 text-center text-slate-500" colSpan={15}>No orders found for this workspace yet.</td>
+                <td className="px-5 py-10 text-center text-slate-500" colSpan={16}>No orders found for this workspace yet.</td>
               </tr>
             ) : null}
           </tbody>
