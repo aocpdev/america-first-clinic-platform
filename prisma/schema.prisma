@@ -248,7 +248,7 @@ model Customer {
   dateOfBirth         DateTime?
   birthSex            String?
   phone               String?
-  pipelineStage       String              @default("NEW_SALE")
+  pipelineStage       String              @default("AWAITING_PAYMENT")
   pipelineUpdatedAt   DateTime?
   tags                String[]
   notes               String?
@@ -373,7 +373,7 @@ model Order {
   paymentProviderCode  String
   paymentStatus        PaymentStatus       @default(PENDING)
   orderStatus          OrderStatus         @default(PENDING)
-  orderPipelineStage   String              @default("NEW_SALE")
+  orderPipelineStage   String              @default("AWAITING_PAYMENT")
   orderPipelineUpdatedAt DateTime?
   subscriptionStatus   SubscriptionStatus?
   commissionStatus     CommissionStatus    @default(PENDING)

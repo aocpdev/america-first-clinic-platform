@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
 
 function normalizeStage(stage: string): CustomerPipelineStage {
-  return CUSTOMER_PIPELINE_STAGES.some((item) => item.value === stage) ? (stage as CustomerPipelineStage) : "NEW_SALE";
+  return CUSTOMER_PIPELINE_STAGES.some((item) => item.value === stage) ? (stage as CustomerPipelineStage) : "AWAITING_PAYMENT";
 }
 
 function personName(person: { firstName: string | null; lastName: string | null; email?: string }) {

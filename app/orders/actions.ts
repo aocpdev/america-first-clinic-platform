@@ -102,11 +102,11 @@ export async function updateOrderPipelineStage(formData: FormData) {
     orderPipelineUpdatedAt: now
   };
 
-  if (requestedStage === "NEW_SALE") {
+  if (requestedStage === "AWAITING_PAYMENT") {
     nextData.orderStatus = "PENDING";
   }
 
-  if (requestedStage === "GFE" || requestedStage === "APPROVAL" || requestedStage === "FULFILLMENT") {
+  if (requestedStage === "NEW_SALE" || requestedStage === "GFE" || requestedStage === "APPROVAL" || requestedStage === "FULFILLMENT") {
     nextData.orderStatus = "PROCESSING";
   }
 

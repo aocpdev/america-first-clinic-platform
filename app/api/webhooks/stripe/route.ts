@@ -57,7 +57,9 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
     where: { id: orderId },
     include: {
       customer: true,
-      consultantProfile: true
+      consultantProfile: { include: { user: true } },
+      partnerProfile: { include: { user: true } },
+      groupLeaderProfile: { include: { user: true } }
     }
   });
 
@@ -70,7 +72,7 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
       data: {
         paymentStatus: "CAPTURED",
         orderStatus: "PROCESSING",
-        orderPipelineStage: "GFE",
+        orderPipelineStage: "NEW_SALE",
         orderPipelineUpdatedAt: new Date(),
         commissionStatus: "PENDING"
       }
@@ -95,12 +97,29 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
             data: {
               lifetimeValueCents: { increment: order.totalCents },
               lastPurchaseAt: new Date(),
-              pipelineStage: "GFE",
+              pipelineStage: "NEW_SALE",
               pipelineUpdatedAt: new Date()
             }
           })
         ])
   ]);
+
+  const sellerUserId = order.consultantProfile?.userId ?? order.groupLeaderProfile?.userId ?? order.partnerProfile?.userId;
+  if (!wasCaptured && sellerUserId) {
+    await prisma.notification.create({
+      data: {
+        userId: sellerUserId,
+        title: "Payment received",
+        body: `Order #${order.id.slice(0, 8).toUpperCase()} is now a New Sale and ready for the clinical workflow.`,
+        metadata: {
+          orderId: order.id,
+          customerId: order.customerId,
+          stage: "NEW_SALE",
+          amountCents: order.totalCents
+        }
+      }
+    });
+  }
 
   const payload = {
     provider: "stripe",

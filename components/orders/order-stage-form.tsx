@@ -18,7 +18,7 @@ export function OrderStageForm({
   prescriptionDocumentUrl: string | null;
   prescriptionNotes: string | null;
 }) {
-  const [stage, setStage] = useState(currentStage || "NEW_SALE");
+  const [stage, setStage] = useState(currentStage || "AWAITING_PAYMENT");
   const needsRefundConfirmation = stage === "DEFERRED" && paymentStatus === "CAPTURED";
   const showsPrescription = stage === "APPROVAL";
 

@@ -1,4 +1,5 @@
 export const CUSTOMER_PIPELINE_STAGES = [
+  { value: "AWAITING_PAYMENT", label: "Awaiting Payment" },
   { value: "NEW_SALE", label: "New Sale" },
   { value: "GFE", label: "GFE" },
   { value: "APPROVAL", label: "Approval" },
@@ -15,9 +16,14 @@ export function isCustomerPipelineStage(value: string): value is CustomerPipelin
 
 export const ORDER_PIPELINE_STAGES = [
   {
+    value: "AWAITING_PAYMENT",
+    label: "Awaiting Payment",
+    description: "Invoice or checkout link was sent and the order is waiting for payment."
+  },
+  {
     value: "NEW_SALE",
     label: "New Sale",
-    description: "The order was created and is waiting for payment or clinical intake."
+    description: "Payment was captured and the sale is ready to start the clinical workflow."
   },
   {
     value: "GFE",

@@ -66,7 +66,7 @@ export function OrderDocument({
   const paymentUrl = typeof paymentMetadata?.paymentUrl === "string" ? paymentMetadata.paymentUrl : null;
   const providerSessionId = typeof paymentMetadata?.providerSessionId === "string" ? paymentMetadata.providerSessionId : null;
   const isCaptured = order.paymentStatus === "CAPTURED";
-  const currentStage = order.orderPipelineStage || "NEW_SALE";
+  const currentStage = order.orderPipelineStage || "AWAITING_PAYMENT";
   const currentStageLabel = orderPipelineLabel(currentStage);
   const currentProgressIndex = ORDER_PROGRESS_STAGES.findIndex((stage) => stage.value === currentStage);
   const isDeferred = currentStage === "DEFERRED";
