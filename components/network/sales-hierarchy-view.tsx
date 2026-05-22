@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent } from "react";
 import { Building2, Search, UserRound, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -95,7 +95,8 @@ function PersonNode({
     <button
       type="button"
       onClick={() => onSelect(node)}
-      className={`group min-w-[220px] rounded-2xl border bg-white p-4 text-left shadow-line transition hover:-translate-y-0.5 hover:border-clinic-navy/40 hover:shadow-soft ${
+      draggable={false}
+      className={`group min-w-[220px] select-none rounded-2xl border bg-white p-4 text-left shadow-line transition hover:-translate-y-0.5 hover:border-clinic-navy/40 hover:shadow-soft ${
         selected ? "border-clinic-navy ring-4 ring-clinic-navy/10" : "border-border"
       }`}
     >
@@ -219,6 +220,21 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
   const selectedNode = selectedId ? nodes.find((node) => node.id === selectedId) ?? null : null;
   const normalizedQuery = query.trim().toLowerCase();
 
+  useEffect(() => {
+    if (!isPanning) return;
+
+    const previousUserSelect = document.body.style.userSelect;
+    const previousWebkitUserSelect = document.body.style.webkitUserSelect;
+
+    document.body.style.userSelect = "none";
+    document.body.style.webkitUserSelect = "none";
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect;
+      document.body.style.webkitUserSelect = previousWebkitUserSelect;
+    };
+  }, [isPanning]);
+
   function isVisible(node: HierarchyNode) {
     if (!normalizedQuery) return true;
     return `${node.name} ${node.email} ${roleLabel(node.type)}`.toLowerCase().includes(normalizedQuery);
@@ -227,6 +243,7 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
   function handleCanvasPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (event.button !== 0 || isInteractiveTarget(event.target)) return;
 
+    event.preventDefault();
     dragStartRef.current = {
       pointerId: event.pointerId,
       startX: event.clientX,
@@ -298,7 +315,7 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
 
       <div className={`mt-5 grid gap-5 ${selectedNode ? "xl:grid-cols-[minmax(0,1fr)_360px]" : "xl:grid-cols-1"}`}>
         <div
-          className={`min-h-[620px] overflow-hidden rounded-3xl bg-slate-50 p-6 xl:max-h-[72vh] ${
+          className={`min-h-[620px] select-none overflow-hidden rounded-3xl bg-slate-50 p-6 touch-none xl:max-h-[72vh] ${
             isPanning ? "cursor-grabbing" : "cursor-grab"
           }`}
           onPointerDown={handleCanvasPointerDown}
