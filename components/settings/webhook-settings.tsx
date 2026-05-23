@@ -31,6 +31,7 @@ const events = [
   ["payment.failed", "Payment failed"],
   ["receipt.ready", "Receipt ready"],
   ["receipt.resend_requested", "Receipt resend"],
+  ["shipment.tracking_ready", "Tracking ready"],
   ["password.reset.requested", "Password reset"],
   ["consultant.approved", "Consultant approved"],
   ["consultant.rejected", "Consultant rejected"],

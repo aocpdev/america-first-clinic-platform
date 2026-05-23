@@ -309,6 +309,8 @@ export function OrderDocument({
                   paymentStatus={order.paymentStatus}
                   prescriptionDocumentUrl={order.prescriptionDocumentUrl}
                   prescriptionNotes={order.prescriptionNotes}
+                  shippingCarrier={order.shippingCarrier}
+                  shippingTrackingCode={order.shippingTrackingCode}
                 />
               </div>
             </div>

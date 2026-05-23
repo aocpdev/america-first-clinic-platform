@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { orderListInclude } from "@/lib/orders/queries";
 import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
 
 function normalizeStage(stage: string): CustomerPipelineStage {
@@ -29,43 +30,40 @@ export default async function AdminPipelinePage() {
     );
   }
 
-  const customers = await prisma.customer.findMany({
+  const orders = await prisma.order.findMany({
     where: { companyId: user.companyId },
-    include: {
-      consultantProfile: {
-        include: { user: true }
-      },
-      partnerProfile: {
-        include: { user: true }
-      },
-      orders: {
-        orderBy: { createdAt: "desc" },
-        take: 1
-      }
-    },
-    orderBy: [{ pipelineUpdatedAt: "desc" }, { updatedAt: "desc" }]
+    include: orderListInclude,
+    orderBy: [{ orderPipelineUpdatedAt: "desc" }, { createdAt: "desc" }]
   });
 
   return (
     <SidebarShell nav={adminNav} eyebrow="Company admin" title="Pipeline">
       <CustomerPipelineBoard
-        customers={customers.map((customer) => {
-          const ownerUser = customer.consultantProfile?.user ?? customer.partnerProfile?.user ?? null;
+        customers={orders.map((order) => {
+          const ownerUser = order.consultantProfile?.user ?? order.partnerProfile?.user ?? null;
           return {
-            id: customer.id,
-            name: personName(customer),
-            email: customer.email,
-            phone: customer.phone,
-            notes: customer.notes,
-            pipelineStage: normalizeStage(customer.pipelineStage),
-            pipelineUpdatedAt: customer.pipelineUpdatedAt?.toISOString() ?? null,
-            lifetimeValueCents: customer.lifetimeValueCents,
-            latestOrderTotalCents: customer.orders[0]?.totalCents ?? null,
-            latestOrderCreatedAt: customer.orders[0]?.createdAt.toISOString() ?? null,
+            id: order.id,
+            customerId: order.customerId,
+            name: personName(order.customer),
+            email: order.customer.email,
+            phone: order.customer.phone,
+            notes: order.orderNotes,
+            pipelineStage: normalizeStage(order.orderPipelineStage),
+            pipelineUpdatedAt: order.orderPipelineUpdatedAt?.toISOString() ?? null,
+            orderTotalCents: order.totalCents,
+            opportunityValueCents: order.grossMarginCents,
+            adminMarginCents: order.grossMarginCents,
+            createdAt: order.createdAt.toISOString(),
             consultantName: ownerUser ? personName(ownerUser) : "Admin",
-            consultantAvatarUrl: ownerUser?.avatarUrl ?? null
+            consultantAvatarUrl: ownerUser?.avatarUrl ?? null,
+            rxDocumentUrl: order.rxDocumentUrl,
+            gfeDocumentUrl: order.gfeDocumentUrl,
+            paymentStatus: order.paymentStatus
           };
         })}
+        mode="admin"
+        basePath="/admin"
+        showConsultant
       />
     </SidebarShell>
   );

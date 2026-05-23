@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { requireApprovedConsultant } from "@/lib/auth/current-user";
 import { consultantNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { orderListInclude, type OrderListRecord } from "@/lib/orders/queries";
 import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
 
 function customerName(customer: { firstName: string | null; lastName: string | null; email: string }) {
@@ -14,6 +15,12 @@ function normalizeStage(stage: string): CustomerPipelineStage {
   return CUSTOMER_PIPELINE_STAGES.some((item) => item.value === stage)
     ? (stage as CustomerPipelineStage)
     : "AWAITING_PAYMENT";
+}
+
+function splitAmount(order: OrderListRecord, role: "CONSULTANT") {
+  return order.commissionSplits
+    .filter((split) => split.participantRole === role)
+    .reduce((sum, split) => sum + split.amountCents, 0);
 }
 
 export default async function ConsultantPipelinePage() {
@@ -32,46 +39,40 @@ export default async function ConsultantPipelinePage() {
     );
   }
 
-  const customers = await prisma.customer.findMany({
+  const orders = await prisma.order.findMany({
     where: {
       companyId,
       consultantProfileId
     },
-    include: {
-      orders: {
-        orderBy: { createdAt: "desc" },
-        take: 1
-      }
-    },
-    orderBy: [{ pipelineUpdatedAt: "desc" }, { updatedAt: "desc" }]
+    include: orderListInclude,
+    orderBy: [{ orderPipelineUpdatedAt: "desc" }, { createdAt: "desc" }]
   });
 
   return (
     <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales pipeline">
-      <div className="space-y-6">
-        <Card className="p-6">
-          <h2 className="text-2xl font-semibold text-clinic-ink">My customer pipeline</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-            Track every assigned customer from lead to follow-up. This view only includes customers assigned to your consultant profile.
-          </p>
-        </Card>
-        <CustomerPipelineBoard
-          customers={customers.map((customer) => ({
-            id: customer.id,
-            name: customerName(customer),
-            email: customer.email,
-            phone: customer.phone,
-            consultantName: [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email,
-            consultantAvatarUrl: user.avatarUrl,
-            pipelineStage: normalizeStage(customer.pipelineStage),
-            pipelineUpdatedAt: customer.pipelineUpdatedAt?.toISOString() ?? null,
-            lifetimeValueCents: customer.lifetimeValueCents,
-            latestOrderTotalCents: customer.orders[0]?.totalCents ?? null,
-            latestOrderCreatedAt: customer.orders[0]?.createdAt.toISOString() ?? null,
-            notes: customer.notes
-          }))}
-        />
-      </div>
+      <CustomerPipelineBoard
+        customers={orders.map((order) => ({
+          id: order.id,
+          customerId: order.customerId,
+          name: customerName(order.customer),
+          email: order.customer.email,
+          phone: order.customer.phone,
+          consultantName: [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email,
+          consultantAvatarUrl: user.avatarUrl,
+          pipelineStage: normalizeStage(order.orderPipelineStage),
+          pipelineUpdatedAt: order.orderPipelineUpdatedAt?.toISOString() ?? null,
+          orderTotalCents: order.totalCents,
+          opportunityValueCents: splitAmount(order, "CONSULTANT"),
+          adminMarginCents: order.grossMarginCents,
+          createdAt: order.createdAt.toISOString(),
+          notes: order.orderNotes,
+          rxDocumentUrl: order.rxDocumentUrl,
+          gfeDocumentUrl: order.gfeDocumentUrl,
+          paymentStatus: order.paymentStatus
+        }))}
+        mode="consultant"
+        basePath="/consultant"
+      />
     </SidebarShell>
   );
 }

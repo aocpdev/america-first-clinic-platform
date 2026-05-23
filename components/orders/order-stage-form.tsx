@@ -10,17 +10,22 @@ export function OrderStageForm({
   currentStage,
   paymentStatus,
   prescriptionDocumentUrl,
-  prescriptionNotes
+  prescriptionNotes,
+  shippingCarrier,
+  shippingTrackingCode
 }: {
   orderId: string;
   currentStage: string;
   paymentStatus: string;
   prescriptionDocumentUrl: string | null;
   prescriptionNotes: string | null;
+  shippingCarrier: string | null;
+  shippingTrackingCode: string | null;
 }) {
   const [stage, setStage] = useState(currentStage || "AWAITING_PAYMENT");
   const needsRefundConfirmation = stage === "DEFERRED" && paymentStatus === "CAPTURED";
   const showsPrescription = stage === "APPROVAL";
+  const showsTracking = stage === "FULFILLMENT" || stage === "SHIPPED";
 
   return (
     <form action={updateOrderPipelineStage} className="space-y-4">
@@ -72,6 +77,38 @@ export function OrderStageForm({
             placeholder="Type refunded"
             className="mt-3 h-11 w-full rounded-xl border border-red-200 bg-white px-3 text-sm font-semibold outline-none transition focus:border-red-400 focus:ring-4 focus:ring-red-100"
           />
+        </div>
+      ) : null}
+
+      {showsTracking ? (
+        <div className="rounded-2xl border border-border bg-clinic-mist p-4">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Shipping tracking</p>
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Add tracking before fulfillment when possible. If no tracking is entered, no tracking webhook will be sent.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <select
+              name="shippingCarrier"
+              defaultValue={shippingCarrier ?? ""}
+              className="h-11 rounded-xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
+            >
+              <option value="">Select carrier</option>
+              <option value="fedex">FedEx</option>
+              <option value="ups">UPS</option>
+              <option value="usps">USPS</option>
+              <option value="dhl">DHL</option>
+            </select>
+            <input
+              name="shippingTrackingCode"
+              defaultValue={shippingTrackingCode ?? ""}
+              placeholder="Tracking code"
+              className="h-11 rounded-xl border border-border bg-white px-3 text-sm font-semibold outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
+            />
+          </div>
+          <label className="mt-3 flex items-start gap-2 text-xs leading-5 text-slate-600">
+            <input type="checkbox" name="allowFulfillmentWithoutTracking" value="true" className="mt-1" />
+            Continue without tracking for now
+          </label>
         </div>
       ) : null}
 

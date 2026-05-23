@@ -17,6 +17,7 @@ const webhookEvents = [
   "payment.failed",
   "receipt.ready",
   "receipt.resend_requested",
+  "shipment.tracking_ready",
   "password.reset.requested",
   "consultant.approved",
   "consultant.rejected",

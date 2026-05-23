@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { requirePartner } from "@/lib/auth/current-user";
 import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { orderListInclude, type OrderListRecord } from "@/lib/orders/queries";
 import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
 
 function customerName(customer: { firstName: string | null; lastName: string | null; email: string }) {
@@ -19,6 +20,12 @@ function normalizeStage(stage: string): CustomerPipelineStage {
   return CUSTOMER_PIPELINE_STAGES.some((item) => item.value === stage)
     ? (stage as CustomerPipelineStage)
     : "AWAITING_PAYMENT";
+}
+
+function splitAmount(order: OrderListRecord, role: "PARTNER" | "GROUP_LEADER") {
+  return order.commissionSplits
+    .filter((split) => split.participantRole === role)
+    .reduce((sum, split) => sum + split.amountCents, 0);
 }
 
 export default async function PartnerPipelinePage() {
@@ -50,7 +57,7 @@ export default async function PartnerPipelinePage() {
     );
   }
 
-  const customers = await prisma.customer.findMany({
+  const orders = await prisma.order.findMany({
     where: {
       companyId: user.companyId ?? undefined,
       OR: isGroupLeader
@@ -63,40 +70,36 @@ export default async function PartnerPipelinePage() {
             { consultantProfile: { partnerProfileId: partnerProfile!.id } }
           ]
     },
-    include: {
-      consultantProfile: {
-        include: { user: true }
-      },
-      partnerProfile: {
-        include: { user: true }
-      },
-      orders: {
-        orderBy: { createdAt: "desc" },
-        take: 1
-      }
-    },
-    orderBy: [{ pipelineUpdatedAt: "desc" }, { updatedAt: "desc" }]
+    include: orderListInclude,
+    orderBy: [{ orderPipelineUpdatedAt: "desc" }, { createdAt: "desc" }]
   });
 
   return (
     <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Sales pipeline">
       <div>
         <CustomerPipelineBoard
-          customers={customers.map((customer) => ({
-            id: customer.id,
-            name: customerName(customer),
-            email: customer.email,
-            phone: customer.phone,
-            consultantName: consultantName(customer.consultantProfile) ?? (customer.partnerProfile ? consultantName(customer.partnerProfile) : null),
-            consultantAvatarUrl: customer.consultantProfile?.user.avatarUrl ?? customer.partnerProfile?.user.avatarUrl ?? null,
-            pipelineStage: normalizeStage(customer.pipelineStage),
-            pipelineUpdatedAt: customer.pipelineUpdatedAt?.toISOString() ?? null,
-            lifetimeValueCents: customer.lifetimeValueCents,
-            latestOrderTotalCents: customer.orders[0]?.totalCents ?? null,
-            latestOrderCreatedAt: customer.orders[0]?.createdAt.toISOString() ?? null,
-            notes: customer.notes
+          customers={orders.map((order) => ({
+            id: order.id,
+            customerId: order.customerId,
+            name: customerName(order.customer),
+            email: order.customer.email,
+            phone: order.customer.phone,
+            consultantName: consultantName(order.consultantProfile) ?? (order.partnerProfile ? consultantName(order.partnerProfile) : null),
+            consultantAvatarUrl: order.consultantProfile?.user.avatarUrl ?? order.partnerProfile?.user.avatarUrl ?? null,
+            pipelineStage: normalizeStage(order.orderPipelineStage),
+            pipelineUpdatedAt: order.orderPipelineUpdatedAt?.toISOString() ?? null,
+            orderTotalCents: order.totalCents,
+            opportunityValueCents: isGroupLeader ? splitAmount(order, "GROUP_LEADER") : splitAmount(order, "PARTNER"),
+            adminMarginCents: order.grossMarginCents,
+            createdAt: order.createdAt.toISOString(),
+            notes: order.orderNotes,
+            rxDocumentUrl: order.rxDocumentUrl,
+            gfeDocumentUrl: order.gfeDocumentUrl,
+            paymentStatus: order.paymentStatus
           }))}
           showConsultant
+          mode={isGroupLeader ? "group_leader" : "partner"}
+          basePath="/partner"
         />
       </div>
     </SidebarShell>

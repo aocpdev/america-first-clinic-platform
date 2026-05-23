@@ -28,6 +28,16 @@ function jsonSafe(value: unknown) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function carrierTrackingUrl(carrier: string | null, trackingCode: string | null) {
+  if (!carrier || !trackingCode) return null;
+  const code = encodeURIComponent(trackingCode);
+  if (carrier === "fedex") return `https://www.fedex.com/fedextrack/?trknbr=${code}`;
+  if (carrier === "ups") return `https://www.ups.com/track?tracknum=${code}`;
+  if (carrier === "usps") return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${code}`;
+  if (carrier === "dhl") return `https://www.dhl.com/us-en/home/tracking/tracking-express.html?submit=1&tracking-id=${code}`;
+  return null;
+}
+
 function canManageClinicalPipeline(role: string) {
   return role === "SUPER_ADMIN" || role === "COMPANY_ADMIN";
 }
@@ -87,6 +97,9 @@ export async function updateOrderPipelineStage(formData: FormData) {
   const now = new Date();
   const prescriptionDocumentUrl = String(formData.get("prescriptionDocumentUrl") || "").trim();
   const prescriptionNotes = String(formData.get("prescriptionNotes") || "").trim();
+  const shippingCarrier = String(formData.get("shippingCarrier") || "").trim();
+  const shippingTrackingCode = String(formData.get("shippingTrackingCode") || "").trim();
+  const allowFulfillmentWithoutTracking = String(formData.get("allowFulfillmentWithoutTracking") || "") === "true";
   const nextData: {
     orderPipelineStage: string;
     orderPipelineUpdatedAt: Date;
@@ -97,6 +110,9 @@ export async function updateOrderPipelineStage(formData: FormData) {
     prescriptionNotes?: string | null;
     prescriptionStoredAt?: Date | null;
     prescriptionStoredByUserId?: string | null;
+    shippingCarrier?: string | null;
+    shippingTrackingCode?: string | null;
+    shippedAt?: Date | null;
   } = {
     orderPipelineStage: requestedStage,
     orderPipelineUpdatedAt: now
@@ -122,6 +138,19 @@ export async function updateOrderPipelineStage(formData: FormData) {
     if (order.paymentStatus === "CAPTURED") {
       nextData.commissionStatus = "APPROVED";
     }
+  }
+
+  if ((requestedStage === "FULFILLMENT" || requestedStage === "SHIPPED") && !shippingTrackingCode && !order.shippingTrackingCode && !allowFulfillmentWithoutTracking) {
+    redirect(`${returnPath}?stage=tracking_required`);
+  }
+
+  const nextCarrier = shippingCarrier || order.shippingCarrier;
+  const nextTrackingCode = shippingTrackingCode || order.shippingTrackingCode;
+
+  if (nextTrackingCode && (requestedStage === "FULFILLMENT" || requestedStage === "SHIPPED")) {
+    nextData.shippingCarrier = nextCarrier || "other";
+    nextData.shippingTrackingCode = nextTrackingCode;
+    nextData.shippedAt = requestedStage === "SHIPPED" ? now : order.shippedAt;
   }
 
   if (requestedStage === "DEFERRED") {
@@ -213,6 +242,25 @@ export async function updateOrderPipelineStage(formData: FormData) {
       }
     })
   ]);
+
+  if (nextTrackingCode && (requestedStage === "FULFILLMENT" || requestedStage === "SHIPPED")) {
+    await dispatchWebhookEvent({
+      companyId: order.companyId,
+      partnerProfileId: order.partnerProfileId ?? order.consultantProfile?.partnerProfileId,
+      eventType: "shipment.tracking_ready",
+      payload: {
+        orderId: order.id,
+        customerId: order.customerId,
+        customerName: personName(order.customer),
+        customerEmail: order.customer.email,
+        customerPhone: phoneForWebhook(order.customer.phone),
+        stage: requestedStage,
+        carrier: nextCarrier,
+        trackingCode: nextTrackingCode,
+        trackingUrl: carrierTrackingUrl(nextCarrier, nextTrackingCode)
+      }
+    });
+  }
 
   revalidatePath(returnPath);
   revalidatePath("/admin/orders");

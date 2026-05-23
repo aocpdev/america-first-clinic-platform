@@ -379,10 +379,20 @@ model Order {
   commissionStatus     CommissionStatus    @default(PENDING)
   referralSource       String?
   referralMetadata     Json?
+  orderNotes           String?
+  gfeDocumentUrl       String?
+  gfeNotes             String?
+  gfeStoredAt          DateTime?
+  rxDocumentUrl        String?
+  rxNotes              String?
+  rxStoredAt           DateTime?
   prescriptionDocumentUrl String?
   prescriptionNotes    String?
   prescriptionStoredAt DateTime?
   prescriptionStoredByUserId String?       @db.Uuid
+  shippingCarrier      String?
+  shippingTrackingCode String?
+  shippedAt            DateTime?
   items                OrderItem[]
   commissions          Commission[]
   commissionSplits     CommissionSplit[]

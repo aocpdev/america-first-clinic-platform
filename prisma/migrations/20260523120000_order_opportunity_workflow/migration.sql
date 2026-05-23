@@ -1,0 +1,10 @@
+ALTER TABLE "Order" ADD COLUMN "orderNotes" TEXT;
+ALTER TABLE "Order" ADD COLUMN "gfeDocumentUrl" TEXT;
+ALTER TABLE "Order" ADD COLUMN "gfeNotes" TEXT;
+ALTER TABLE "Order" ADD COLUMN "gfeStoredAt" TIMESTAMP(3);
+ALTER TABLE "Order" ADD COLUMN "rxDocumentUrl" TEXT;
+ALTER TABLE "Order" ADD COLUMN "rxNotes" TEXT;
+ALTER TABLE "Order" ADD COLUMN "rxStoredAt" TIMESTAMP(3);
+ALTER TABLE "Order" ADD COLUMN "shippingCarrier" TEXT;
+ALTER TABLE "Order" ADD COLUMN "shippingTrackingCode" TEXT;
+ALTER TABLE "Order" ADD COLUMN "shippedAt" TIMESTAMP(3);
