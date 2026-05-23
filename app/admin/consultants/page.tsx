@@ -514,10 +514,9 @@ export default async function AdminConsultantsPage({
                             <input type="hidden" name="userId" value={user.id} />
                             <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
                             {isLeaderApplication ? (
-                              <>
-                                <input name="leaderCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="25" className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Leader direct share of partner pool" />
-                                <input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue="0" className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Leader override from consultant sales" />
-                              </>
+                              <span className="rounded-lg border border-border bg-clinic-mist px-3 py-2 text-xs font-semibold text-slate-600">
+                                Partner sets leader commission
+                              </span>
                             ) : (
                               <>
                                 <select name="groupLeaderProfileId" className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" defaultValue={user.requestedGroupLeaderProfileId ?? ""}>
@@ -526,7 +525,9 @@ export default async function AdminConsultantsPage({
                                     <option key={leader.id} value={leader.id}>{leader.displayName}</option>
                                   ))}
                                 </select>
-                                <input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" className="h-9 w-28 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Consultant share of partner pool" />
+                                <span className="rounded-lg border border-border bg-clinic-mist px-3 py-2 text-xs font-semibold text-slate-600">
+                                  Partner sets seller commission
+                                </span>
                               </>
                             )}
                             <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>

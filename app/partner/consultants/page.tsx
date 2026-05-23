@@ -176,7 +176,7 @@ export default async function PartnerConsultantsPage({
                 <h2 className="text-2xl font-semibold text-clinic-ink">Group leaders</h2>
                 <p className="mt-1 text-sm text-slate-500">Manage how your partner pool is shared with leaders and assigned sellers.</p>
               </div>
-              <CreateLeaderModal partnerProfileId={partnerProfile.id} />
+              <CreateLeaderModal partnerProfileId={partnerProfile.id} canManageCommissions />
             </div>
 
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -227,7 +227,7 @@ export default async function PartnerConsultantsPage({
                       >
                         View hierarchy
                       </Link>
-                      <EditLeaderModal leader={leader} returnTo="/partner/consultants?section=leaders" />
+                      <EditLeaderModal leader={leader} returnTo="/partner/consultants?section=leaders" canManageCommissions />
                     </div>
                   </Card>
                 );
@@ -254,6 +254,7 @@ export default async function PartnerConsultantsPage({
                 partnerProfileId={partnerProfile.id}
                 groupLeaders={groupLeaderOptions}
                 returnTo="/partner/consultants?updated=consultant_created"
+                canManageSellerCommission
               />
             </div>
           </Card>
@@ -328,7 +329,7 @@ export default async function PartnerConsultantsPage({
                               name="leaderCommissionPercent"
                               type="number"
                               min="0"
-                              max="100"
+                              max="50"
                               step="0.01"
                               defaultValue="25"
                               className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
@@ -338,7 +339,7 @@ export default async function PartnerConsultantsPage({
                               name="consultantOverridePercent"
                               type="number"
                               min="0"
-                              max="100"
+                              max="50"
                               step="0.01"
                               defaultValue="0"
                               className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
@@ -436,6 +437,7 @@ export default async function PartnerConsultantsPage({
                             partnerProfileId={partnerProfile.id}
                             groupLeaders={groupLeaderOptions}
                             returnTo="/partner/consultants?updated=consultant_updated"
+                            canManageSellerCommission
                           />
                         </div>
                       </td>

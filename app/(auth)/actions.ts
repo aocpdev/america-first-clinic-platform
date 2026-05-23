@@ -10,6 +10,11 @@ import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/sup
 import { roleSchema } from "@/lib/validations/core";
 import { getAuthenticatedUser, IMPERSONATION_COOKIE, requireRole, requireUser } from "@/lib/auth/current-user";
 import { dashboardPathForRole } from "@/lib/auth/redirects";
+import {
+  clampGroupLeaderPoolShareBps,
+  DEFAULT_CONSULTANT_SHARE_BPS,
+  DEFAULT_GROUP_LEADER_SHARE_BPS
+} from "@/lib/commissions/margin-split";
 import { normalizePhoneToE164 } from "@/lib/phone";
 
 function formValue(formData: FormData, key: string) {
@@ -23,6 +28,10 @@ function bpsFromPercentInput(value: string, fallbackBps: number) {
     return fallbackBps;
   }
   return Math.max(0, Math.min(10000, Math.round(parsed * 100)));
+}
+
+function leaderPoolBpsFromPercentInput(value: string, fallbackBps = DEFAULT_GROUP_LEADER_SHARE_BPS) {
+  return clampGroupLeaderPoolShareBps(bpsFromPercentInput(value, fallbackBps));
 }
 
 function redirectWithError(path: string, error: string): never {
@@ -309,9 +318,9 @@ export async function approveConsultant(formData: FormData) {
   const userId = formValue(formData, "userId");
   const requestedFormPartnerProfileId = formValue(formData, "partnerProfileId") || null;
   const requestedGroupLeaderProfileId = formValue(formData, "groupLeaderProfileId") || null;
-  let consultantCommissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
-  const leaderCommissionBps = bpsFromPercentInput(formValue(formData, "leaderCommissionPercent"), 2500);
-  const leaderConsultantOverrideBps = bpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
+  let consultantCommissionBps = DEFAULT_CONSULTANT_SHARE_BPS;
+  let leaderCommissionBps = DEFAULT_GROUP_LEADER_SHARE_BPS;
+  let leaderConsultantOverrideBps = 0;
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
   if (!user || (user.requestedRole !== "CONSULTANT" && user.requestedRole !== "GROUP_LEADER")) {
@@ -328,6 +337,9 @@ export async function approveConsultant(formData: FormData) {
       redirect("/partner/consultants?error=access_denied");
     }
     partnerProfileId = partnerProfile.id;
+    consultantCommissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), DEFAULT_CONSULTANT_SHARE_BPS);
+    leaderCommissionBps = leaderPoolBpsFromPercentInput(formValue(formData, "leaderCommissionPercent"));
+    leaderConsultantOverrideBps = leaderPoolBpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
   } else if (approver.role === "GROUP_LEADER") {
     if (user.requestedRole !== "CONSULTANT") {
       redirect("/partner/consultants?error=access_denied");
@@ -338,7 +350,7 @@ export async function approveConsultant(formData: FormData) {
     }
     partnerProfileId = groupLeaderProfile.partnerProfileId;
     groupLeaderProfileId = groupLeaderProfile.id;
-    consultantCommissionBps = 5000;
+    consultantCommissionBps = DEFAULT_CONSULTANT_SHARE_BPS;
   } else if (approver.role !== "COMPANY_ADMIN" && approver.role !== "SUPER_ADMIN") {
     redirect("/login?error=access_denied");
   }
@@ -656,8 +668,8 @@ export async function createGroupLeader(formData: FormData) {
   const password = formValue(formData, "password");
   const phone = normalizePhoneToE164(formValue(formData, "phone"));
   const selectedPartnerProfileId = formValue(formData, "partnerProfileId");
-  const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
-  const consultantOverrideBps = bpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
+  let commissionBps = DEFAULT_GROUP_LEADER_SHARE_BPS;
+  let consultantOverrideBps = 0;
 
   if (!firstName || !lastName || !email || password.length < 8) {
     redirect(actor.role === "PARTNER" ? "/partner/consultants?error=invalid_group_leader" : "/admin/consultants?error=invalid_group_leader");
@@ -672,6 +684,8 @@ export async function createGroupLeader(formData: FormData) {
       redirect("/partner/consultants?error=partner_profile_required");
     }
     partnerProfileId = partnerProfile.id;
+    commissionBps = leaderPoolBpsFromPercentInput(formValue(formData, "commissionPercent"));
+    consultantOverrideBps = leaderPoolBpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
   } else if (actor.role !== "COMPANY_ADMIN" && actor.role !== "SUPER_ADMIN") {
     redirect("/login?error=access_denied");
   }
@@ -781,7 +795,7 @@ export async function createConsultantByAdmin(formData: FormData) {
   const phone = normalizePhoneToE164(formValue(formData, "phone"));
   const selectedPartnerProfileId = formValue(formData, "partnerProfileId");
   const selectedGroupLeaderProfileId = formValue(formData, "groupLeaderProfileId") || null;
-  const commissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
+  let commissionBps = DEFAULT_CONSULTANT_SHARE_BPS;
   const returnTo = formValue(formData, "returnTo");
 
   if (!firstName || !lastName || !email || password.length < 8 || !selectedPartnerProfileId) {
@@ -797,6 +811,7 @@ export async function createConsultantByAdmin(formData: FormData) {
       redirect("/partner/consultants?error=partner_profile_required");
     }
     partnerProfileId = partnerProfile.id;
+    commissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), DEFAULT_CONSULTANT_SHARE_BPS);
   } else if (actor.role !== "COMPANY_ADMIN" && actor.role !== "SUPER_ADMIN") {
     redirect("/login?error=access_denied");
   }
@@ -1003,8 +1018,8 @@ export async function updatePartnerProfileByAdmin(formData: FormData) {
 export async function updateGroupLeaderProfile(formData: FormData) {
   const actor = await requireUser();
   const groupLeaderProfileId = formValue(formData, "groupLeaderProfileId");
-  const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
-  const consultantOverrideBps = bpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
+  const requestedCommissionBps = leaderPoolBpsFromPercentInput(formValue(formData, "commissionPercent"));
+  const requestedConsultantOverrideBps = leaderPoolBpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
   const hasProfileFields = formData.has("firstName") || formData.has("lastName") || formData.has("email") || formData.has("phone") || formData.has("displayName");
   const firstName = formValue(formData, "firstName");
   const lastName = formValue(formData, "lastName");
@@ -1058,7 +1073,15 @@ export async function updateGroupLeaderProfile(formData: FormData) {
   await prisma.$transaction(async (tx) => {
     await tx.groupLeaderProfile.update({
       where: { id: leader.id },
-      data: { displayName: nextDisplayName, commissionBps, consultantOverrideBps }
+      data: {
+        displayName: nextDisplayName,
+        ...(actor.role === "PARTNER"
+          ? {
+              commissionBps: requestedCommissionBps,
+              consultantOverrideBps: requestedConsultantOverrideBps
+            }
+          : {})
+      }
     });
 
     if (hasProfileFields) {
@@ -1084,7 +1107,7 @@ export async function updateConsultantCommercials(formData: FormData) {
   const consultantProfileId = formValue(formData, "consultantProfileId");
   const partnerProfileId = formValue(formData, "partnerProfileId") || null;
   const groupLeaderProfileId = formValue(formData, "groupLeaderProfileId") || null;
-  const commissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
+  const requestedCommissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), DEFAULT_CONSULTANT_SHARE_BPS);
   const hasProfileFields = formData.has("firstName") || formData.has("lastName") || formData.has("email") || formData.has("phone");
   const firstName = formValue(formData, "firstName");
   const lastName = formValue(formData, "lastName");
@@ -1167,7 +1190,7 @@ export async function updateConsultantCommercials(formData: FormData) {
       data: {
         ...(authorizedPartnerProfileId ? { partnerProfileId: authorizedPartnerProfileId } : {}),
         groupLeaderProfileId,
-        commissionBps
+        ...(actor.role === "PARTNER" ? { commissionBps: requestedCommissionBps } : {})
       }
     });
 
@@ -1310,8 +1333,8 @@ export async function assignConsultantToLeader(formData: FormData) {
 export async function promoteConsultantToLeader(formData: FormData) {
   const actor = await requireUser();
   const consultantProfileId = formValue(formData, "consultantProfileId");
-  const commissionBps = bpsFromPercentInput(formValue(formData, "leaderCommissionPercent"), 2500);
-  const consultantOverrideBps = bpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
+  let commissionBps = DEFAULT_GROUP_LEADER_SHARE_BPS;
+  let consultantOverrideBps = 0;
   const returnTo = formValue(formData, "returnTo");
 
   const consultant = await prisma.consultantProfile.findUnique({
@@ -1331,6 +1354,8 @@ export async function promoteConsultantToLeader(formData: FormData) {
       redirect("/partner/consultants?error=access_denied");
     }
     authorizedPartnerProfileId = partnerProfile.id;
+    commissionBps = leaderPoolBpsFromPercentInput(formValue(formData, "leaderCommissionPercent"));
+    consultantOverrideBps = leaderPoolBpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
   } else if (actor.role !== "COMPANY_ADMIN" && actor.role !== "SUPER_ADMIN") {
     redirect("/login?error=access_denied");
   }
@@ -1411,7 +1436,7 @@ export async function promoteConsultantToLeader(formData: FormData) {
 export async function convertLeaderToConsultant(formData: FormData) {
   const actor = await requireUser();
   const groupLeaderProfileId = formValue(formData, "groupLeaderProfileId");
-  const commissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
+  let commissionBps = DEFAULT_CONSULTANT_SHARE_BPS;
   const returnTo = formValue(formData, "returnTo");
 
   const leader = await prisma.groupLeaderProfile.findUnique({
@@ -1431,6 +1456,7 @@ export async function convertLeaderToConsultant(formData: FormData) {
       redirect("/partner/consultants?error=access_denied");
     }
     authorizedPartnerProfileId = partnerProfile.id;
+    commissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), DEFAULT_CONSULTANT_SHARE_BPS);
   } else if (actor.role !== "COMPANY_ADMIN" && actor.role !== "SUPER_ADMIN") {
     redirect("/login?error=access_denied");
   }

@@ -51,7 +51,13 @@ function Field({
   );
 }
 
-export function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: string }) {
+export function CreateLeaderModal({
+  partnerProfileId,
+  canManageCommissions = false
+}: {
+  partnerProfileId: string;
+  canManageCommissions?: boolean;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -100,20 +106,28 @@ export function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: stri
                 <Field label="Temporary password">
                   <Input name="password" type="password" minLength={8} placeholder="Minimum 8 characters" required />
                 </Field>
-                <Field label="Direct share of partner pool">
-                  <div className="relative">
-                    <Input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="25" className="pr-10" required />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
+                {canManageCommissions ? (
+                  <>
+                    <Field label="Direct share of partner pool">
+                      <div className="relative">
+                        <Input name="commissionPercent" type="number" min="0" max="50" step="0.01" defaultValue="25" className="pr-10" required />
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
+                      </div>
+                      <p className="text-xs leading-5 text-slate-500">Used when this leader creates the sale. Max 50% of the partner pool.</p>
+                    </Field>
+                    <Field label="Consultant override from partner pool">
+                      <div className="relative">
+                        <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue="0" className="pr-10" required />
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
+                      </div>
+                      <p className="text-xs leading-5 text-slate-500">Optional share from sellers under this leader. Max 50% of the partner pool.</p>
+                    </Field>
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-border bg-clinic-mist p-4 text-sm leading-6 text-slate-600 sm:col-span-2">
+                    The partner controls leader and consultant commission percentages from their partner workspace.
                   </div>
-                  <p className="text-xs leading-5 text-slate-500">Used when this leader creates the sale. It is never calculated from full margin.</p>
-                </Field>
-                <Field label="Consultant override from partner pool">
-                  <div className="relative">
-                    <Input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue="0" className="pr-10" required />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
-                  </div>
-                  <p className="text-xs leading-5 text-slate-500">Used only for consultants under this leader and deducted inside the partner pool.</p>
-                </Field>
+                )}
               </div>
 
               <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
@@ -130,7 +144,15 @@ export function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: stri
   );
 }
 
-export function EditLeaderModal({ leader, returnTo }: { leader: Leader; returnTo?: string }) {
+export function EditLeaderModal({
+  leader,
+  returnTo,
+  canManageCommissions = false
+}: {
+  leader: Leader;
+  returnTo?: string;
+  canManageCommissions?: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const nameParts = leader.displayName.split(" ").filter(Boolean);
   const fallbackFirstName = nameParts[0] ?? "";
@@ -208,22 +230,28 @@ export function EditLeaderModal({ leader, returnTo }: { leader: Leader; returnTo
                       These percentages are calculated only from the partner pool, never from the full company margin.
                     </p>
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Direct sale share">
-                      <div className="relative">
-                        <Input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.commissionBps / 100} className="pr-10" required />
-                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
-                      </div>
-                      <p className="text-xs leading-5 text-slate-500">What this leader earns when they personally close a sale.</p>
-                    </Field>
-                    <Field label="Consultant override">
-                      <div className="relative">
-                        <Input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.consultantOverrideBps / 100} className="pr-10" required />
-                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
-                      </div>
-                      <p className="text-xs leading-5 text-slate-500">Optional share from sellers under this leader, deducted inside the partner pool.</p>
-                    </Field>
-                  </div>
+                  {canManageCommissions ? (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Direct sale share">
+                        <div className="relative">
+                          <Input name="commissionPercent" type="number" min="0" max="50" step="0.01" defaultValue={leader.commissionBps / 100} className="pr-10" required />
+                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
+                        </div>
+                        <p className="text-xs leading-5 text-slate-500">What this leader earns when they personally close a sale. Max 50% of partner pool.</p>
+                      </Field>
+                      <Field label="Consultant override">
+                        <div className="relative">
+                          <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue={leader.consultantOverrideBps / 100} className="pr-10" required />
+                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
+                        </div>
+                        <p className="text-xs leading-5 text-slate-500">Optional share from sellers under this leader. Max 50% of partner pool.</p>
+                      </Field>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-border bg-clinic-mist p-4 text-sm leading-6 text-slate-600">
+                      Commission percentages are controlled by the partner. Admins can edit identity and placement only.
+                    </div>
+                  )}
                 </section>
 
                 <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
@@ -245,8 +273,10 @@ export function EditLeaderModal({ leader, returnTo }: { leader: Leader; returnTo
                       The leader becomes an active seller. Current sellers under this leader move directly under the partner.
                     </p>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-[160px_auto]">
-                    <Input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" aria-label="Consultant share percent" />
+                  <div className={canManageCommissions ? "grid gap-3 sm:grid-cols-[160px_auto]" : "flex justify-end"}>
+                    {canManageCommissions ? (
+                      <Input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" aria-label="Consultant share percent" />
+                    ) : null}
                     <SubmitButton variant="outline" pendingText="Converting...">
                       <ArrowDownRight className="h-4 w-4" />
                       Convert
@@ -265,11 +295,13 @@ export function EditLeaderModal({ leader, returnTo }: { leader: Leader; returnTo
 export function LeaderSection({
   partnerProfileId,
   leaders,
-  returnTo
+  returnTo,
+  canManageCommissions = false
 }: {
   partnerProfileId: string;
   leaders: Leader[];
   returnTo?: string;
+  canManageCommissions?: boolean;
 }) {
   return (
     <div className="space-y-5">
@@ -278,7 +310,7 @@ export function LeaderSection({
           <h2 className="text-2xl font-semibold text-clinic-ink">Group leaders</h2>
           <p className="mt-1 text-sm text-slate-500">Manage leader profiles and how the partner margin pool is distributed.</p>
         </div>
-        <CreateLeaderModal partnerProfileId={partnerProfileId} />
+        <CreateLeaderModal partnerProfileId={partnerProfileId} canManageCommissions={canManageCommissions} />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -322,7 +354,7 @@ export function LeaderSection({
               >
                 View hierarchy
               </Link>
-              <EditLeaderModal leader={leader} returnTo={returnTo} />
+              <EditLeaderModal leader={leader} returnTo={returnTo} canManageCommissions={canManageCommissions} />
             </div>
           </div>
         ))}

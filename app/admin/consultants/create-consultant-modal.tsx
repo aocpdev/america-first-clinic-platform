@@ -30,7 +30,8 @@ export function CreateConsultantModal({
   groupLeaderName,
   groupLeaders = [],
   returnTo,
-  buttonLabel = "Create consultant"
+  buttonLabel = "Create consultant",
+  canManageSellerCommission = false
 }: {
   partnerProfileId: string;
   groupLeaderProfileId?: string | null;
@@ -41,6 +42,7 @@ export function CreateConsultantModal({
   }>;
   returnTo?: string;
   buttonLabel?: string;
+  canManageSellerCommission?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -108,12 +110,19 @@ export function CreateConsultantModal({
                     </select>
                   </Field>
                 ) : null}
-                <Field label="Consultant share">
-                  <div className="relative">
-                    <Input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" className="pr-10" required />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
+                {canManageSellerCommission ? (
+                  <Field label="Consultant share">
+                    <div className="relative">
+                      <Input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" className="pr-10" required />
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
+                    </div>
+                    <p className="text-xs leading-5 text-slate-500">Paid from the partner pool. Partners control this percentage.</p>
+                  </Field>
+                ) : (
+                  <div className="rounded-2xl border border-border bg-clinic-mist p-4 text-sm leading-6 text-slate-600">
+                    Consultant commission is controlled by the partner from their workspace.
                   </div>
-                </Field>
+                )}
               </div>
 
               <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">

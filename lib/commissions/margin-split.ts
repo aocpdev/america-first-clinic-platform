@@ -4,6 +4,11 @@ export const DEFAULT_MARGIN_POOL_BPS = 2500;
 export const DEFAULT_PARTNER_SPLIT_BPS = 5000;
 export const DEFAULT_GROUP_LEADER_SHARE_BPS = 2500;
 export const DEFAULT_CONSULTANT_SHARE_BPS = 5000;
+export const MAX_GROUP_LEADER_POOL_SHARE_BPS = 5000;
+
+export function clampGroupLeaderPoolShareBps(value: number | null | undefined) {
+  return Math.max(0, Math.min(MAX_GROUP_LEADER_POOL_SHARE_BPS, value ?? 0));
+}
 
 export function calculateMarginCommissionSplit({
   subtotalCents,
@@ -24,9 +29,10 @@ export function calculateMarginCommissionSplit({
 }) {
   const grossMarginCents = Math.max(0, subtotalCents - internalCostCents);
   const effectivePoolBps = partnerPoolBps ?? poolBps;
+  const effectiveGroupLeaderShareBps = clampGroupLeaderPoolShareBps(groupLeaderShareBps);
   const commissionPoolCents = Math.round((grossMarginCents * effectivePoolBps) / 10000);
   const legacyPartnerAmountCents = Math.round((commissionPoolCents * partnerSplitBps) / 10000);
-  const groupLeaderAmountCents = Math.round((commissionPoolCents * groupLeaderShareBps) / 10000);
+  const groupLeaderAmountCents = Math.round((commissionPoolCents * effectiveGroupLeaderShareBps) / 10000);
   const consultantAmountCents = consultantShareBps == null
     ? commissionPoolCents - legacyPartnerAmountCents
     : Math.round((commissionPoolCents * consultantShareBps) / 10000);
@@ -96,9 +102,9 @@ export async function createMarginCommissionLedger({
   const isConsultantSale = commissionMode === "CONSULTANT_PARTNER_SPLIT";
   const isGroupLeaderDirectSale = commissionMode === "GROUP_LEADER_DIRECT";
   const groupLeaderShareBps = isConsultantSale
-    ? groupLeaderProfile?.consultantOverrideBps ?? 0
+    ? clampGroupLeaderPoolShareBps(groupLeaderProfile?.consultantOverrideBps)
     : isGroupLeaderDirectSale
-      ? groupLeaderProfile?.commissionBps ?? 0
+      ? clampGroupLeaderPoolShareBps(groupLeaderProfile?.commissionBps)
       : 0;
   const consultantShareBps = isConsultantSale
     ? Math.max(0, (order.consultantProfile?.commissionBps ?? DEFAULT_CONSULTANT_SHARE_BPS) - groupLeaderShareBps)

@@ -42,12 +42,14 @@ function Field({
 export function EditConsultantModal({
   consultant,
   partnerProfileId,
-  returnTo
+  returnTo,
+  canManageSellerCommission = false
 }: {
   consultant: ConsultantForEdit;
   partnerProfileId: string;
   groupLeaders: LeaderOption[];
   returnTo: string;
+  canManageSellerCommission?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -122,24 +124,30 @@ export function EditConsultantModal({
                       This is the seller share from the partner pool. Leaders and consultants never see the full company margin split.
                     </p>
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <Field label="Consultant share">
-                      <div className="relative">
-                        <Input
-                          name="consultantCommissionPercent"
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          defaultValue={consultant.commissionPercent}
-                          className="pr-10"
-                          required
-                        />
-                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
-                      </div>
-                      <p className="text-xs leading-5 text-slate-500">Paid from the partner pool after the order reaches the payable stage.</p>
-                    </Field>
-                  </div>
+                  {canManageSellerCommission ? (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Consultant share">
+                        <div className="relative">
+                          <Input
+                            name="consultantCommissionPercent"
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            defaultValue={consultant.commissionPercent}
+                            className="pr-10"
+                            required
+                          />
+                          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
+                        </div>
+                        <p className="text-xs leading-5 text-slate-500">Paid from the partner pool after the order reaches the payable stage.</p>
+                      </Field>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-border bg-clinic-mist p-4 text-sm leading-6 text-slate-600">
+                      Consultant commission is controlled by the partner. Admins can edit identity and placement only.
+                    </div>
+                  )}
                 </section>
 
                 <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
@@ -161,9 +169,13 @@ export function EditConsultantModal({
                       Keeps historical sales intact and creates an active leader profile. Leader percentages are always paid from the partner pool.
                     </p>
                   </div>
-                  <div className="grid gap-3 sm:grid-cols-[150px_150px_auto]">
-                    <Input name="leaderCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="25" aria-label="Leader direct share of partner pool percent" />
-                    <Input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue="0" aria-label="Leader consultant override from partner pool percent" />
+                  <div className={canManageSellerCommission ? "grid gap-3 sm:grid-cols-[150px_150px_auto]" : "flex justify-end"}>
+                    {canManageSellerCommission ? (
+                      <>
+                        <Input name="leaderCommissionPercent" type="number" min="0" max="50" step="0.01" defaultValue="25" aria-label="Leader direct share of partner pool percent" />
+                        <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue="0" aria-label="Leader consultant override from partner pool percent" />
+                      </>
+                    ) : null}
                     <SubmitButton variant="outline" pendingText="Promoting...">
                       <ArrowUpRight className="h-4 w-4" />
                       Promote
