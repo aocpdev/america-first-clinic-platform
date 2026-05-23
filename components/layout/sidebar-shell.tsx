@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Bell, Search } from "lucide-react";
 import { stopImpersonation } from "@/app/(auth)/actions";
 import { ClinicLogo } from "@/components/layout/logo";
+import { MobileNav } from "@/components/layout/mobile-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,11 +75,11 @@ export async function SidebarShell({
           </div>
         ) : null}
         <header className="sticky top-0 z-30 border-b border-border bg-white/88 backdrop-blur-xl">
-          <div className="flex min-h-20 min-w-0 flex-col gap-3 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+          <div className="flex min-h-16 min-w-0 items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:min-h-20 lg:px-8">
             <div className="min-w-0">
-              <h1 className="text-2xl font-semibold text-clinic-ink">{title}</h1>
+              <h1 className="truncate text-xl font-semibold text-clinic-ink sm:text-2xl">{title}</h1>
             </div>
-            <div className="flex min-w-0 items-center gap-3">
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <div className="relative hidden w-72 max-w-[40vw] md:block">
                 <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
                 <Input className="pl-9" placeholder="Search customers, orders, products..." />
@@ -102,8 +103,9 @@ export async function SidebarShell({
             </div>
           </div>
         </header>
-        <div className="min-w-0 overflow-x-clip px-4 py-6 sm:px-6 lg:px-8">{children}</div>
+        <div className="min-w-0 overflow-x-clip px-3 py-4 pb-28 sm:px-6 sm:py-6 lg:px-8 lg:pb-8">{children}</div>
       </main>
+      <MobileNav nav={nav} />
     </div>
   );
 }

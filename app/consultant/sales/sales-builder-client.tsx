@@ -348,7 +348,7 @@ export function SalesBuilderClient({
   }
 
   return (
-    <div className="min-w-0 space-y-6 pb-28 xl:pb-0">
+    <div className="min-w-0 space-y-6 pb-48 xl:pb-0">
       {createdOrderId && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
           {successMessage}
@@ -402,7 +402,7 @@ export function SalesBuilderClient({
         ))}
 
         <div className="flex min-w-0 flex-col gap-6">
-          <Card className="order-2 min-w-0 overflow-visible rounded-2xl">
+          <Card className="order-1 min-w-0 overflow-visible rounded-2xl">
             <div className="border-b border-border p-5">
               <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="min-w-0">
@@ -596,7 +596,7 @@ export function SalesBuilderClient({
             </div>
           </Card>
 
-          <Card className="order-3 min-w-0 overflow-hidden rounded-2xl">
+          <Card className="order-2 min-w-0 overflow-hidden rounded-2xl">
             <div className="border-b border-border p-5">
               <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
@@ -731,7 +731,7 @@ export function SalesBuilderClient({
             </div>
           </Card>
 
-          <Card className="order-1 min-w-0 overflow-hidden rounded-2xl">
+          <Card className="order-3 min-w-0 overflow-hidden rounded-2xl">
             <div className="border-b border-border p-5">
               <div className="space-y-5">
                 <div className="max-w-3xl">
@@ -741,8 +741,8 @@ export function SalesBuilderClient({
                     Find the right products, add quantities, and review the order total before collecting payment or sending an invoice.
                   </p>
                 </div>
-                <div className="grid w-full min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(140px,180px)_minmax(140px,170px)]">
-                  <div className="relative">
+                <div className="grid w-full min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(140px,180px)_minmax(140px,170px)]">
+                  <div className="relative sm:col-span-2 lg:col-span-1">
                     <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                     <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products..." className="pl-9" />
                   </div>
@@ -945,8 +945,8 @@ export function SalesBuilderClient({
         </div>
       </form>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/70 bg-white/92 p-3 shadow-[0_-18px_50px_rgba(7,55,99,0.12)] backdrop-blur-xl lg:left-72 xl:hidden">
-        <div className="mx-auto grid max-w-5xl grid-cols-[1fr_1fr_auto] items-center gap-2">
+      <div className="fixed inset-x-0 bottom-[calc(4.85rem+env(safe-area-inset-bottom))] z-40 border-t border-white/70 bg-white/92 p-3 shadow-[0_-18px_50px_rgba(7,55,99,0.12)] backdrop-blur-xl lg:left-72 xl:hidden">
+        <div className="mx-auto grid max-w-5xl grid-cols-2 items-center gap-2 sm:grid-cols-[1fr_1fr_auto]">
           <div className="min-w-0 rounded-2xl bg-clinic-mist px-3 py-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Total</p>
             <p className="truncate text-lg font-semibold text-clinic-navy">{formatCurrency(subtotalCents)}</p>
@@ -955,7 +955,7 @@ export function SalesBuilderClient({
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Commission</p>
             <p className="truncate text-lg font-semibold text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
           </div>
-          <div className="rounded-2xl border border-border bg-white px-3 py-2 text-center">
+          <div className="hidden rounded-2xl border border-border bg-white px-3 py-2 text-center sm:block">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Items</p>
             <p className="text-lg font-semibold text-clinic-ink">{selectedItemCount}</p>
           </div>

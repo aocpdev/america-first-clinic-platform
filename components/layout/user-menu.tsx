@@ -54,7 +54,7 @@ export function UserMenu({ user, profileHref, impersonationTargets = [] }: UserM
       </button>
 
       {open ? (
-        <div className="absolute right-0 mt-3 w-72 overflow-hidden rounded-2xl border border-border bg-white shadow-xl">
+        <div className="absolute right-0 mt-3 w-[min(20rem,calc(100vw-1rem))] overflow-hidden rounded-2xl border border-border bg-white shadow-xl">
           <div className="border-b border-border px-4 py-4">
             <p className="truncate text-sm font-semibold text-clinic-ink">{fullName}</p>
             <p className="mt-1 truncate text-xs text-slate-500">{user.email}</p>

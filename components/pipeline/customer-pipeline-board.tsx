@@ -159,8 +159,8 @@ export function CustomerPipelineBoard({
 
   return (
     <>
-      <div className="overflow-x-auto rounded-[2rem] border border-border bg-white/35 p-3 pb-5 shadow-line">
-        <div className="flex min-w-max gap-4">
+      <div className="snap-x snap-mandatory overflow-x-auto rounded-[2rem] border border-border bg-white/35 p-3 pb-5 shadow-line">
+        <div className="flex w-max min-w-full gap-3 sm:gap-4">
           {CUSTOMER_PIPELINE_STAGES.map((stage, index) => {
             const stageOpportunities = opportunitiesByStage.get(stage.value) ?? [];
             const stageValueCents = stageOpportunities.reduce((sum, opportunity) => sum + opportunity.opportunityValueCents, 0);
@@ -169,7 +169,7 @@ export function CustomerPipelineBoard({
             return (
               <section
                 key={stage.value}
-                className="w-[360px] shrink-0"
+                className="w-[min(86vw,22rem)] shrink-0 snap-start sm:w-[360px]"
                 onDragOver={(event) => {
                   if (canManageStages) event.preventDefault();
                 }}
@@ -195,7 +195,7 @@ export function CustomerPipelineBoard({
                   </div>
                 </div>
 
-                <div className="mt-4 max-h-[calc(100vh-19rem)] space-y-3 overflow-y-auto pr-2">
+                <div className="mt-4 max-h-[calc(100vh-18rem)] space-y-3 overflow-y-auto pr-2">
                   {stageOpportunities.map((opportunity) => (
                     <article
                       key={opportunity.id}
@@ -386,12 +386,12 @@ function OpportunityModal({
   const notes = noteEntries(opportunity.notes);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 px-4 py-8 backdrop-blur-sm">
-      <div className="flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-[2rem] border border-border bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-t-[2rem] border border-border bg-white shadow-2xl sm:rounded-[2rem]">
+        <div className="flex items-start justify-between gap-4 border-b border-border p-4 sm:p-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Opportunity</p>
-            <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">{opportunity.name}</h3>
+            <h3 className="mt-2 text-xl font-semibold text-clinic-ink sm:text-2xl">{opportunity.name}</h3>
             <p className="mt-1 text-sm text-slate-500">Manage notes, GFE, and RX records for this order.</p>
           </div>
           <button
@@ -404,11 +404,11 @@ function OpportunityModal({
         </div>
 
         <div className="grid min-h-0 flex-1 md:grid-cols-[220px_1fr]">
-          <aside className="border-b border-border bg-clinic-mist p-4 md:border-b-0 md:border-r">
+          <aside className="grid grid-cols-2 gap-2 border-b border-border bg-clinic-mist p-3 md:block md:border-b-0 md:border-r md:p-4">
             <button
               type="button"
               onClick={() => setTab("notes")}
-              className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
+              className={`flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-center text-sm font-semibold transition md:justify-start md:text-left ${
                 tab === "notes" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500 hover:bg-white/70"
               }`}
             >
@@ -418,7 +418,7 @@ function OpportunityModal({
             <button
               type="button"
               onClick={() => setTab("clinical")}
-              className={`mt-2 flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
+              className={`flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-center text-sm font-semibold transition md:mt-2 md:justify-start md:text-left ${
                 tab === "clinical" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500 hover:bg-white/70"
               }`}
             >
@@ -427,7 +427,7 @@ function OpportunityModal({
             </button>
           </aside>
 
-          <div className="min-h-0 overflow-y-auto p-6">
+          <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
             {tab === "notes" ? (
               <form action={updateOrderOpportunityDetails} className="space-y-5">
                 <input type="hidden" name="orderId" value={opportunity.id} />
@@ -617,12 +617,12 @@ function StagePickerModal({
   onMove: (stage: CustomerPipelineStage) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 px-4 py-8 backdrop-blur-sm">
-      <div className="w-full max-w-lg overflow-hidden rounded-[2rem] border border-border bg-white shadow-2xl">
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="w-full max-w-lg overflow-hidden rounded-t-[2rem] border border-border bg-white shadow-2xl sm:rounded-[2rem]">
+        <div className="flex items-start justify-between gap-4 border-b border-border p-4 sm:p-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Move opportunity</p>
-            <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">{opportunity.name}</h3>
+            <h3 className="mt-2 text-xl font-semibold text-clinic-ink sm:text-2xl">{opportunity.name}</h3>
             <p className="mt-1 text-sm text-slate-500">Choose the next step for this order record.</p>
           </div>
           <button
@@ -680,14 +680,14 @@ function StageMoveModal({
     stage === "APPROVAL" && !opportunity.clinicalDocuments.some((document) => document.type === "RX" || document.type === "GFE");
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 px-4 py-8 backdrop-blur-sm">
-      <form action={updatePipelineOrderStage} className="w-full max-w-xl overflow-hidden rounded-[2rem] border border-border bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <form action={updatePipelineOrderStage} className="w-full max-w-xl overflow-hidden rounded-t-[2rem] border border-border bg-white shadow-2xl sm:rounded-[2rem]">
         <input type="hidden" name="orderId" value={opportunity.id} />
         <input type="hidden" name="orderPipelineStage" value={stage} />
-        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
+        <div className="flex items-start justify-between gap-4 border-b border-border p-4 sm:p-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Move opportunity</p>
-            <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">{stageLabel}</h3>
+            <h3 className="mt-2 text-xl font-semibold text-clinic-ink sm:text-2xl">{stageLabel}</h3>
             <p className="mt-1 text-sm text-slate-500">{opportunity.name}</p>
           </div>
           <button type="button" onClick={onClose} className="grid size-10 place-items-center rounded-full border border-border text-slate-500 transition hover:bg-clinic-mist">
@@ -695,7 +695,7 @@ function StageMoveModal({
           </button>
         </div>
 
-        <div className="space-y-4 p-6">
+        <div className="max-h-[60vh] space-y-4 overflow-y-auto p-4 sm:p-6">
           {needsRefund ? (
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4">
               <p className="text-sm font-semibold text-red-700">This captured payment must be refunded before moving to Deferred.</p>
@@ -743,7 +743,7 @@ function StageMoveModal({
           ) : null}
         </div>
 
-        <div className="flex flex-col-reverse gap-3 border-t border-border p-6 sm:flex-row sm:justify-end">
+        <div className="flex flex-col-reverse gap-3 border-t border-border p-4 sm:flex-row sm:justify-end sm:p-6">
           <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
           <SubmitButton pendingText="Moving..." variant="accent">
             <PackageCheck className="size-4" />
