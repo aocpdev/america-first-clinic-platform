@@ -66,7 +66,7 @@ export function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: stri
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner team</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Create group leader</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Add a leader under this partner and define how they participate in direct sales and consultant overrides.
+                  Add a leader under this partner and define their share of the partner margin pool for direct sales and consultant overrides.
                 </p>
               </div>
               <button
@@ -97,17 +97,19 @@ export function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: stri
                 <Field label="Temporary password">
                   <Input name="password" type="password" minLength={8} placeholder="Minimum 8 characters" required />
                 </Field>
-                <Field label="Direct sale commission">
+                <Field label="Direct share of partner pool">
                   <div className="relative">
                     <Input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="25" className="pr-10" required />
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
                   </div>
+                  <p className="text-xs leading-5 text-slate-500">Used when this leader creates the sale. It is never calculated from full margin.</p>
                 </Field>
-                <Field label="Consultant override">
+                <Field label="Consultant override from partner pool">
                   <div className="relative">
                     <Input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue="0" className="pr-10" required />
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
                   </div>
+                  <p className="text-xs leading-5 text-slate-500">Used only for consultants under this leader and deducted inside the partner pool.</p>
                 </Field>
               </div>
 
@@ -157,13 +159,13 @@ export function EditLeaderModal({ leader, returnTo }: { leader: Leader; returnTo
             <form action={updateGroupLeaderProfile} className="grid gap-5 p-6">
               <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
               <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Direct sale commission">
+                <Field label="Direct share of partner pool">
                   <div className="relative">
                     <Input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.commissionBps / 100} className="pr-10" required />
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
                   </div>
                 </Field>
-                <Field label="Consultant override">
+                <Field label="Consultant override from partner pool">
                   <div className="relative">
                     <Input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.consultantOverrideBps / 100} className="pr-10" required />
                     <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
@@ -220,7 +222,7 @@ export function LeaderSection({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-clinic-ink">Group leaders</h2>
-          <p className="mt-1 text-sm text-slate-500">Manage leader profiles, direct-sale commissions, and consultant override rules.</p>
+          <p className="mt-1 text-sm text-slate-500">Manage leader profiles and how the partner margin pool is distributed.</p>
         </div>
         <CreateLeaderModal partnerProfileId={partnerProfileId} />
       </div>
@@ -251,11 +253,11 @@ export function LeaderSection({
             <div className="mt-5 grid grid-cols-2 gap-2 text-center text-xs font-semibold text-slate-500">
               <div className="rounded-2xl bg-clinic-mist px-2 py-3">
                 <p className="text-2xl text-clinic-navy">{percentLabel(leader.commissionBps)}</p>
-                <p className="mt-1">Direct sales</p>
+                <p className="mt-1">Direct pool</p>
               </div>
               <div className="rounded-2xl bg-blue-50 px-2 py-3">
                 <p className="text-2xl text-clinic-navy">{percentLabel(leader.consultantOverrideBps)}</p>
-                <p className="mt-1">Override</p>
+                <p className="mt-1">Override pool</p>
               </div>
             </div>
 

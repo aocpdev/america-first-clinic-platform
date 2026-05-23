@@ -173,7 +173,7 @@ export default async function PartnerConsultantsPage({
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-2xl font-semibold text-clinic-ink">Group leaders</h2>
-                <p className="mt-1 text-sm text-slate-500">Manage leaders and their consultant override rules inside your partner network.</p>
+                <p className="mt-1 text-sm text-slate-500">Manage how your partner pool is shared with leaders and assigned sellers.</p>
               </div>
               <CreateLeaderModal partnerProfileId={partnerProfile.id} />
             </div>
@@ -207,11 +207,11 @@ export default async function PartnerConsultantsPage({
                     <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs font-semibold text-slate-500">
                       <div className="rounded-2xl bg-clinic-mist px-2 py-3">
                         <p className="text-2xl text-clinic-navy">{percentLabel(leader.commissionBps)}</p>
-                        <p className="mt-1">Direct</p>
+                        <p className="mt-1">Direct pool</p>
                       </div>
                       <div className="rounded-2xl bg-blue-50 px-2 py-3">
                         <p className="text-2xl text-clinic-navy">{percentLabel(leader.consultantOverrideBps)}</p>
-                        <p className="mt-1">Override</p>
+                        <p className="mt-1">Override pool</p>
                       </div>
                       <div className="rounded-2xl bg-clinic-mist px-2 py-3">
                         <p className="text-2xl text-clinic-navy">{leaderConsultants.length}</p>

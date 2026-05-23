@@ -136,12 +136,12 @@ export function EditConsultantModal({
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Role conversion</p>
                   <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Promote consultant to group leader</h4>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    Keeps historical sales intact and creates an active leader profile for future sales and team assignment.
+                    Keeps historical sales intact and creates an active leader profile. Leader percentages are always paid from the partner pool.
                   </p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-[130px_130px_auto]">
-                  <Input name="leaderCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="25" aria-label="Leader direct sale commission percent" />
-                  <Input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue="0" aria-label="Leader consultant override percent" />
+                  <Input name="leaderCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="25" aria-label="Leader direct share of partner pool percent" />
+                  <Input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue="0" aria-label="Leader consultant override from partner pool percent" />
                   <SubmitButton variant="outline" pendingText="Promoting...">
                     <ArrowUpRight className="h-4 w-4" />
                     Promote
