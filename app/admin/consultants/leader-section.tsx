@@ -19,7 +19,10 @@ type Leader = {
   commissionBps: number;
   consultantOverrideBps: number;
   user: {
+    firstName: string | null;
+    lastName: string | null;
     email: string;
+    phone: string | null;
     avatarUrl: string | null;
   };
 };
@@ -129,6 +132,9 @@ export function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: stri
 
 export function EditLeaderModal({ leader, returnTo }: { leader: Leader; returnTo?: string }) {
   const [open, setOpen] = useState(false);
+  const nameParts = leader.displayName.split(" ").filter(Boolean);
+  const fallbackFirstName = nameParts[0] ?? "";
+  const fallbackLastName = nameParts.slice(1).join(" ");
 
   return (
     <>
@@ -139,12 +145,14 @@ export function EditLeaderModal({ leader, returnTo }: { leader: Leader; returnTo
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="mx-auto max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
+          <div className="mx-auto max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
             <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Leader profile</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">{leader.displayName}</h3>
-                <p className="mt-2 text-sm text-slate-600">{leader.user.email}</p>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                  Edit identity, contact information, and the leader payout rules inside the partner margin pool.
+                </p>
               </div>
               <button
                 type="button"
@@ -156,51 +164,97 @@ export function EditLeaderModal({ leader, returnTo }: { leader: Leader; returnTo
               </button>
             </div>
 
-            <form action={updateGroupLeaderProfile} className="grid gap-5 p-6">
-              <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Direct share of partner pool">
-                  <div className="relative">
-                    <Input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.commissionBps / 100} className="pr-10" required />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
-                  </div>
-                </Field>
-                <Field label="Consultant override from partner pool">
-                  <div className="relative">
-                    <Input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.consultantOverrideBps / 100} className="pr-10" required />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
-                  </div>
-                </Field>
-              </div>
+            <div className="max-h-[calc(92vh-120px)] overflow-y-auto p-6">
+              <form action={updateGroupLeaderProfile} className="grid gap-5">
+                <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
 
-              <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <SubmitButton variant="accent" pendingText="Saving leader...">Save leader</SubmitButton>
-              </div>
-            </form>
+                <section className="rounded-3xl border border-border bg-clinic-mist/50 p-5">
+                  <div className="mb-5 flex items-center gap-3">
+                    <div
+                      className="grid size-14 shrink-0 place-items-center rounded-2xl border border-border bg-white bg-cover bg-center text-base font-bold text-clinic-navy"
+                      style={leader.user.avatarUrl ? { backgroundImage: `url(${leader.user.avatarUrl})` } : undefined}
+                    >
+                      {leader.user.avatarUrl ? null : initialsFromName(leader.displayName)}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Identity</p>
+                      <h4 className="text-xl font-semibold text-clinic-ink">Personal information</h4>
+                    </div>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="First name">
+                      <Input name="firstName" defaultValue={leader.user.firstName ?? fallbackFirstName} placeholder="First name" required />
+                    </Field>
+                    <Field label="Last name">
+                      <Input name="lastName" defaultValue={leader.user.lastName ?? fallbackLastName} placeholder="Last name" required />
+                    </Field>
+                    <Field label="Display name">
+                      <Input name="displayName" defaultValue={leader.displayName} placeholder="Public team name" />
+                    </Field>
+                    <Field label="Email">
+                      <Input name="email" type="email" defaultValue={leader.user.email} placeholder="leader@company.com" required />
+                    </Field>
+                    <Field label="Phone">
+                      <PhoneInput name="phone" defaultValue={leader.user.phone ?? ""} />
+                    </Field>
+                  </div>
+                </section>
 
-            <form action={convertLeaderToConsultant} className="border-t border-border bg-clinic-mist/50 px-6 py-5">
-              <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
-              {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
-              <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Role conversion</p>
-                  <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Convert leader to consultant</h4>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    The leader becomes an active seller. Current sellers under this leader move directly under the partner.
-                  </p>
+                <section className="rounded-3xl border border-border bg-white p-5">
+                  <div className="mb-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner pool</p>
+                    <h4 className="mt-1 text-xl font-semibold text-clinic-ink">Commission rules</h4>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      These percentages are calculated only from the partner pool, never from the full company margin.
+                    </p>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <Field label="Direct sale share">
+                      <div className="relative">
+                        <Input name="commissionPercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.commissionBps / 100} className="pr-10" required />
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
+                      </div>
+                      <p className="text-xs leading-5 text-slate-500">What this leader earns when they personally close a sale.</p>
+                    </Field>
+                    <Field label="Consultant override">
+                      <div className="relative">
+                        <Input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue={leader.consultantOverrideBps / 100} className="pr-10" required />
+                        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
+                      </div>
+                      <p className="text-xs leading-5 text-slate-500">Optional share from sellers under this leader, deducted inside the partner pool.</p>
+                    </Field>
+                  </div>
+                </section>
+
+                <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    Cancel
+                  </Button>
+                  <SubmitButton variant="accent" pendingText="Saving leader...">Save leader</SubmitButton>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-[150px_auto]">
-                  <Input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" aria-label="Consultant share percent" />
-                  <SubmitButton variant="outline" pendingText="Converting...">
-                    <ArrowDownRight className="h-4 w-4" />
-                    Convert
-                  </SubmitButton>
+              </form>
+
+              <form action={convertLeaderToConsultant} className="mt-5 rounded-3xl border border-border bg-clinic-mist/60 p-5">
+                <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
+                {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
+                <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Role conversion</p>
+                    <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Convert leader to consultant</h4>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      The leader becomes an active seller. Current sellers under this leader move directly under the partner.
+                    </p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-[160px_auto]">
+                    <Input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" aria-label="Consultant share percent" />
+                    <SubmitButton variant="outline" pendingText="Converting...">
+                      <ArrowDownRight className="h-4 w-4" />
+                      Convert
+                    </SubmitButton>
+                  </div>
                 </div>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       ) : null}

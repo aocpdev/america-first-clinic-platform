@@ -80,9 +80,9 @@ export async function registerUser(formData: FormData) {
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
   const phone = normalizePhoneToE164(formValue(formData, "phone"));
-  const requestedRole = roleSchema.extract(["CONSULTANT"]).catch("CONSULTANT").parse("CONSULTANT");
+  const requestedRole = roleSchema.extract(["CONSULTANT", "GROUP_LEADER"]).catch("CONSULTANT").parse(formValue(formData, "requestedRole") || "CONSULTANT");
   const requestedPartnerProfileId = formValue(formData, "requestedPartnerProfileId");
-  const requestedGroupLeaderProfileId = formValue(formData, "requestedGroupLeaderProfileId") || null;
+  const requestedGroupLeaderProfileId = requestedRole === "CONSULTANT" ? formValue(formData, "requestedGroupLeaderProfileId") || null : null;
 
   if (!firstName || !lastName || !email || password.length < 8 || !requestedPartnerProfileId) {
     redirect("/register?error=invalid_registration");
@@ -117,7 +117,7 @@ export async function registerUser(formData: FormData) {
   }
 
   const status = UserStatus.PENDING_APPROVAL;
-  const role = UserRole.CONSULTANT;
+  const role = requestedRole === "GROUP_LEADER" ? UserRole.GROUP_LEADER : UserRole.CONSULTANT;
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -310,10 +310,12 @@ export async function approveConsultant(formData: FormData) {
   const requestedFormPartnerProfileId = formValue(formData, "partnerProfileId") || null;
   const requestedGroupLeaderProfileId = formValue(formData, "groupLeaderProfileId") || null;
   let consultantCommissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
+  const leaderCommissionBps = bpsFromPercentInput(formValue(formData, "leaderCommissionPercent"), 2500);
+  const leaderConsultantOverrideBps = bpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
-  if (!user || user.requestedRole !== "CONSULTANT") {
-    redirect("/admin/consultants?error=consultant_not_found");
+  if (!user || (user.requestedRole !== "CONSULTANT" && user.requestedRole !== "GROUP_LEADER")) {
+    redirect("/admin/consultants?error=application_not_found");
   }
 
   const company = await getAmericaFirstClinic();
@@ -327,6 +329,9 @@ export async function approveConsultant(formData: FormData) {
     }
     partnerProfileId = partnerProfile.id;
   } else if (approver.role === "GROUP_LEADER") {
+    if (user.requestedRole !== "CONSULTANT") {
+      redirect("/partner/consultants?error=access_denied");
+    }
     const groupLeaderProfile = await prisma.groupLeaderProfile.findUnique({ where: { userId: approver.id } });
     if (!groupLeaderProfile || user.requestedPartnerProfileId !== groupLeaderProfile.partnerProfileId) {
       redirect("/partner/consultants?error=access_denied");
@@ -336,6 +341,81 @@ export async function approveConsultant(formData: FormData) {
     consultantCommissionBps = 5000;
   } else if (approver.role !== "COMPANY_ADMIN" && approver.role !== "SUPER_ADMIN") {
     redirect("/login?error=access_denied");
+  }
+
+  if (user.requestedRole === "GROUP_LEADER") {
+    if (!partnerProfileId) {
+      redirect("/admin/consultants?error=invalid_partner");
+    }
+
+    const displayName = displayNameForUser(user);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          role: "GROUP_LEADER",
+          status: "ACTIVE",
+          isActive: true,
+          approvedAt: new Date(),
+          approvedByUserId: approver.id,
+          rejectedAt: null,
+          rejectionReason: null,
+          requestedGroupLeaderProfileId: null
+        }
+      });
+
+      const leader = await tx.groupLeaderProfile.upsert({
+        where: { userId: user.id },
+        update: {
+          companyId: company.id,
+          partnerProfileId,
+          displayName,
+          commissionBps: leaderCommissionBps,
+          consultantOverrideBps: leaderConsultantOverrideBps
+        },
+        create: {
+          userId: user.id,
+          companyId: company.id,
+          partnerProfileId,
+          displayName,
+          commissionBps: leaderCommissionBps,
+          consultantOverrideBps: leaderConsultantOverrideBps
+        }
+      });
+
+      await tx.user.update({
+        where: { id: user.id },
+        data: { requestedGroupLeaderProfileId: leader.id }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          companyId: company.id,
+          userId: approver.id,
+          action: "GROUP_LEADER_APPROVED",
+          resource: "User",
+          resourceId: user.id,
+          metadata: { partnerProfileId, groupLeaderProfileId: leader.id, leaderCommissionBps, leaderConsultantOverrideBps }
+        }
+      });
+    });
+
+    const adminClient = createSupabaseAdminClient();
+    await adminClient.auth.admin.updateUserById(user.authUserId, {
+      app_metadata: {
+        role: "GROUP_LEADER",
+        company_id: company.id,
+        status: "ACTIVE"
+      }
+    });
+
+    revalidatePath("/admin/consultants");
+    revalidatePath("/partner/consultants");
+    if (approver.role === "PARTNER") {
+      redirect("/partner/consultants?updated=leader_approved");
+    }
+    redirect(`/admin/consultants?partnerId=${partnerProfileId}&section=approval&updated=leader_approved`);
   }
 
   if (groupLeaderProfileId) {
@@ -423,8 +503,8 @@ export async function rejectConsultant(formData: FormData) {
   const reason = formValue(formData, "reason") || "Application rejected.";
   const user = await prisma.user.findUnique({ where: { id: userId } });
 
-  if (!user || user.requestedRole !== "CONSULTANT") {
-    redirect("/admin/consultants?error=consultant_not_found");
+  if (!user || (user.requestedRole !== "CONSULTANT" && user.requestedRole !== "GROUP_LEADER")) {
+    redirect("/admin/consultants?error=application_not_found");
   }
 
   if (approver.role === "PARTNER") {
@@ -433,6 +513,9 @@ export async function rejectConsultant(formData: FormData) {
       redirect("/partner/consultants?error=access_denied");
     }
   } else if (approver.role === "GROUP_LEADER") {
+    if (user.requestedRole !== "CONSULTANT") {
+      redirect("/partner/consultants?error=access_denied");
+    }
     const groupLeaderProfile = await prisma.groupLeaderProfile.findUnique({ where: { userId: approver.id } });
     if (
       !groupLeaderProfile ||
@@ -922,10 +1005,15 @@ export async function updateGroupLeaderProfile(formData: FormData) {
   const groupLeaderProfileId = formValue(formData, "groupLeaderProfileId");
   const commissionBps = bpsFromPercentInput(formValue(formData, "commissionPercent"), 2500);
   const consultantOverrideBps = bpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
+  const hasProfileFields = formData.has("firstName") || formData.has("lastName") || formData.has("email") || formData.has("phone") || formData.has("displayName");
+  const firstName = formValue(formData, "firstName");
+  const lastName = formValue(formData, "lastName");
+  const email = formValue(formData, "email").toLowerCase();
+  const displayNameInput = formValue(formData, "displayName");
 
   const leader = await prisma.groupLeaderProfile.findUnique({
     where: { id: groupLeaderProfileId },
-    include: { partnerProfile: true }
+    include: { partnerProfile: true, user: true }
   });
 
   if (!leader) {
@@ -941,9 +1029,49 @@ export async function updateGroupLeaderProfile(formData: FormData) {
     redirect("/login?error=access_denied");
   }
 
-  await prisma.groupLeaderProfile.update({
-    where: { id: leader.id },
-    data: { commissionBps, consultantOverrideBps }
+  const nextEmail = email || leader.user.email;
+  const phone = formData.has("phone") ? normalizePhoneToE164(formValue(formData, "phone")) : leader.user.phone;
+  const nextDisplayName = displayNameInput || [firstName, lastName].filter(Boolean).join(" ").trim() || leader.displayName;
+  const errorPath = actor.role === "PARTNER" ? "/partner/consultants" : `/admin/consultants?partnerId=${leader.partnerProfileId}&section=leaders`;
+
+  if (hasProfileFields && (nextEmail !== leader.user.email || phone !== leader.user.phone)) {
+    await assertUniqueUserContact({
+      email: nextEmail,
+      phone,
+      redirectPath: errorPath,
+      excludeUserId: leader.userId
+    });
+  }
+
+  if (hasProfileFields && nextEmail !== leader.user.email && leader.user.authUserId) {
+    const adminClient = createSupabaseAdminClient();
+    const { error } = await adminClient.auth.admin.updateUserById(leader.user.authUserId, {
+      email: nextEmail,
+      email_confirm: true
+    });
+
+    if (error) {
+      redirectWithError(errorPath, error.message || "leader_email_update_failed");
+    }
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.groupLeaderProfile.update({
+      where: { id: leader.id },
+      data: { displayName: nextDisplayName, commissionBps, consultantOverrideBps }
+    });
+
+    if (hasProfileFields) {
+      await tx.user.update({
+        where: { id: leader.userId },
+        data: {
+          ...(formData.has("firstName") ? { firstName: firstName || null } : {}),
+          ...(formData.has("lastName") ? { lastName: lastName || null } : {}),
+          ...(formData.has("email") ? { email: nextEmail } : {}),
+          ...(formData.has("phone") ? { phone } : {})
+        }
+      });
+    }
   });
 
   revalidatePath("/admin/consultants");

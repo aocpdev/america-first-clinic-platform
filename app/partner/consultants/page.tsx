@@ -40,6 +40,7 @@ export default async function PartnerConsultantsPage({
     duplicate_email: "That email is already assigned to another partner, leader, or consultant.",
     duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant.",
     invalid_group_leader: "That leader does not belong to your partner network.",
+    application_not_found: "That application could not be found or has already been processed.",
     consultant_not_found: "That consultant could not be found.",
     access_denied: "You do not have permission to move that seller."
   };
@@ -62,7 +63,7 @@ export default async function PartnerConsultantsPage({
     ? await Promise.all([
         prisma.user.findMany({
           where: {
-            requestedRole: "CONSULTANT",
+            requestedRole: groupLeaderProfile ? "CONSULTANT" : { in: ["CONSULTANT", "GROUP_LEADER"] },
             status: "PENDING_APPROVAL",
             requestedPartnerProfileId: effectivePartnerProfileId,
             ...(groupLeaderProfile ? { requestedGroupLeaderProfileId: groupLeaderProfile.id } : {})
@@ -300,47 +301,82 @@ export default async function PartnerConsultantsPage({
               </div>
             </div>
             <div className="divide-y divide-border bg-white">
-              {pendingConsultants.map((applicant) => (
-                <div key={applicant.id} className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <p className="font-semibold text-clinic-ink">{displayName(applicant)}</p>
-                    <p className="mt-1 text-sm text-slate-500">{applicant.email}</p>
+              {pendingConsultants.map((applicant) => {
+                const isLeaderApplication = applicant.requestedRole === "GROUP_LEADER";
+                return (
+                  <div key={applicant.id} className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-clinic-ink">{displayName(applicant)}</p>
+                        <Badge className={isLeaderApplication ? "border-blue-100 bg-blue-50 text-clinic-navy" : "border-emerald-100 bg-emerald-50 text-emerald-700"}>
+                          {isLeaderApplication ? "Group leader" : "Seller"}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 text-sm text-slate-500">{applicant.email}</p>
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <form action={rejectConsultant}>
+                        <input type="hidden" name="userId" value={applicant.id} />
+                        <input type="hidden" name="reason" value="Application rejected by partner." />
+                        <SubmitButton size="sm" variant="outline" pendingText="Rejecting...">Reject</SubmitButton>
+                      </form>
+                      <form action={approveConsultant} className="flex flex-wrap justify-end gap-2">
+                        <input type="hidden" name="userId" value={applicant.id} />
+                        {isLeaderApplication ? (
+                          <>
+                            <input
+                              name="leaderCommissionPercent"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              defaultValue="25"
+                              className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                              aria-label="Leader direct share of partner pool"
+                            />
+                            <input
+                              name="consultantOverridePercent"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              defaultValue="0"
+                              className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                              aria-label="Leader override from consultant sales"
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <select
+                              name="groupLeaderProfileId"
+                              className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                              defaultValue={applicant.requestedGroupLeaderProfileId ?? ""}
+                            >
+                              <option value="">Direct partner</option>
+                              {groupLeaders.map((leader) => (
+                                <option key={leader.id} value={leader.id}>{leader.displayName}</option>
+                              ))}
+                            </select>
+                            <input
+                              name="consultantCommissionPercent"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              defaultValue="50"
+                              className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                              aria-label="Consultant share of partner pool"
+                            />
+                          </>
+                        )}
+                        <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
+                      </form>
+                    </div>
                   </div>
-                  <div className="flex flex-wrap justify-end gap-2">
-                    <form action={rejectConsultant}>
-                      <input type="hidden" name="userId" value={applicant.id} />
-                      <input type="hidden" name="reason" value="Application rejected by partner." />
-                      <SubmitButton size="sm" variant="outline" pendingText="Rejecting...">Reject</SubmitButton>
-                    </form>
-                    <form action={approveConsultant} className="flex flex-wrap justify-end gap-2">
-                      <input type="hidden" name="userId" value={applicant.id} />
-                      <select
-                        name="groupLeaderProfileId"
-                        className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                        defaultValue={applicant.requestedGroupLeaderProfileId ?? ""}
-                      >
-                        <option value="">Direct partner</option>
-                        {groupLeaders.map((leader) => (
-                          <option key={leader.id} value={leader.id}>{leader.displayName}</option>
-                        ))}
-                      </select>
-                      <input
-                        name="consultantCommissionPercent"
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        defaultValue="50"
-                        className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                        aria-label="Consultant share of partner pool"
-                      />
-                      <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
-                    </form>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {pendingConsultants.length === 0 ? (
-                <p className="p-5 text-sm text-slate-500">No consultant applications are waiting for approval.</p>
+                <p className="p-5 text-sm text-slate-500">No applications are waiting for approval.</p>
               ) : null}
             </div>
           </Card>

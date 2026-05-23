@@ -59,7 +59,7 @@ export default async function AdminConsultantsPage({
   const [pendingConsultants, partners] = await Promise.all([
     prisma.user.findMany({
       where: {
-        requestedRole: "CONSULTANT",
+        requestedRole: { in: ["CONSULTANT", "GROUP_LEADER"] },
         status: "PENDING_APPROVAL"
       },
       orderBy: { createdAt: "desc" }
@@ -138,6 +138,7 @@ export default async function AdminConsultantsPage({
     duplicate_email: "That email is already assigned to another partner, leader, or consultant.",
     duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant.",
     invalid_group_leader: "That leader does not belong to this partner network.",
+    application_not_found: "That application could not be found or has already been processed.",
     consultant_not_found: "That consultant could not be found.",
     access_denied: "You do not have permission to move that seller."
   };
@@ -490,34 +491,51 @@ export default async function AdminConsultantsPage({
                   <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Pending applications</h3>
                 </div>
                 <div className="divide-y divide-border">
-                  {selectedPending.map((user) => (
-                    <div key={user.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
-                      <div>
-                        <p className="font-semibold text-clinic-ink">{displayUserName(user)}</p>
-                        <p className="mt-1 text-sm text-slate-500">{user.email}</p>
+                  {selectedPending.map((user) => {
+                    const isLeaderApplication = user.requestedRole === "GROUP_LEADER";
+                    return (
+                      <div key={user.id} className="grid gap-4 p-5 lg:grid-cols-[1fr_auto] lg:items-center">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-semibold text-clinic-ink">{displayUserName(user)}</p>
+                            <Badge className={isLeaderApplication ? "border-blue-100 bg-blue-50 text-clinic-navy" : "border-emerald-100 bg-emerald-50 text-emerald-700"}>
+                              {isLeaderApplication ? "Group leader" : "Seller"}
+                            </Badge>
+                          </div>
+                          <p className="mt-1 text-sm text-slate-500">{user.email}</p>
+                        </div>
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <form action={rejectConsultant}>
+                            <input type="hidden" name="userId" value={user.id} />
+                            <input type="hidden" name="reason" value="Application rejected by company admin." />
+                            <SubmitButton size="sm" variant="outline" pendingText="Rejecting...">Reject</SubmitButton>
+                          </form>
+                          <form action={approveConsultant} className="flex flex-wrap justify-end gap-2">
+                            <input type="hidden" name="userId" value={user.id} />
+                            <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
+                            {isLeaderApplication ? (
+                              <>
+                                <input name="leaderCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="25" className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Leader direct share of partner pool" />
+                                <input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue="0" className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Leader override from consultant sales" />
+                              </>
+                            ) : (
+                              <>
+                                <select name="groupLeaderProfileId" className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" defaultValue={user.requestedGroupLeaderProfileId ?? ""}>
+                                  <option value="">Direct partner</option>
+                                  {selectedPartner.groupLeaders.map((leader) => (
+                                    <option key={leader.id} value={leader.id}>{leader.displayName}</option>
+                                  ))}
+                                </select>
+                                <input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" className="h-9 w-28 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Consultant share of partner pool" />
+                              </>
+                            )}
+                            <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
+                          </form>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <form action={rejectConsultant}>
-                          <input type="hidden" name="userId" value={user.id} />
-                          <input type="hidden" name="reason" value="Application rejected by company admin." />
-                          <SubmitButton size="sm" variant="outline" pendingText="Rejecting...">Reject</SubmitButton>
-                        </form>
-                        <form action={approveConsultant} className="flex flex-wrap justify-end gap-2">
-                          <input type="hidden" name="userId" value={user.id} />
-                          <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
-                          <select name="groupLeaderProfileId" className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" defaultValue={user.requestedGroupLeaderProfileId ?? ""}>
-                            <option value="">Direct partner</option>
-                            {selectedPartner.groupLeaders.map((leader) => (
-                              <option key={leader.id} value={leader.id}>{leader.displayName}</option>
-                            ))}
-                          </select>
-                          <input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" className="h-9 w-28 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" aria-label="Consultant share of partner pool" />
-                          <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>
-                        </form>
-                      </div>
-                    </div>
-                  ))}
-                  {selectedPending.length === 0 && <p className="p-5 text-sm text-slate-500">No pending consultants for this partner.</p>}
+                    );
+                  })}
+                  {selectedPending.length === 0 && <p className="p-5 text-sm text-slate-500">No pending applications for this partner.</p>}
                 </div>
               </Card>
               ) : null}

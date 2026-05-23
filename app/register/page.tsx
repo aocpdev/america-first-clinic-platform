@@ -1,12 +1,7 @@
-import Link from "next/link";
-import { registerUser } from "@/app/(auth)/actions";
 import { LegalFooter } from "@/components/layout/legal-footer";
 import { ClinicLogo } from "@/components/layout/logo";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { PhoneInput } from "@/components/ui/phone-input";
-import { SubmitButton } from "@/components/ui/submit-button";
 import { prisma } from "@/lib/db/prisma";
+import { RegisterForm } from "./register-form";
 
 export default async function RegisterPage({
   searchParams
@@ -16,7 +11,10 @@ export default async function RegisterPage({
   const { error } = await searchParams;
   const errorMessages: Record<string, string> = {
     duplicate_email: "That email is already registered. Please use another email or log in.",
-    duplicate_phone: "That phone number is already registered. Please use another phone number."
+    duplicate_phone: "That phone number is already registered. Please use another phone number.",
+    invalid_role: "Please choose whether you are registering as a seller or group leader.",
+    invalid_partner: "Please select a valid partner company.",
+    invalid_group_leader: "Please select a valid group leader for that partner."
   };
   const [partners, groupLeaders] = await Promise.all([
     prisma.partnerProfile.findMany({
@@ -39,74 +37,23 @@ export default async function RegisterPage({
 
   return (
     <main className="flex min-h-screen items-center justify-center px-4 py-12">
-      <div className="w-full max-w-lg">
-        <Card className="p-6 shadow-soft">
+      <div className="w-full max-w-2xl">
+        <div className="mb-5 flex justify-center">
           <ClinicLogo />
-          <h1 className="mt-8 text-3xl font-semibold text-clinic-ink">Create your account</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Consultant accounts require partner or admin approval before selling.
-          </p>
-          {error && (
-            <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
-              {errorMessages[error] ?? "Registration could not be completed. Please review your information and try again."}
-            </div>
-          )}
-          <form action={registerUser} className="mt-6 grid gap-4 sm:grid-cols-2">
-            <Input name="firstName" placeholder="First name" required />
-            <Input name="lastName" placeholder="Last name" required />
-            <Input className="sm:col-span-2" name="email" placeholder="Email address" type="email" required />
-            <PhoneInput className="sm:col-span-2" name="phone" />
-            <Input className="sm:col-span-2" name="password" placeholder="Password" type="password" minLength={8} required />
-            <label className="sm:col-span-2 text-sm font-semibold text-clinic-ink">
-              Partner company
-              <select
-                name="requestedPartnerProfileId"
-                className="mt-2 h-11 w-full rounded-lg border border-input bg-white px-3 text-sm shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                defaultValue=""
-                required
-              >
-                <option value="" disabled>Select your partner company</option>
-                {partners.map((partner) => (
-                  <option key={partner.id} value={partner.id}>
-                    {partner.companyName || partner.displayName}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="sm:col-span-2 text-sm font-semibold text-clinic-ink">
-              Group leader
-              <select
-                name="requestedGroupLeaderProfileId"
-                className="mt-2 h-11 w-full rounded-lg border border-input bg-white px-3 text-sm shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                defaultValue=""
-              >
-                <option value="">Direct to partner / not sure yet</option>
-                {partners.map((partner) => {
-                  const leaders = groupLeaders.filter((leader) => leader.partnerProfileId === partner.id);
-
-                  if (leaders.length === 0) {
-                    return null;
-                  }
-
-                  return (
-                    <optgroup key={partner.id} label={partner.companyName || partner.displayName}>
-                      {leaders.map((leader) => (
-                        <option key={leader.id} value={leader.id}>{leader.displayName}</option>
-                      ))}
-                    </optgroup>
-                  );
-                })}
-              </select>
-            </label>
-            <input type="hidden" name="requestedRole" value="CONSULTANT" />
-            <SubmitButton className="sm:col-span-2 mt-1 w-full" pendingText="Creating account..." variant="accent">
-              Request consultant access
-            </SubmitButton>
-          </form>
-          <p className="mt-5 text-center text-sm text-slate-500">
-            Already have an account? <Link href="/login" className="font-semibold text-clinic-blue">Log in</Link>
-          </p>
-        </Card>
+        </div>
+        <RegisterForm
+          partners={partners.map((partner) => ({
+            id: partner.id,
+            name: partner.companyName || partner.displayName
+          }))}
+          groupLeaders={groupLeaders.map((leader) => ({
+            id: leader.id,
+            partnerProfileId: leader.partnerProfileId,
+            displayName: leader.displayName
+          }))}
+          error={error}
+          errorMessage={error ? errorMessages[error] : undefined}
+        />
         <LegalFooter compact />
       </div>
     </main>
