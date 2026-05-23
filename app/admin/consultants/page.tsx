@@ -68,10 +68,12 @@ export default async function AdminConsultantsPage({
       include: {
         user: true,
         groupLeaders: {
+          where: { user: { is: { role: "GROUP_LEADER" } } },
           include: { user: true },
           orderBy: { displayName: "asc" }
         },
         consultants: {
+          where: { user: { is: { role: "CONSULTANT" } } },
           include: { user: true, groupLeaderProfile: true },
           orderBy: { createdAt: "desc" }
         }
@@ -350,6 +352,7 @@ export default async function AdminConsultantsPage({
               <LeaderSection
                 partnerProfileId={selectedPartner.id}
                 leaders={selectedPartner.groupLeaders}
+                returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=leaders`}
               />
               ) : null}
 

@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Pencil, X } from "lucide-react";
-import { updateConsultantCommercials } from "@/app/(auth)/actions";
+import { ArrowUpRight, Pencil, X } from "lucide-react";
+import { promoteConsultantToLeader, updateConsultantCommercials } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -125,6 +125,28 @@ export function EditConsultantModal({
                   Cancel
                 </Button>
                 <SubmitButton variant="accent" pendingText="Saving consultant...">Save consultant</SubmitButton>
+              </div>
+            </form>
+
+            <form action={promoteConsultantToLeader} className="border-t border-border bg-clinic-mist/50 px-6 py-5">
+              <input type="hidden" name="consultantProfileId" value={consultant.id} />
+              <input type="hidden" name="returnTo" value={returnTo} />
+              <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Role conversion</p>
+                  <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Promote consultant to group leader</h4>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    Keeps historical sales intact and creates an active leader profile for future sales and team assignment.
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-[130px_130px_auto]">
+                  <Input name="leaderCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="25" aria-label="Leader direct sale commission percent" />
+                  <Input name="consultantOverridePercent" type="number" min="0" max="100" step="0.01" defaultValue="0" aria-label="Leader consultant override percent" />
+                  <SubmitButton variant="outline" pendingText="Promoting...">
+                    <ArrowUpRight className="h-4 w-4" />
+                    Promote
+                  </SubmitButton>
+                </div>
               </div>
             </form>
           </div>

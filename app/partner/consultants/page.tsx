@@ -72,6 +72,7 @@ export default async function PartnerConsultantsPage({
         prisma.consultantProfile.findMany({
           where: {
             partnerProfileId: effectivePartnerProfileId,
+            user: { is: { role: "CONSULTANT" } },
             ...(groupLeaderProfile ? { groupLeaderProfileId: groupLeaderProfile.id } : {})
           },
           include: { user: true, groupLeaderProfile: true },
@@ -80,7 +81,7 @@ export default async function PartnerConsultantsPage({
         prisma.groupLeaderProfile.findMany({
           where: groupLeaderProfile
             ? { id: groupLeaderProfile.id }
-            : { partnerProfileId: effectivePartnerProfileId },
+            : { partnerProfileId: effectivePartnerProfileId, user: { is: { role: "GROUP_LEADER" } } },
           include: { user: true },
           orderBy: { displayName: "asc" }
         }),
@@ -225,7 +226,7 @@ export default async function PartnerConsultantsPage({
                       >
                         View hierarchy
                       </Link>
-                      <EditLeaderModal leader={leader} />
+                      <EditLeaderModal leader={leader} returnTo="/partner/consultants?section=leaders" />
                     </div>
                   </Card>
                 );

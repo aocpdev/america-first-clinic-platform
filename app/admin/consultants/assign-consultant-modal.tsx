@@ -120,6 +120,29 @@ export function AssignConsultantModal({
                 </div>
               </div>
 
+              <div className="rounded-3xl border border-amber-100 bg-amber-50/80 p-4">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-800">Pending commission handling</p>
+                <p className="mt-2 text-sm leading-6 text-slate-700">
+                  If this seller has pending leader commissions, choose whether those pending leader earnings stay with the original leader or move to the newly selected leader.
+                </p>
+                <div className="mt-4 grid gap-3">
+                  <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white bg-white p-4 shadow-line">
+                    <input type="radio" name="pendingLeaderCommissionMode" value="keep" defaultChecked className="mt-1 h-4 w-4 accent-clinic-navy" />
+                    <span>
+                      <span className="block font-semibold text-clinic-ink">Keep existing pending commissions</span>
+                      <span className="mt-1 block text-sm text-slate-500">Recommended for historical accuracy. Future sales follow the new assignment.</span>
+                    </span>
+                  </label>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white bg-white p-4 shadow-line">
+                    <input type="radio" name="pendingLeaderCommissionMode" value="move" className="mt-1 h-4 w-4 accent-clinic-navy" />
+                    <span>
+                      <span className="block font-semibold text-clinic-ink">Move pending leader commissions to the selected leader</span>
+                      <span className="mt-1 block text-sm text-slate-500">Only applies when assigning the seller to a leader and only affects pending leader splits.</span>
+                    </span>
+                  </label>
+                </div>
+              </div>
+
               <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                   Cancel

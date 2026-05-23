@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Pencil, Plus, X } from "lucide-react";
-import { createGroupLeader, updateGroupLeaderProfile } from "@/app/(auth)/actions";
+import { ArrowDownRight, Pencil, Plus, X } from "lucide-react";
+import { convertLeaderToConsultant, createGroupLeader, updateGroupLeaderProfile } from "@/app/(auth)/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import { percentLabel } from "@/lib/network/sales-hierarchy";
 type Leader = {
   id: string;
   userId: string;
+  partnerProfileId: string;
   displayName: string;
   commissionBps: number;
   consultantOverrideBps: number;
@@ -124,7 +125,7 @@ export function CreateLeaderModal({ partnerProfileId }: { partnerProfileId: stri
   );
 }
 
-export function EditLeaderModal({ leader }: { leader: Leader }) {
+export function EditLeaderModal({ leader, returnTo }: { leader: Leader; returnTo?: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -177,6 +178,27 @@ export function EditLeaderModal({ leader }: { leader: Leader }) {
                 <SubmitButton variant="accent" pendingText="Saving leader...">Save leader</SubmitButton>
               </div>
             </form>
+
+            <form action={convertLeaderToConsultant} className="border-t border-border bg-clinic-mist/50 px-6 py-5">
+              <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
+              {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
+              <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Role conversion</p>
+                  <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Convert leader to consultant</h4>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    The leader becomes an active seller. Current sellers under this leader move directly under the partner.
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-[150px_auto]">
+                  <Input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" aria-label="Consultant share percent" />
+                  <SubmitButton variant="outline" pendingText="Converting...">
+                    <ArrowDownRight className="h-4 w-4" />
+                    Convert
+                  </SubmitButton>
+                </div>
+              </div>
+            </form>
           </div>
         </div>
       ) : null}
@@ -186,10 +208,12 @@ export function EditLeaderModal({ leader }: { leader: Leader }) {
 
 export function LeaderSection({
   partnerProfileId,
-  leaders
+  leaders,
+  returnTo
 }: {
   partnerProfileId: string;
   leaders: Leader[];
+  returnTo?: string;
 }) {
   return (
     <div className="space-y-5">
@@ -242,7 +266,7 @@ export function LeaderSection({
               >
                 View hierarchy
               </Link>
-              <EditLeaderModal leader={leader} />
+              <EditLeaderModal leader={leader} returnTo={returnTo} />
             </div>
           </div>
         ))}

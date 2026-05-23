@@ -1061,11 +1061,12 @@ export async function assignConsultantToLeader(formData: FormData) {
   const consultantProfileId = formValue(formData, "consultantProfileId");
   const selectedPartnerProfileId = formValue(formData, "partnerProfileId") || null;
   const groupLeaderProfileId = formValue(formData, "groupLeaderProfileId") || null;
+  const movePendingLeaderCommissions = formValue(formData, "pendingLeaderCommissionMode") === "move";
   const returnTo = formValue(formData, "returnTo");
 
   const consultant = await prisma.consultantProfile.findUnique({
     where: { id: consultantProfileId },
-    include: { user: true }
+    include: { user: true, groupLeaderProfile: true }
   });
 
   if (!consultant) {
@@ -1108,6 +1109,39 @@ export async function assignConsultantToLeader(formData: FormData) {
       data: { groupLeaderProfileId }
     });
 
+    if (movePendingLeaderCommissions && groupLeaderProfileId) {
+      const pendingOrderIds = await tx.order.findMany({
+        where: {
+          consultantProfileId: consultant.id,
+          commissionStatus: "PENDING",
+          commissionSplits: {
+            some: {
+              participantRole: "GROUP_LEADER",
+              status: "PENDING"
+            }
+          }
+        },
+        select: { id: true }
+      });
+      const orderIds = pendingOrderIds.map((order) => order.id);
+
+      if (orderIds.length > 0) {
+        await tx.order.updateMany({
+          where: { id: { in: orderIds } },
+          data: { groupLeaderProfileId }
+        });
+
+        await tx.commissionSplit.updateMany({
+          where: {
+            orderId: { in: orderIds },
+            participantRole: "GROUP_LEADER",
+            status: "PENDING"
+          },
+          data: { groupLeaderProfileId }
+        });
+      }
+    }
+
     await tx.customer.updateMany({
       where: { consultantProfileId: consultant.id },
       data: { groupLeaderProfileId }
@@ -1122,7 +1156,9 @@ export async function assignConsultantToLeader(formData: FormData) {
         resourceId: consultant.id,
         metadata: {
           partnerProfileId: authorizedPartnerProfileId,
+          previousGroupLeaderProfileId: consultant.groupLeaderProfileId,
           groupLeaderProfileId,
+          pendingLeaderCommissionMode: movePendingLeaderCommissions ? "move" : "keep_existing",
           consultantUserId: consultant.userId
         }
       }
@@ -1141,4 +1177,231 @@ export async function assignConsultantToLeader(formData: FormData) {
       ? returnTo
       : `/admin/consultants?partnerId=${authorizedPartnerProfileId}&section=network&updated=assignment_updated`
   );
+}
+
+export async function promoteConsultantToLeader(formData: FormData) {
+  const actor = await requireUser();
+  const consultantProfileId = formValue(formData, "consultantProfileId");
+  const commissionBps = bpsFromPercentInput(formValue(formData, "leaderCommissionPercent"), 2500);
+  const consultantOverrideBps = bpsFromPercentInput(formValue(formData, "consultantOverridePercent"), 0);
+  const returnTo = formValue(formData, "returnTo");
+
+  const consultant = await prisma.consultantProfile.findUnique({
+    where: { id: consultantProfileId },
+    include: { user: true, partnerProfile: true }
+  });
+
+  if (!consultant?.partnerProfileId) {
+    redirect(actor.role === "PARTNER" ? "/partner/consultants?error=consultant_not_found" : "/admin/consultants?error=consultant_not_found");
+  }
+
+  let authorizedPartnerProfileId = consultant.partnerProfileId;
+
+  if (actor.role === "PARTNER") {
+    const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: actor.id } });
+    if (!partnerProfile || partnerProfile.id !== consultant.partnerProfileId) {
+      redirect("/partner/consultants?error=access_denied");
+    }
+    authorizedPartnerProfileId = partnerProfile.id;
+  } else if (actor.role !== "COMPANY_ADMIN" && actor.role !== "SUPER_ADMIN") {
+    redirect("/login?error=access_denied");
+  }
+
+  const adminClient = createSupabaseAdminClient();
+  const { error } = await adminClient.auth.admin.updateUserById(consultant.user.authUserId, {
+    app_metadata: {
+      role: "GROUP_LEADER",
+      company_id: consultant.companyId,
+      status: "ACTIVE"
+    }
+  });
+
+  if (error) {
+    redirectWithError(actor.role === "PARTNER" ? "/partner/consultants" : `/admin/consultants?partnerId=${authorizedPartnerProfileId}&section=network`, error.message || "leader_promotion_failed");
+  }
+
+  const displayName = [consultant.user.firstName, consultant.user.lastName].filter(Boolean).join(" ").trim() || consultant.user.email;
+
+  await prisma.$transaction(async (tx) => {
+    const leader = await tx.groupLeaderProfile.upsert({
+      where: { userId: consultant.userId },
+      update: {
+        companyId: consultant.companyId,
+        partnerProfileId: authorizedPartnerProfileId,
+        displayName,
+        commissionBps,
+        consultantOverrideBps
+      },
+      create: {
+        userId: consultant.userId,
+        companyId: consultant.companyId,
+        partnerProfileId: authorizedPartnerProfileId,
+        displayName,
+        commissionBps,
+        consultantOverrideBps
+      }
+    });
+
+    await tx.user.update({
+      where: { id: consultant.userId },
+      data: {
+        role: "GROUP_LEADER",
+        requestedRole: "GROUP_LEADER",
+        requestedPartnerProfileId: authorizedPartnerProfileId,
+        requestedGroupLeaderProfileId: leader.id
+      }
+    });
+
+    await tx.auditLog.create({
+      data: {
+        companyId: consultant.companyId,
+        userId: actor.id,
+        action: "CONSULTANT_PROMOTED_TO_LEADER",
+        resource: "User",
+        resourceId: consultant.userId,
+        metadata: {
+          partnerProfileId: authorizedPartnerProfileId,
+          consultantProfileId: consultant.id,
+          groupLeaderProfileId: leader.id,
+          commissionBps,
+          consultantOverrideBps
+        }
+      }
+    });
+  });
+
+  revalidatePath("/admin/consultants");
+  revalidatePath("/partner/consultants");
+
+  if (actor.role === "PARTNER") {
+    redirect(returnTo.startsWith("/partner/consultants") ? returnTo : "/partner/consultants?updated=consultant_promoted");
+  }
+
+  redirect(returnTo.startsWith("/admin/consultants") ? returnTo : `/admin/consultants?partnerId=${authorizedPartnerProfileId}&section=leaders&updated=consultant_promoted`);
+}
+
+export async function convertLeaderToConsultant(formData: FormData) {
+  const actor = await requireUser();
+  const groupLeaderProfileId = formValue(formData, "groupLeaderProfileId");
+  const commissionBps = bpsFromPercentInput(formValue(formData, "consultantCommissionPercent"), 5000);
+  const returnTo = formValue(formData, "returnTo");
+
+  const leader = await prisma.groupLeaderProfile.findUnique({
+    where: { id: groupLeaderProfileId },
+    include: { user: true, consultants: { select: { id: true } } }
+  });
+
+  if (!leader) {
+    redirect(actor.role === "PARTNER" ? "/partner/consultants?error=leader_not_found" : "/admin/consultants?error=leader_not_found");
+  }
+
+  let authorizedPartnerProfileId = leader.partnerProfileId;
+
+  if (actor.role === "PARTNER") {
+    const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: actor.id } });
+    if (!partnerProfile || partnerProfile.id !== leader.partnerProfileId) {
+      redirect("/partner/consultants?error=access_denied");
+    }
+    authorizedPartnerProfileId = partnerProfile.id;
+  } else if (actor.role !== "COMPANY_ADMIN" && actor.role !== "SUPER_ADMIN") {
+    redirect("/login?error=access_denied");
+  }
+
+  const adminClient = createSupabaseAdminClient();
+  const { error } = await adminClient.auth.admin.updateUserById(leader.user.authUserId, {
+    app_metadata: {
+      role: "CONSULTANT",
+      company_id: leader.companyId,
+      status: "ACTIVE"
+    }
+  });
+
+  if (error) {
+    redirectWithError(actor.role === "PARTNER" ? "/partner/consultants" : `/admin/consultants?partnerId=${authorizedPartnerProfileId}&section=leaders`, error.message || "leader_conversion_failed");
+  }
+
+  let referralSlug = createReferralSlug(leader.user.firstName ?? leader.displayName, leader.user.lastName ?? "");
+  let referralCode = createReferralCode(leader.user.firstName ?? leader.displayName, leader.user.lastName ?? "");
+
+  const existingSlug = await prisma.consultantProfile.findUnique({ where: { referralSlug } });
+  if (existingSlug && existingSlug.userId !== leader.userId) {
+    referralSlug = `${referralSlug}-${leader.userId.slice(0, 4)}`;
+  }
+
+  const existingCode = await prisma.consultantProfile.findUnique({ where: { referralCode } });
+  if (existingCode && existingCode.userId !== leader.userId) {
+    referralCode = `${referralCode}${leader.userId.slice(0, 2).toUpperCase()}`;
+  }
+
+  await prisma.$transaction(async (tx) => {
+    const consultant = await tx.consultantProfile.upsert({
+      where: { userId: leader.userId },
+      update: {
+        companyId: leader.companyId,
+        partnerProfileId: authorizedPartnerProfileId,
+        groupLeaderProfileId: null,
+        commissionBps
+      },
+      create: {
+        userId: leader.userId,
+        companyId: leader.companyId,
+        partnerProfileId: authorizedPartnerProfileId,
+        groupLeaderProfileId: null,
+        commissionBps,
+        referralSlug,
+        referralCode,
+        onboardingDone: false
+      }
+    });
+
+    await tx.user.update({
+      where: { id: leader.userId },
+      data: {
+        role: "CONSULTANT",
+        requestedRole: "CONSULTANT",
+        requestedPartnerProfileId: authorizedPartnerProfileId,
+        requestedGroupLeaderProfileId: null
+      }
+    });
+
+    await tx.consultantProfile.updateMany({
+      where: {
+        partnerProfileId: authorizedPartnerProfileId,
+        groupLeaderProfileId: leader.id,
+        user: { is: { role: "CONSULTANT" } }
+      },
+      data: { groupLeaderProfileId: null }
+    });
+
+    await tx.customer.updateMany({
+      where: { groupLeaderProfileId: leader.id },
+      data: { groupLeaderProfileId: null }
+    });
+
+    await tx.auditLog.create({
+      data: {
+        companyId: leader.companyId,
+        userId: actor.id,
+        action: "LEADER_CONVERTED_TO_CONSULTANT",
+        resource: "User",
+        resourceId: leader.userId,
+        metadata: {
+          partnerProfileId: authorizedPartnerProfileId,
+          groupLeaderProfileId: leader.id,
+          consultantProfileId: consultant.id,
+          movedConsultantsToDirectPartner: leader.consultants.length,
+          commissionBps
+        }
+      }
+    });
+  });
+
+  revalidatePath("/admin/consultants");
+  revalidatePath("/partner/consultants");
+
+  if (actor.role === "PARTNER") {
+    redirect(returnTo.startsWith("/partner/consultants") ? returnTo : "/partner/consultants?updated=leader_converted");
+  }
+
+  redirect(returnTo.startsWith("/admin/consultants") ? returnTo : `/admin/consultants?partnerId=${authorizedPartnerProfileId}&section=network&updated=leader_converted`);
 }
