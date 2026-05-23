@@ -48,33 +48,25 @@ export default async function AdminPipelinePage() {
 
   return (
     <SidebarShell nav={adminNav} eyebrow="Company admin" title="Pipeline">
-      <div className="space-y-6">
-        <Card className="p-5">
-          <h2 className="text-2xl font-semibold text-clinic-ink">Company sales pipeline</h2>
-          <p className="mt-2 text-slate-600">
-            Admin view across direct admin customers, partner-owned customers, and consultant-owned customers.
-          </p>
-        </Card>
-        <CustomerPipelineBoard
-          customers={customers.map((customer) => {
-            const ownerUser = customer.consultantProfile?.user ?? customer.partnerProfile?.user ?? null;
-            return {
-              id: customer.id,
-              name: personName(customer),
-              email: customer.email,
-              phone: customer.phone,
-              notes: customer.notes,
-              pipelineStage: normalizeStage(customer.pipelineStage),
-              pipelineUpdatedAt: customer.pipelineUpdatedAt?.toISOString() ?? null,
-              lifetimeValueCents: customer.lifetimeValueCents,
-              latestOrderTotalCents: customer.orders[0]?.totalCents ?? null,
-              latestOrderCreatedAt: customer.orders[0]?.createdAt.toISOString() ?? null,
-              consultantName: ownerUser ? personName(ownerUser) : "Admin",
-              consultantAvatarUrl: ownerUser?.avatarUrl ?? null
-            };
-          })}
-        />
-      </div>
+      <CustomerPipelineBoard
+        customers={customers.map((customer) => {
+          const ownerUser = customer.consultantProfile?.user ?? customer.partnerProfile?.user ?? null;
+          return {
+            id: customer.id,
+            name: personName(customer),
+            email: customer.email,
+            phone: customer.phone,
+            notes: customer.notes,
+            pipelineStage: normalizeStage(customer.pipelineStage),
+            pipelineUpdatedAt: customer.pipelineUpdatedAt?.toISOString() ?? null,
+            lifetimeValueCents: customer.lifetimeValueCents,
+            latestOrderTotalCents: customer.orders[0]?.totalCents ?? null,
+            latestOrderCreatedAt: customer.orders[0]?.createdAt.toISOString() ?? null,
+            consultantName: ownerUser ? personName(ownerUser) : "Admin",
+            consultantAvatarUrl: ownerUser?.avatarUrl ?? null
+          };
+        })}
+      />
     </SidebarShell>
   );
 }
