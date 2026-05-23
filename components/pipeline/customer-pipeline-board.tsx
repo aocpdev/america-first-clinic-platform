@@ -3,8 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { FileText, GripVertical, NotebookPen, PackageCheck, Pill, Trash2, X } from "lucide-react";
-import { deleteUnpaidOrder, updateOrderOpportunityDetails, updatePipelineOrderStage } from "@/app/pipeline/actions";
+import { ExternalLink, FileText, FileUp, GripVertical, NotebookPen, PackageCheck, Pill, Trash2, X } from "lucide-react";
+import { deleteUnpaidOrder, updateOrderOpportunityDetails, updatePipelineOrderStage, uploadOrderClinicalDocument } from "@/app/pipeline/actions";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
@@ -30,6 +30,18 @@ type PipelineOpportunity = {
   gfeNotes: string | null;
   gfeDocumentUrl: string | null;
   paymentStatus: string;
+  clinicalDocuments: CustomerClinicalDocument[];
+};
+
+type CustomerClinicalDocument = {
+  id: string;
+  type: "RX" | "GFE";
+  title: string;
+  notes: string | null;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  createdAt: string;
 };
 
 const stageStyles = [
@@ -78,6 +90,10 @@ function buildNoteHistory(existing: string | null, note: string) {
   return [...noteEntries(existing), `${stamp}\n${cleanNote}`].join("\n---\n");
 }
 
+function documentLabel(type: "RX" | "GFE") {
+  return type === "RX" ? "RX" : "GFE";
+}
+
 export function CustomerPipelineBoard({
   customers,
   showConsultant,
@@ -113,8 +129,8 @@ export function CustomerPipelineBoard({
     const needsConfirmation =
       (stage === "DEFERRED" && opportunity.paymentStatus === "CAPTURED") ||
       (stage === "FULFILLMENT" || stage === "SHIPPED") ||
-      (stage === "GFE" && !opportunity.gfeDocumentUrl) ||
-      (stage === "APPROVAL" && !opportunity.rxDocumentUrl && !opportunity.gfeDocumentUrl);
+      (stage === "GFE" && !opportunity.clinicalDocuments.some((document) => document.type === "GFE")) ||
+      (stage === "APPROVAL" && !opportunity.clinicalDocuments.some((document) => document.type === "RX" || document.type === "GFE"));
 
     if (needsConfirmation) {
       setPendingMove({ opportunity, stage });
@@ -388,12 +404,11 @@ function OpportunityModal({
             </button>
           </aside>
 
-          <form action={updateOrderOpportunityDetails} className="min-h-0 overflow-y-auto p-6">
-            <input type="hidden" name="orderId" value={opportunity.id} />
-            <input type="hidden" name="orderNotes" value={buildNoteHistory(opportunity.notes, newNote)} />
-
+          <div className="min-h-0 overflow-y-auto p-6">
             {tab === "notes" ? (
-              <div className="space-y-5">
+              <form action={updateOrderOpportunityDetails} className="space-y-5">
+                <input type="hidden" name="orderId" value={opportunity.id} />
+                <input type="hidden" name="orderNotes" value={buildNoteHistory(opportunity.notes, newNote)} />
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Notes timeline</p>
                   <h4 className="mt-2 text-2xl font-semibold text-clinic-ink">Internal notes</h4>
@@ -420,56 +435,73 @@ function OpportunityModal({
                     className="mt-2 min-h-32 w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
                   />
                 </label>
-              </div>
+                <div className="flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+                  <SubmitButton pendingText="Saving..." variant="accent">Save notes</SubmitButton>
+                </div>
+              </form>
             ) : (
               <div className="space-y-5">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Clinical workflow</p>
-                  <h4 className="mt-2 text-2xl font-semibold text-clinic-ink">RX / GFE records</h4>
+                  <h4 className="mt-2 text-2xl font-semibold text-clinic-ink">RX / GFE documents</h4>
                   {!canManageInternalDocs ? (
                     <p className="mt-2 text-sm text-slate-500">Clinical document details are managed by the admin team.</p>
                   ) : null}
                 </div>
 
                 {canManageInternalDocs ? (
-                  <div className="grid gap-4">
-                    <label className="block">
-                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">GFE document URL</span>
-                      <input
-                        name="gfeDocumentUrl"
-                        defaultValue={opportunity.gfeDocumentUrl ?? ""}
-                        placeholder="Secure GFE link"
-                        className="mt-2 h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">GFE notes</span>
-                      <textarea
-                        name="gfeNotes"
-                        defaultValue={opportunity.gfeNotes ?? ""}
-                        placeholder="Internal Good Faith Exam notes..."
-                        className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
-                      />
-                    </label>
-                    <div className="h-px bg-border" />
-                    <label className="block">
-                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">RX document URL</span>
-                      <input
-                        name="rxDocumentUrl"
-                        defaultValue={opportunity.rxDocumentUrl ?? ""}
-                        placeholder="Secure RX link"
-                        className="mt-2 h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
-                      />
-                    </label>
-                    <label className="block">
-                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">RX notes</span>
-                      <textarea
-                        name="rxNotes"
-                        defaultValue={opportunity.rxNotes ?? ""}
-                        placeholder="Internal prescription workflow notes..."
-                        className="mt-2 min-h-24 w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
-                      />
-                    </label>
+                  <div className="grid gap-5">
+                    <div className="rounded-3xl border border-border bg-clinic-mist p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white text-clinic-navy shadow-line">
+                          <FileUp className="size-5" />
+                        </div>
+                        <div>
+                          <p className="text-lg font-semibold text-clinic-ink">Upload clinical document</p>
+                          <p className="mt-1 text-sm leading-6 text-slate-500">Add RX or GFE files to this customer record and attach them to this opportunity.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <UploadClinicalDocumentForm orderId={opportunity.id} />
+
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Customer document history</p>
+                      <div className="mt-3 space-y-3">
+                        {opportunity.clinicalDocuments.length ? (
+                          opportunity.clinicalDocuments.map((document) => (
+                            <div key={document.id} className="rounded-2xl border border-border bg-white p-4 shadow-line">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="rounded-full border border-border bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">
+                                      {documentLabel(document.type)}
+                                    </span>
+                                    <p className="truncate text-base font-semibold text-clinic-ink">{document.title}</p>
+                                  </div>
+                                  <p className="mt-2 truncate text-sm text-slate-500">{document.fileName}</p>
+                                  {document.notes ? <p className="mt-2 text-sm leading-6 text-slate-600">{document.notes}</p> : null}
+                                </div>
+                                <a
+                                  href={`/api/customer-documents/${document.id}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold text-clinic-navy transition hover:bg-clinic-mist"
+                                >
+                                  <ExternalLink className="size-4" />
+                                  View
+                                </a>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="rounded-2xl border border-dashed border-border bg-clinic-mist p-5 text-sm text-slate-500">
+                            No RX or GFE documents yet. Upload the first document above.
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-border bg-clinic-mist p-5 text-sm text-slate-500">
@@ -478,15 +510,63 @@ function OpportunityModal({
                 )}
               </div>
             )}
-
-            <div className="mt-6 flex flex-col-reverse gap-3 border-t border-border pt-4 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-              <SubmitButton pendingText="Saving..." variant="accent">Save opportunity</SubmitButton>
-            </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function UploadClinicalDocumentForm({ orderId }: { orderId: string }) {
+  return (
+    <form action={uploadOrderClinicalDocument} className="rounded-3xl border border-border bg-white p-4 shadow-line">
+      <input type="hidden" name="orderId" value={orderId} />
+      <div className="grid gap-3 sm:grid-cols-[150px_1fr]">
+        <label className="block">
+          <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Type</span>
+          <select
+            name="documentType"
+            className="mt-2 h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
+            defaultValue="GFE"
+          >
+            <option value="GFE">GFE</option>
+            <option value="RX">RX</option>
+          </select>
+        </label>
+        <label className="block">
+          <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Document name</span>
+          <input
+            name="documentTitle"
+            placeholder="Example: Initial GFE, Semaglutide RX"
+            className="mt-2 h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
+          />
+        </label>
+      </div>
+      <label className="mt-3 block">
+        <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Notes</span>
+        <textarea
+          name="documentNotes"
+          placeholder="Internal clinical context for this document..."
+          className="mt-2 min-h-20 w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
+        />
+      </label>
+      <label className="mt-3 block rounded-2xl border border-dashed border-border bg-clinic-mist p-4">
+        <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Upload file</span>
+        <input
+          name="documentFile"
+          type="file"
+          accept="application/pdf,image/jpeg,image/png,image/webp"
+          className="mt-2 block w-full text-sm text-slate-600 file:mr-4 file:rounded-xl file:border-0 file:bg-clinic-navy file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
+        />
+        <span className="mt-2 block text-xs text-slate-500">PDF, JPG, PNG, or WebP. Max 15 MB.</span>
+      </label>
+      <div className="mt-4 flex justify-end">
+        <SubmitButton pendingText="Uploading..." variant="accent">
+          <FileUp className="size-4" />
+          Upload document
+        </SubmitButton>
+      </div>
+    </form>
   );
 }
 
@@ -502,8 +582,9 @@ function StageMoveModal({
   const stageLabel = CUSTOMER_PIPELINE_STAGES.find((item) => item.value === stage)?.label ?? stage;
   const needsRefund = stage === "DEFERRED" && opportunity.paymentStatus === "CAPTURED";
   const needsTracking = stage === "FULFILLMENT" || stage === "SHIPPED";
-  const needsGfeConfirmation = stage === "GFE" && !opportunity.gfeDocumentUrl;
-  const needsApprovalConfirmation = stage === "APPROVAL" && !opportunity.rxDocumentUrl && !opportunity.gfeDocumentUrl;
+  const needsGfeConfirmation = stage === "GFE" && !opportunity.clinicalDocuments.some((document) => document.type === "GFE");
+  const needsApprovalConfirmation =
+    stage === "APPROVAL" && !opportunity.clinicalDocuments.some((document) => document.type === "RX" || document.type === "GFE");
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 px-4 py-8 backdrop-blur-sm">

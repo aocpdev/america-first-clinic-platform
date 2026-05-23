@@ -89,6 +89,11 @@ enum RewardValueType {
   NON_CASH
 }
 
+enum CustomerDocumentType {
+  RX
+  GFE
+}
+
 model User {
   id                String             @id @default(uuid()) @db.Uuid
   authUserId        String             @unique
@@ -142,6 +147,7 @@ model Company {
   paymentProviders  PaymentProvider[]
   webhookEndpoints  WebhookEndpoint[]
   webhookDeliveries WebhookDelivery[]
+  customerDocuments CustomerDocument[]
   rewardLevels      RewardLevel[]
   rewards           Reward[]
   rewardCampaigns   RewardCampaign[]
@@ -256,6 +262,7 @@ model Customer {
   lastPurchaseAt      DateTime?
   orders              Order[]
   addresses           CustomerAddress[]
+  documents           CustomerDocument[]
   subscriptions       Subscription[]
   paymentMethods      PaymentMethod[]
   activityLogs        ActivityLog[]
@@ -394,6 +401,7 @@ model Order {
   shippingTrackingCode String?
   shippedAt            DateTime?
   items                OrderItem[]
+  clinicalDocuments    CustomerDocument[]
   commissions          Commission[]
   commissionSplits     CommissionSplit[]
   paymentTransactions  PaymentTransaction[]
@@ -406,6 +414,30 @@ model Order {
   @@index([partnerProfileId])
   @@index([groupLeaderProfileId])
   @@index([companyId, orderPipelineStage])
+}
+
+model CustomerDocument {
+  id              String               @id @default(uuid()) @db.Uuid
+  companyId       String               @db.Uuid
+  company         Company              @relation(fields: [companyId], references: [id])
+  customerId      String               @db.Uuid
+  customer        Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orderId         String?              @db.Uuid
+  order           Order?               @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  uploadedByUserId String?             @db.Uuid
+  type            CustomerDocumentType
+  title           String
+  notes           String?
+  fileName        String
+  storageBucket   String
+  storagePath     String
+  mimeType        String
+  sizeBytes       Int
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  @@index([companyId, customerId, type])
+  @@index([orderId, type])
 }
 
 model OrderItem {

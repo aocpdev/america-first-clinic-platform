@@ -60,7 +60,17 @@ export default async function AdminPipelinePage() {
             rxDocumentUrl: order.rxDocumentUrl,
             gfeNotes: order.gfeNotes,
             gfeDocumentUrl: order.gfeDocumentUrl,
-            paymentStatus: order.paymentStatus
+            paymentStatus: order.paymentStatus,
+            clinicalDocuments: order.clinicalDocuments.map((document) => ({
+              id: document.id,
+              type: document.type,
+              title: document.title,
+              notes: document.notes,
+              fileName: document.fileName,
+              mimeType: document.mimeType,
+              sizeBytes: document.sizeBytes,
+              createdAt: document.createdAt.toISOString()
+            }))
           };
         })}
         mode="admin"

@@ -18,7 +18,10 @@ export const orderListInclude = {
       }
     }
   },
-  commissionSplits: true
+  commissionSplits: true,
+  clinicalDocuments: {
+    orderBy: { createdAt: "desc" }
+  }
 } satisfies Prisma.OrderInclude;
 
 export type OrderListRecord = Prisma.OrderGetPayload<{ include: typeof orderListInclude }>;

@@ -8,6 +8,7 @@ import { getPaymentProvider } from "@/lib/payments/registry";
 import type { PaymentProviderCode } from "@/lib/payments/types";
 import { phoneForWebhook } from "@/lib/phone";
 import { isCustomerPipelineStage, isOrderPipelineStage, orderPipelineLabel } from "@/lib/sales/pipeline";
+import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 function value(formData: FormData, key: string) {
@@ -37,6 +38,22 @@ function carrierTrackingUrl(carrier: string | null, trackingCode: string | null)
 
 function jsonSafe(value: unknown) {
   return JSON.parse(JSON.stringify(value));
+}
+
+async function ensureClinicalDocumentsBucket() {
+  const supabase = createSupabaseAdminClient();
+  const bucket = "customer-clinical-documents";
+  const { data: buckets } = await supabase.storage.listBuckets();
+
+  if (!buckets?.some((item) => item.name === bucket)) {
+    await supabase.storage.createBucket(bucket, {
+      public: false,
+      fileSizeLimit: 15 * 1024 * 1024,
+      allowedMimeTypes: ["application/pdf", "image/jpeg", "image/png", "image/webp"]
+    });
+  }
+
+  return { supabase, bucket };
 }
 
 async function accessibleOrder(user: Awaited<ReturnType<typeof requireUser>>, orderId: string) {
@@ -71,6 +88,9 @@ async function accessibleOrder(user: Awaited<ReturnType<typeof requireUser>>, or
         where: { status: "CAPTURED", providerTransactionId: { not: null } },
         orderBy: { createdAt: "desc" },
         take: 1
+      },
+      clinicalDocuments: {
+        orderBy: { createdAt: "desc" }
       }
     }
   });
@@ -192,6 +212,95 @@ export async function updateOrderOpportunityDetails(formData: FormData) {
   revalidatePath("/partner/pipeline");
   revalidatePath("/consultant/pipeline");
   redirect(`${returnPath}?opportunity=updated`);
+}
+
+export async function uploadOrderClinicalDocument(formData: FormData) {
+  const user = await requireUser();
+  const orderId = value(formData, "orderId");
+  const returnPath = returnPipelinePath(user.role);
+  const order = orderId ? await accessibleOrder(user, orderId) : null;
+
+  if (!order || (user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN")) {
+    redirect(`${returnPath}?document=not_allowed`);
+  }
+
+  const type = value(formData, "documentType").toUpperCase();
+  const title = value(formData, "documentTitle");
+  const notes = value(formData, "documentNotes");
+  const file = formData.get("documentFile");
+
+  if ((type !== "RX" && type !== "GFE") || !title || !(file instanceof File) || file.size === 0) {
+    redirect(`${returnPath}?document=missing_fields`);
+  }
+
+  const allowedTypes = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
+  if (!allowedTypes.has(file.type)) {
+    redirect(`${returnPath}?document=unsupported_file`);
+  }
+
+  if (file.size > 15 * 1024 * 1024) {
+    redirect(`${returnPath}?document=file_too_large`);
+  }
+
+  const { supabase, bucket } = await ensureClinicalDocumentsBucket();
+  const extension = file.name.split(".").pop()?.toLowerCase() || (file.type === "application/pdf" ? "pdf" : "bin");
+  const path = `${order.companyId}/${order.customerId}/${order.id}/${type.toLowerCase()}-${Date.now()}.${extension}`;
+  const bytes = await file.arrayBuffer();
+  const { error } = await supabase.storage.from(bucket).upload(path, bytes, {
+    contentType: file.type,
+    upsert: false
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const document = await prisma.customerDocument.create({
+    data: {
+      companyId: order.companyId,
+      customerId: order.customerId,
+      orderId: order.id,
+      uploadedByUserId: user.id,
+      type,
+      title,
+      notes: notes || null,
+      fileName: file.name,
+      storageBucket: bucket,
+      storagePath: path,
+      mimeType: file.type,
+      sizeBytes: file.size
+    }
+  });
+
+  await prisma.order.update({
+    where: { id: order.id },
+    data:
+      type === "RX"
+        ? {
+            rxDocumentUrl: `/api/customer-documents/${document.id}`,
+            rxNotes: notes || order.rxNotes,
+            rxStoredAt: new Date()
+          }
+        : {
+            gfeDocumentUrl: `/api/customer-documents/${document.id}`,
+            gfeNotes: notes || order.gfeNotes,
+            gfeStoredAt: new Date()
+          }
+  });
+
+  await prisma.activityLog.create({
+    data: {
+      companyId: order.companyId,
+      userId: user.id,
+      customerId: order.customerId,
+      action: "CUSTOMER_CLINICAL_DOCUMENT_UPLOADED",
+      metadata: { orderId: order.id, documentId: document.id, type }
+    }
+  });
+
+  revalidatePath("/admin/pipeline");
+  revalidatePath(`/admin/orders/${order.id}`);
+  redirect(`${returnPath}?document=uploaded`);
 }
 
 export async function updatePipelineOrderStage(formData: FormData) {
