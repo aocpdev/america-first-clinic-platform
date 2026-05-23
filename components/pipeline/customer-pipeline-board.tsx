@@ -109,6 +109,7 @@ export function CustomerPipelineBoard({
   const [modalTab, setModalTab] = useState<"notes" | "clinical">("notes");
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [pendingMove, setPendingMove] = useState<{ opportunity: PipelineOpportunity; stage: CustomerPipelineStage } | null>(null);
+  const [stagePicker, setStagePicker] = useState<PipelineOpportunity | null>(null);
   const [, startTransition] = useTransition();
   const canManageStages = mode === "admin";
   const canManageInternalDocs = mode === "admin";
@@ -152,7 +153,7 @@ export function CustomerPipelineBoard({
 
   return (
     <>
-      <div className="overflow-x-auto pb-4">
+      <div className="overflow-x-auto rounded-[2rem] border border-border bg-white/35 p-3 pb-5 shadow-line">
         <div className="flex min-w-max gap-4">
           {CUSTOMER_PIPELINE_STAGES.map((stage, index) => {
             const stageOpportunities = opportunitiesByStage.get(stage.value) ?? [];
@@ -188,14 +189,14 @@ export function CustomerPipelineBoard({
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-3">
+                <div className="mt-4 max-h-[calc(100vh-19rem)] space-y-3 overflow-y-auto pr-2">
                   {stageOpportunities.map((opportunity) => (
                     <article
                       key={opportunity.id}
                       draggable={canManageStages}
                       onDragStart={() => setDraggedId(opportunity.id)}
                       onDragEnd={() => setDraggedId(null)}
-                      className="select-none rounded-2xl border border-border bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+                      className="select-none rounded-2xl border border-border bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
@@ -229,7 +230,7 @@ export function CustomerPipelineBoard({
                         </div>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="mt-3 grid grid-cols-2 gap-2">
                         <div className="rounded-2xl bg-clinic-mist px-3 py-3">
                           <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
                             {mode === "admin" ? "Revenue" : "Value"}
@@ -244,13 +245,13 @@ export function CustomerPipelineBoard({
                         </div>
                       </div>
 
-                      <div className="mt-4 space-y-1 text-xs text-slate-500">
+                      <div className="mt-3 space-y-1 text-xs text-slate-500">
                         <p className="truncate" title={opportunity.email}>{opportunity.email}</p>
                         <p>{opportunity.phone || "No phone"}</p>
                         <p>{formatDate(opportunity.pipelineUpdatedAt ?? opportunity.createdAt)}</p>
                       </div>
 
-                      <div className="mt-4 grid grid-cols-2 gap-2">
+                      <div className="mt-3 grid grid-cols-2 gap-2">
                         <Button
                           type="button"
                           variant="outline"
@@ -288,29 +289,34 @@ export function CustomerPipelineBoard({
                       </div>
 
                       {canManageStages ? (
-                        <div className="mt-4 rounded-2xl border border-border bg-clinic-mist p-3">
-                          <label className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Move stage</label>
-                          <select
-                            value={opportunity.pipelineStage}
-                            onChange={(event) => requestStageMove(opportunity, event.target.value as CustomerPipelineStage)}
-                            className="mt-2 h-10 w-full rounded-xl border border-border bg-white px-3 text-xs font-semibold text-clinic-ink outline-none"
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setStagePicker(opportunity)}
+                            className="w-full"
                           >
-                            {CUSTOMER_PIPELINE_STAGES.map((option) => (
-                              <option key={option.value} value={option.value}>{option.label}</option>
-                            ))}
-                          </select>
-                          <p className="mt-2 text-[11px] leading-4 text-slate-500">Drag this card into another column or choose a stage here.</p>
+                            <PackageCheck className="size-4" />
+                            Move
+                          </Button>
+                          {opportunity.paymentStatus === "PENDING" ? (
+                            <form action={deleteUnpaidOrder}>
+                              <input type="hidden" name="orderId" value={opportunity.id} />
+                              <SubmitButton
+                                variant="outline"
+                                size="sm"
+                                pendingText="Deleting..."
+                                className="w-full border-red-100 text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="size-4" />
+                                Delete
+                              </SubmitButton>
+                            </form>
+                          ) : (
+                            <div />
+                          )}
                         </div>
-                      ) : null}
-
-                      {opportunity.paymentStatus === "PENDING" ? (
-                        <form action={deleteUnpaidOrder} className="mt-3">
-                          <input type="hidden" name="orderId" value={opportunity.id} />
-                          <SubmitButton variant="outline" size="sm" pendingText="Deleting..." className="w-full border-red-100 text-red-700 hover:bg-red-50">
-                            <Trash2 className="size-4" />
-                            Delete unpaid order
-                          </SubmitButton>
-                        </form>
                       ) : null}
                     </article>
                   ))}
@@ -341,6 +347,17 @@ export function CustomerPipelineBoard({
           opportunity={pendingMove.opportunity}
           stage={pendingMove.stage}
           onClose={() => setPendingMove(null)}
+        />
+      ) : null}
+
+      {stagePicker ? (
+        <StagePickerModal
+          opportunity={stagePicker}
+          onClose={() => setStagePicker(null)}
+          onMove={(stage) => {
+            setStagePicker(null);
+            requestStageMove(stagePicker, stage);
+          }}
         />
       ) : null}
     </>
@@ -567,6 +584,62 @@ function UploadClinicalDocumentForm({ orderId }: { orderId: string }) {
         </SubmitButton>
       </div>
     </form>
+  );
+}
+
+function StagePickerModal({
+  opportunity,
+  onClose,
+  onMove
+}: {
+  opportunity: PipelineOpportunity;
+  onClose: () => void;
+  onMove: (stage: CustomerPipelineStage) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 px-4 py-8 backdrop-blur-sm">
+      <div className="w-full max-w-lg overflow-hidden rounded-[2rem] border border-border bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-border p-6">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Move opportunity</p>
+            <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">{opportunity.name}</h3>
+            <p className="mt-1 text-sm text-slate-500">Choose the next step for this order record.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid size-10 place-items-center rounded-full border border-border text-slate-500 transition hover:bg-clinic-mist"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="grid gap-2 p-4">
+          {CUSTOMER_PIPELINE_STAGES.map((stage) => {
+            const active = stage.value === opportunity.pipelineStage;
+            return (
+              <button
+                key={stage.value}
+                type="button"
+                disabled={active}
+                onClick={() => onMove(stage.value)}
+                className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition ${
+                  active
+                    ? "border-clinic-blue bg-blue-50 text-clinic-navy"
+                    : "border-border bg-white text-clinic-ink hover:-translate-y-0.5 hover:bg-clinic-mist hover:shadow-line"
+                }`}
+              >
+                <span>
+                  <span className="block text-sm font-semibold">{stage.label}</span>
+                  <span className="mt-0.5 block text-xs text-slate-500">{active ? "Current stage" : "Move to this stage"}</span>
+                </span>
+                <PackageCheck className={`size-4 ${active ? "text-clinic-blue" : "text-slate-400"}`} />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
 
