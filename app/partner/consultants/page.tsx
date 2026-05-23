@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { approveConsultant, rejectConsultant } from "@/app/(auth)/actions";
+import { AssignConsultantModal } from "@/app/admin/consultants/assign-consultant-modal";
 import { CreateConsultantModal } from "@/app/admin/consultants/create-consultant-modal";
 import { EditConsultantModal } from "@/app/admin/consultants/edit-consultant-modal";
 import { CreateLeaderModal, EditLeaderModal } from "@/app/admin/consultants/leader-section";
@@ -37,7 +38,10 @@ export default async function PartnerConsultantsPage({
   const nav = isGroupLeader ? groupLeaderNav : partnerNav;
   const errorMessages: Record<string, string> = {
     duplicate_email: "That email is already assigned to another partner, leader, or consultant.",
-    duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant."
+    duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant.",
+    invalid_group_leader: "That leader does not belong to your partner network.",
+    consultant_not_found: "That consultant could not be found.",
+    access_denied: "You do not have permission to move that seller."
   };
 
   const partnerProfile = await prisma.partnerProfile.findUnique({
@@ -254,6 +258,36 @@ export default async function PartnerConsultantsPage({
         ) : null}
 
         {partnerProfile ? (
+          <Card className="p-5">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Assignment control</p>
+                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Seller placement</h3>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+                  Move sellers between direct partner ownership and your group leaders. Leaders can view their team but cannot reassign sellers.
+                </p>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[420px]">
+                <div className="rounded-2xl border border-border bg-clinic-mist px-4 py-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Direct partner</p>
+                  <p className="mt-2 text-2xl font-semibold text-clinic-navy">
+                    {consultants.filter((profile) => !profile.groupLeaderProfileId).length}
+                  </p>
+                </div>
+                {groupLeaders.slice(0, 3).map((leader) => (
+                  <div key={leader.id} className="rounded-2xl border border-border bg-white px-4 py-3">
+                    <p className="truncate text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{leader.displayName}</p>
+                    <p className="mt-2 text-2xl font-semibold text-clinic-navy">
+                      {consultants.filter((profile) => profile.groupLeaderProfileId === leader.id).length}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {partnerProfile ? (
           <Card className="overflow-hidden">
             <div className="border-b border-border p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -324,7 +358,7 @@ export default async function PartnerConsultantsPage({
                   <th className="px-5 py-3">Leader</th>
                   <th className="px-5 py-3">Referral</th>
                   {partnerProfile ? <th className="px-5 py-3">Pool share</th> : null}
-                  {partnerProfile ? <th className="px-5 py-3 text-right">Edit</th> : null}
+                  {partnerProfile ? <th className="px-5 py-3 text-right">Actions</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border bg-white">
@@ -339,20 +373,34 @@ export default async function PartnerConsultantsPage({
                     {partnerProfile ? <td className="px-5 py-4">{percentLabel(profile.commissionBps)} of partner pool</td> : null}
                     {partnerProfile ? (
                       <td className="px-5 py-4 text-right">
-                        <EditConsultantModal
-                          consultant={{
-                            id: profile.id,
-                            firstName: profile.user.firstName,
-                            lastName: profile.user.lastName,
-                            email: profile.user.email,
-                            phone: profile.user.phone,
-                            groupLeaderProfileId: profile.groupLeaderProfileId,
-                            commissionPercent: profile.commissionBps / 100
-                          }}
-                          partnerProfileId={partnerProfile.id}
-                          groupLeaders={groupLeaderOptions}
-                          returnTo="/partner/consultants?updated=consultant_updated"
-                        />
+                        <div className="flex justify-end gap-2">
+                          <AssignConsultantModal
+                            consultant={{
+                              id: profile.id,
+                              name: displayName(profile.user),
+                              email: profile.user.email,
+                              avatarUrl: profile.user.avatarUrl,
+                              groupLeaderProfileId: profile.groupLeaderProfileId
+                            }}
+                            partnerProfileId={partnerProfile.id}
+                            groupLeaders={groupLeaderOptions}
+                            returnTo="/partner/consultants?updated=assignment_updated"
+                          />
+                          <EditConsultantModal
+                            consultant={{
+                              id: profile.id,
+                              firstName: profile.user.firstName,
+                              lastName: profile.user.lastName,
+                              email: profile.user.email,
+                              phone: profile.user.phone,
+                              groupLeaderProfileId: profile.groupLeaderProfileId,
+                              commissionPercent: profile.commissionBps / 100
+                            }}
+                            partnerProfileId={partnerProfile.id}
+                            groupLeaders={groupLeaderOptions}
+                            returnTo="/partner/consultants?updated=consultant_updated"
+                          />
+                        </div>
                       </td>
                     ) : null}
                   </tr>

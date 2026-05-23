@@ -42,7 +42,6 @@ function Field({
 export function EditConsultantModal({
   consultant,
   partnerProfileId,
-  groupLeaders,
   returnTo
 }: {
   consultant: ConsultantForEdit;
@@ -72,7 +71,7 @@ export function EditConsultantModal({
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Consultant profile</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Edit consultant</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Update profile details, leader assignment, and consultant share from one place.
+                  Update profile details and consultant share. Use Assign to move sellers between leaders.
                 </p>
               </div>
               <button
@@ -88,6 +87,7 @@ export function EditConsultantModal({
             <form action={updateConsultantCommercials} className="grid max-h-[calc(92vh-120px)] gap-5 overflow-y-auto p-6">
               <input type="hidden" name="consultantProfileId" value={consultant.id} />
               <input type="hidden" name="partnerProfileId" value={partnerProfileId} />
+              <input type="hidden" name="groupLeaderProfileId" value={consultant.groupLeaderProfileId ?? ""} />
               <input type="hidden" name="returnTo" value={returnTo} />
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -102,18 +102,6 @@ export function EditConsultantModal({
                 </Field>
                 <Field label="Phone">
                   <PhoneInput name="phone" defaultValue={consultant.phone ?? ""} />
-                </Field>
-                <Field label="Leader assignment">
-                  <select
-                    name="groupLeaderProfileId"
-                    className="h-11 w-full rounded-lg border border-input bg-white px-3 text-sm shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    defaultValue={consultant.groupLeaderProfileId ?? ""}
-                  >
-                    <option value="">Direct partner</option>
-                    {groupLeaders.map((leader) => (
-                      <option key={leader.id} value={leader.id}>{leader.displayName}</option>
-                    ))}
-                  </select>
                 </Field>
                 <Field label="Consultant share">
                   <div className="relative">
