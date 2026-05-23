@@ -303,6 +303,77 @@ export async function uploadOrderClinicalDocument(formData: FormData) {
   redirect(`${returnPath}?document=uploaded`);
 }
 
+export async function deleteOrderClinicalDocument(formData: FormData) {
+  const user = await requireUser();
+  const documentId = value(formData, "documentId");
+  const returnPath = returnPipelinePath(user.role);
+
+  if (!documentId || !user.companyId || (user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN")) {
+    redirect(`${returnPath}?document=not_allowed`);
+  }
+
+  const document = await prisma.customerDocument.findFirst({
+    where: {
+      id: documentId,
+      companyId: user.companyId
+    },
+    include: {
+      order: true
+    }
+  });
+
+  if (!document) {
+    redirect(`${returnPath}?document=not_found`);
+  }
+
+  const supabase = createSupabaseAdminClient();
+  await supabase.storage.from(document.storageBucket).remove([document.storagePath]);
+
+  await prisma.customerDocument.delete({
+    where: { id: document.id }
+  });
+
+  if (document.orderId) {
+    const replacement = await prisma.customerDocument.findFirst({
+      where: {
+        orderId: document.orderId,
+        type: document.type
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    await prisma.order.update({
+      where: { id: document.orderId },
+      data:
+        document.type === "RX"
+          ? {
+              rxDocumentUrl: replacement ? `/api/customer-documents/${replacement.id}` : null,
+              rxNotes: replacement?.notes ?? null,
+              rxStoredAt: replacement?.createdAt ?? null
+            }
+          : {
+              gfeDocumentUrl: replacement ? `/api/customer-documents/${replacement.id}` : null,
+              gfeNotes: replacement?.notes ?? null,
+              gfeStoredAt: replacement?.createdAt ?? null
+            }
+    });
+  }
+
+  await prisma.activityLog.create({
+    data: {
+      companyId: document.companyId,
+      userId: user.id,
+      customerId: document.customerId,
+      action: "CUSTOMER_CLINICAL_DOCUMENT_DELETED",
+      metadata: { orderId: document.orderId, documentId: document.id, type: document.type }
+    }
+  });
+
+  revalidatePath("/admin/pipeline");
+  if (document.orderId) revalidatePath(`/admin/orders/${document.orderId}`);
+  redirect(`${returnPath}?document=deleted`);
+}
+
 export async function updatePipelineOrderStage(formData: FormData) {
   const user = await requireUser();
   const orderId = value(formData, "orderId");

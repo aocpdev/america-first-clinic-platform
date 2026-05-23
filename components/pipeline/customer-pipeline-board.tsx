@@ -4,7 +4,13 @@ import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ExternalLink, FileText, FileUp, GripVertical, NotebookPen, PackageCheck, Pill, Trash2, X } from "lucide-react";
-import { deleteUnpaidOrder, updateOrderOpportunityDetails, updatePipelineOrderStage, uploadOrderClinicalDocument } from "@/app/pipeline/actions";
+import {
+  deleteOrderClinicalDocument,
+  deleteUnpaidOrder,
+  updateOrderOpportunityDetails,
+  updatePipelineOrderStage,
+  uploadOrderClinicalDocument
+} from "@/app/pipeline/actions";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
@@ -500,15 +506,29 @@ function OpportunityModal({
                                   <p className="mt-2 truncate text-sm text-slate-500">{document.fileName}</p>
                                   {document.notes ? <p className="mt-2 text-sm leading-6 text-slate-600">{document.notes}</p> : null}
                                 </div>
-                                <a
-                                  href={`/api/customer-documents/${document.id}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold text-clinic-navy transition hover:bg-clinic-mist"
-                                >
-                                  <ExternalLink className="size-4" />
-                                  View
-                                </a>
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <a
+                                    href={`/api/customer-documents/${document.id}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold text-clinic-navy transition hover:bg-clinic-mist"
+                                  >
+                                    <ExternalLink className="size-4" />
+                                    View
+                                  </a>
+                                  <form action={deleteOrderClinicalDocument}>
+                                    <input type="hidden" name="documentId" value={document.id} />
+                                    <SubmitButton
+                                      variant="outline"
+                                      size="sm"
+                                      pendingText="Deleting..."
+                                      className="h-10 border-red-100 px-3 text-red-700 hover:bg-red-50"
+                                    >
+                                      <Trash2 className="size-4" />
+                                      Delete
+                                    </SubmitButton>
+                                  </form>
+                                </div>
                               </div>
                             </div>
                           ))
