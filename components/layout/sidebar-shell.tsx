@@ -105,7 +105,7 @@ export async function SidebarShell({
         </header>
         <div className="min-w-0 overflow-x-clip px-3 py-4 pb-28 sm:px-6 sm:py-6 lg:px-8 lg:pb-8">{children}</div>
       </main>
-      <MobileNav nav={nav} />
+      <MobileNav nav={nav.map(({ href, label }) => ({ href, label }))} />
     </div>
   );
 }

@@ -2,14 +2,47 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ComponentType } from "react";
+import {
+  BarChart3,
+  Boxes,
+  BriefcaseBusiness,
+  CircleDollarSign,
+  Columns3,
+  ClipboardList,
+  CreditCard,
+  Gauge,
+  Gift,
+  HandCoins,
+  LineChart,
+  Settings,
+  ShoppingBag,
+  Users
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type MobileNavItem = {
   href: string;
   label: string;
-  icon: ComponentType<{ className?: string }>;
 };
+
+const iconByLabel = {
+  Dashboard: Gauge,
+  Sales: ShoppingBag,
+  Pipeline: Columns3,
+  Orders: ClipboardList,
+  Products: Boxes,
+  Customers: Users,
+  Consultants: BriefcaseBusiness,
+  Commissions: HandCoins,
+  Payouts: CircleDollarSign,
+  Rewards: Gift,
+  Reports: BarChart3,
+  Settings,
+  Performance: LineChart,
+  Referrals: CreditCard,
+  Profile: Settings,
+  Team: Users
+} as const;
 
 function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -22,7 +55,7 @@ export function MobileNav({ nav }: { nav: MobileNavItem[] }) {
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/80 bg-white/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_60px_rgba(7,55,99,0.14)] backdrop-blur-2xl lg:hidden">
       <div className="flex min-w-0 gap-2 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {nav.map((item) => {
-          const Icon = item.icon;
+          const Icon = iconByLabel[item.label as keyof typeof iconByLabel] ?? Gauge;
           const active = isActivePath(pathname, item.href);
 
           return (
