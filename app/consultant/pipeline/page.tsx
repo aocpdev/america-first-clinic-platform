@@ -66,7 +66,9 @@ export default async function ConsultantPipelinePage() {
           adminMarginCents: order.grossMarginCents,
           createdAt: order.createdAt.toISOString(),
           notes: order.orderNotes,
+          rxNotes: order.rxNotes,
           rxDocumentUrl: order.rxDocumentUrl,
+          gfeNotes: order.gfeNotes,
           gfeDocumentUrl: order.gfeDocumentUrl,
           paymentStatus: order.paymentStatus
         }))}

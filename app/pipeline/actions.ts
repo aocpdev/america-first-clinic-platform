@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
+import { getPaymentProvider } from "@/lib/payments/registry";
+import type { PaymentProviderCode } from "@/lib/payments/types";
 import { phoneForWebhook } from "@/lib/phone";
 import { isCustomerPipelineStage, isOrderPipelineStage, orderPipelineLabel } from "@/lib/sales/pipeline";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
@@ -31,6 +33,10 @@ function carrierTrackingUrl(carrier: string | null, trackingCode: string | null)
   if (carrier === "usps") return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${code}`;
   if (carrier === "dhl") return `https://www.dhl.com/us-en/home/tracking/tracking-express.html?submit=1&tracking-id=${code}`;
   return null;
+}
+
+function jsonSafe(value: unknown) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 async function accessibleOrder(user: Awaited<ReturnType<typeof requireUser>>, orderId: string) {
@@ -150,7 +156,9 @@ export async function updateOrderOpportunityDetails(formData: FormData) {
   const canManageInternalDocs = user.role === "COMPANY_ADMIN" || user.role === "SUPER_ADMIN";
   const orderNotes = value(formData, "orderNotes");
   const rxDocumentUrl = value(formData, "rxDocumentUrl");
+  const rxNotes = value(formData, "rxNotes");
   const gfeDocumentUrl = value(formData, "gfeDocumentUrl");
+  const gfeNotes = value(formData, "gfeNotes");
   const now = new Date();
 
   await prisma.order.update({
@@ -160,8 +168,10 @@ export async function updateOrderOpportunityDetails(formData: FormData) {
       ...(canManageInternalDocs
         ? {
             rxDocumentUrl: rxDocumentUrl || null,
+            rxNotes: rxNotes || null,
             rxStoredAt: rxDocumentUrl ? now : null,
             gfeDocumentUrl: gfeDocumentUrl || null,
+            gfeNotes: gfeNotes || null,
             gfeStoredAt: gfeDocumentUrl ? now : null
           }
         : {})
@@ -211,8 +221,38 @@ export async function updatePipelineOrderStage(formData: FormData) {
   const nextCarrier = shippingCarrier || order.shippingCarrier;
   const nextTrackingCode = shippingTrackingCode || order.shippingTrackingCode;
 
+  const nextPaymentStatus = requestedStage === "DEFERRED" && order.paymentStatus === "CAPTURED" ? "REFUNDED" : order.paymentStatus;
+
   if (requestedStage === "DEFERRED" && order.paymentStatus === "CAPTURED") {
-    redirect(`${returnPath}?stage=use_order_document_for_refund`);
+    const confirmation = value(formData, "refundConfirmation").toLowerCase();
+    if (confirmation !== "refunded") {
+      redirect(`${returnPath}?stage=refund_confirmation_required`);
+    }
+
+    const transaction = order.paymentTransactions[0];
+    if (!transaction?.providerTransactionId) {
+      redirect(`${returnPath}?stage=refund_transaction_missing`);
+    }
+
+    const refund = await getPaymentProvider(order.paymentProviderCode as PaymentProviderCode).refundPayment({
+      companyId: order.companyId,
+      transactionId: transaction.providerTransactionId,
+      amount: { amount: order.totalCents, currency: "USD" },
+      reason: "requested_by_customer"
+    });
+
+    await prisma.paymentTransaction.create({
+      data: {
+        companyId: order.companyId,
+        orderId: order.id,
+        providerCode: order.paymentProviderCode,
+        providerTransactionId: refund.providerTransactionId,
+        amountCents: order.totalCents,
+        status: "REFUNDED",
+        eventType: "order.deferred_refund",
+        rawEvent: jsonSafe(refund.raw ?? refund)
+      }
+    });
   }
 
   await prisma.$transaction([
@@ -229,6 +269,7 @@ export async function updatePipelineOrderStage(formData: FormData) {
               : requestedStage === "AWAITING_PAYMENT"
                 ? "PENDING"
                 : "PROCESSING",
+        paymentStatus: nextPaymentStatus,
         ...(nextTrackingCode
           ? {
               shippingCarrier: nextCarrier || "other",
@@ -238,6 +279,9 @@ export async function updatePipelineOrderStage(formData: FormData) {
           : {}),
         ...(requestedStage === "SHIPPED" && order.paymentStatus === "CAPTURED"
           ? { commissionStatus: "APPROVED" }
+          : {}),
+        ...(requestedStage === "DEFERRED"
+          ? { commissionStatus: "REJECTED" }
           : {})
       }
     }),
@@ -257,6 +301,18 @@ export async function updatePipelineOrderStage(formData: FormData) {
           prisma.commissionSplit.updateMany({
             where: { orderId: order.id },
             data: { status: "APPROVED" }
+          })
+        ]
+      : []),
+    ...(requestedStage === "DEFERRED"
+      ? [
+          prisma.commission.updateMany({
+            where: { orderId: order.id },
+            data: { status: "REJECTED" }
+          }),
+          prisma.commissionSplit.updateMany({
+            where: { orderId: order.id },
+            data: { status: "REJECTED" }
           })
         ]
       : []),

@@ -56,7 +56,9 @@ export default async function AdminPipelinePage() {
             createdAt: order.createdAt.toISOString(),
             consultantName: ownerUser ? personName(ownerUser) : "Admin",
             consultantAvatarUrl: ownerUser?.avatarUrl ?? null,
+            rxNotes: order.rxNotes,
             rxDocumentUrl: order.rxDocumentUrl,
+            gfeNotes: order.gfeNotes,
             gfeDocumentUrl: order.gfeDocumentUrl,
             paymentStatus: order.paymentStatus
           };
