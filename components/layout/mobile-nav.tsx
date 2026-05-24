@@ -49,7 +49,7 @@ function isActivePath(pathname: string, href: string) {
 }
 
 export function MobileNav({ nav }: { nav: MobileNavItem[] }) {
-  const pathname = usePathname();
+  const pathname = usePathname() ?? "";
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-white/80 bg-white/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-18px_60px_rgba(7,55,99,0.14)] backdrop-blur-2xl lg:hidden">

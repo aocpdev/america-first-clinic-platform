@@ -27,15 +27,39 @@ function initialsFromName(name: string) {
     .join("");
 }
 
+const partnerSections = [
+  { id: "hierarchy", label: "Hierarchy" },
+  { id: "profile", label: "Partner Profile" },
+  { id: "leaders", label: "Leaders" },
+  { id: "approval", label: "Approval workflow" },
+  { id: "network", label: "Seller Network" }
+] as const;
+
+const leaderSections = [
+  { id: "hierarchy", label: "Hierarchy" },
+  { id: "network", label: "Seller Network" }
+] as const;
+
+type PartnerSection = (typeof partnerSections)[number]["id"];
+type LeaderSectionId = (typeof leaderSections)[number]["id"];
+type TeamSection = PartnerSection | LeaderSectionId;
+
+function getTeamSection(section: string | undefined, isGroupLeader: boolean): TeamSection {
+  const sections = isGroupLeader ? leaderSections : partnerSections;
+  return sections.some((item) => item.id === section) ? (section as TeamSection) : "hierarchy";
+}
+
 export default async function PartnerConsultantsPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; updated?: string }>;
+  searchParams: Promise<{ error?: string; updated?: string; section?: string; leaderId?: string }>;
 }) {
   const params = await searchParams;
   const user = await requirePartner();
   const isGroupLeader = user.role === "GROUP_LEADER";
   const nav = isGroupLeader ? groupLeaderNav : partnerNav;
+  const activeSection = getTeamSection(params.section, isGroupLeader);
+  const availableSections = isGroupLeader ? leaderSections : partnerSections;
   const errorMessages: Record<string, string> = {
     duplicate_email: "That email is already assigned to another partner, leader, or consultant.",
     duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant.",
@@ -125,13 +149,16 @@ export default async function PartnerConsultantsPage({
       ])
     : [[], [], [], []];
   const hierarchyPartner = partnerProfile ?? groupLeaderProfile?.partnerProfile ?? null;
+  const selectedLeader = !groupLeaderProfile && params.leaderId
+    ? groupLeaders.find((leader) => leader.id === params.leaderId) ?? null
+    : null;
   const hierarchyTree = hierarchyPartner
     ? buildSalesHierarchyTree({
         partner: hierarchyPartner,
         groupLeaders,
         consultants,
         orders: hierarchyOrders,
-        visibleGroupLeaderId: groupLeaderProfile?.id ?? null,
+        visibleGroupLeaderId: groupLeaderProfile?.id ?? selectedLeader?.id ?? null,
         hidePartnerFinancials: Boolean(groupLeaderProfile),
         hideCommissionSetup: Boolean(groupLeaderProfile)
       })
@@ -140,6 +167,7 @@ export default async function PartnerConsultantsPage({
     id: leader.id,
     displayName: leader.displayName
   }));
+  const sectionHref = (section: TeamSection) => `/partner/consultants?section=${section}`;
 
   return (
     <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title={isGroupLeader ? "Team" : "Partner network"}>
@@ -162,14 +190,118 @@ export default async function PartnerConsultantsPage({
           </Card>
         ) : null}
 
-        {hierarchyTree ? (
-          <SalesHierarchyView
-            tree={hierarchyTree}
-            title={isGroupLeader ? `${groupLeaderProfile?.displayName ?? "My"} hierarchy` : `${partnerProfile?.companyName ?? partnerProfile?.displayName ?? "Partner"} hierarchy`}
-          />
+        {effectivePartnerProfileId ? (
+          <Card className="p-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              {selectedLeader ? (
+                <Link
+                  href={sectionHref("leaders")}
+                  className="inline-flex h-10 items-center rounded-xl border border-border bg-white px-4 text-sm font-semibold text-clinic-ink transition hover:bg-clinic-mist"
+                >
+                  Back to leaders
+                </Link>
+              ) : (
+                <div className="hidden lg:block" />
+              )}
+              <nav className="flex flex-wrap gap-2">
+                {availableSections.map((section) => {
+                  const isActive = activeSection === section.id;
+
+                  return (
+                    <Link
+                      key={section.id}
+                      href={sectionHref(section.id)}
+                      className={`inline-flex h-10 items-center rounded-xl px-4 text-sm font-semibold transition ${
+                        isActive
+                          ? "bg-clinic-navy text-white shadow-line"
+                          : "border border-border bg-white text-slate-600 hover:bg-clinic-mist hover:text-clinic-ink"
+                      }`}
+                    >
+                      {section.label}
+                    </Link>
+                  );
+                })}
+              </nav>
+            </div>
+          </Card>
         ) : null}
 
-        {partnerProfile ? (
+        {activeSection === "hierarchy" && hierarchyTree ? (
+          <div className="space-y-4">
+            {selectedLeader ? (
+              <Card className="p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-2xl font-semibold text-clinic-ink">{selectedLeader.displayName} hierarchy</h2>
+                    <p className="mt-1 text-sm text-slate-500">This view only shows sellers assigned under this group leader.</p>
+                  </div>
+                  {partnerProfile ? (
+                    <CreateConsultantModal
+                      partnerProfileId={partnerProfile.id}
+                      groupLeaderProfileId={selectedLeader.id}
+                      groupLeaderName={selectedLeader.displayName}
+                      returnTo={`/partner/consultants?section=hierarchy&leaderId=${selectedLeader.id}`}
+                      canManageSellerCommission
+                    />
+                  ) : null}
+                </div>
+              </Card>
+            ) : null}
+            <SalesHierarchyView
+              tree={hierarchyTree}
+              title={
+                selectedLeader
+                  ? `${selectedLeader.displayName} hierarchy`
+                  : isGroupLeader
+                    ? `${groupLeaderProfile?.displayName ?? "My"} hierarchy`
+                    : `${partnerProfile?.companyName ?? partnerProfile?.displayName ?? "Partner"} hierarchy`
+              }
+            />
+          </div>
+        ) : null}
+
+        {activeSection === "profile" && partnerProfile ? (
+          <Card className="p-6">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+              <div className="flex min-w-0 items-center gap-4">
+                <div
+                  className="grid size-16 shrink-0 place-items-center rounded-2xl border border-border bg-clinic-mist bg-cover bg-center text-lg font-bold text-clinic-navy"
+                  style={partnerProfile.user.avatarUrl ? { backgroundImage: `url(${partnerProfile.user.avatarUrl})` } : undefined}
+                  aria-label={`${partnerProfile.companyName || partnerProfile.displayName} avatar`}
+                >
+                  {partnerProfile.user.avatarUrl ? null : initialsFromName(partnerProfile.companyName || partnerProfile.displayName)}
+                </div>
+                <div className="min-w-0">
+                  <Badge>Partner Profile</Badge>
+                  <h2 className="mt-3 text-3xl font-semibold text-clinic-ink">{partnerProfile.companyName || partnerProfile.displayName}</h2>
+                  <p className="mt-2 break-all text-sm text-slate-500">{partnerProfile.user.email}</p>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[420px]">
+                <div className="rounded-2xl bg-clinic-mist px-4 py-3 text-center">
+                  <p className="text-2xl font-semibold text-clinic-navy">{percentLabel(partnerProfile.commissionBps)}</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Margin pool</p>
+                </div>
+                <div className="rounded-2xl bg-clinic-mist px-4 py-3 text-center">
+                  <p className="text-2xl font-semibold text-clinic-navy">{groupLeaders.length}</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Leaders</p>
+                </div>
+                <div className="rounded-2xl bg-clinic-mist px-4 py-3 text-center">
+                  <p className="text-2xl font-semibold text-clinic-navy">{consultants.length}</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Sellers</p>
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 rounded-3xl border border-border bg-clinic-mist/70 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Commission governance</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                The company admin controls the partner margin pool. Inside this workspace, the partner can organize leaders and set how sellers share the partner pool.
+              </p>
+            </div>
+          </Card>
+        ) : null}
+
+        {activeSection === "leaders" && partnerProfile ? (
           <div className="space-y-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -222,7 +354,7 @@ export default async function PartnerConsultantsPage({
 
                     <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
                       <Link
-                        href="/partner/consultants"
+                        href={`/partner/consultants?section=hierarchy&leaderId=${leader.id}`}
                         className="inline-flex h-9 items-center rounded-xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink transition hover:bg-clinic-mist"
                       >
                         View hierarchy
@@ -242,7 +374,7 @@ export default async function PartnerConsultantsPage({
           </div>
         ) : null}
 
-        {partnerProfile ? (
+        {activeSection === "network" && partnerProfile ? (
           <Card className="p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -253,14 +385,14 @@ export default async function PartnerConsultantsPage({
               <CreateConsultantModal
                 partnerProfileId={partnerProfile.id}
                 groupLeaders={groupLeaderOptions}
-                returnTo="/partner/consultants?updated=consultant_created"
+                returnTo="/partner/consultants?section=network&updated=consultant_created"
                 canManageSellerCommission
               />
             </div>
           </Card>
         ) : null}
 
-        {partnerProfile ? (
+        {activeSection === "network" && partnerProfile ? (
           <Card className="p-5">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -290,7 +422,7 @@ export default async function PartnerConsultantsPage({
           </Card>
         ) : null}
 
-        {partnerProfile ? (
+        {activeSection === "approval" && partnerProfile ? (
           <Card className="overflow-hidden">
             <div className="border-b border-border p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -383,6 +515,7 @@ export default async function PartnerConsultantsPage({
           </Card>
         ) : null}
 
+        {activeSection === "network" ? (
         <Card className="overflow-hidden">
           <div className="border-b border-border p-5">
             <Badge>{isGroupLeader ? "My team" : "Seller network"}</Badge>
@@ -422,7 +555,7 @@ export default async function PartnerConsultantsPage({
                             }}
                             partnerProfileId={partnerProfile.id}
                             groupLeaders={groupLeaderOptions}
-                            returnTo="/partner/consultants?updated=assignment_updated"
+                            returnTo="/partner/consultants?section=network&updated=assignment_updated"
                           />
                           <EditConsultantModal
                             consultant={{
@@ -436,7 +569,7 @@ export default async function PartnerConsultantsPage({
                             }}
                             partnerProfileId={partnerProfile.id}
                             groupLeaders={groupLeaderOptions}
-                            returnTo="/partner/consultants?updated=consultant_updated"
+                            returnTo="/partner/consultants?section=network&updated=consultant_updated"
                             canManageSellerCommission
                           />
                         </div>
@@ -455,6 +588,7 @@ export default async function PartnerConsultantsPage({
             </table>
           </div>
         </Card>
+        ) : null}
       </div>
     </SidebarShell>
   );

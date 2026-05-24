@@ -139,56 +139,59 @@ function DetailPanel({ node, onClose }: { node: HierarchyNode | null; onClose: (
   const showCommissionSetup = node.showCommissionSetup !== false;
 
   return (
-    <aside className="rounded-3xl border border-border bg-white p-6 shadow-soft xl:sticky xl:top-24">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
+    <aside className="overflow-hidden rounded-3xl border border-border bg-white shadow-soft xl:sticky xl:top-24">
+      <div className="p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-4">
+          <Badge>{roleLabel(node.type)}</Badge>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid size-10 shrink-0 place-items-center rounded-full border border-border bg-white text-slate-500 shadow-line transition hover:bg-clinic-mist hover:text-clinic-ink"
+            aria-label="Close profile panel"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mt-5 flex items-center gap-4">
           <Avatar node={node} size="lg" />
-          <div>
-            <Badge>{roleLabel(node.type)}</Badge>
-            <h3 className="mt-3 text-2xl font-semibold text-clinic-ink">{node.name}</h3>
-            <p className="mt-1 text-sm text-slate-500">{node.email}</p>
+          <div className="min-w-0">
+            <h3 className="text-2xl font-semibold text-clinic-ink">{node.name}</h3>
+            <p className="mt-1 break-all text-sm text-slate-500">{node.email}</p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full border border-border p-2 text-slate-500 transition hover:bg-clinic-mist hover:text-clinic-ink"
-          aria-label="Close profile panel"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
 
-      <div className={`mt-6 grid gap-3 ${showCommissionMetric && showCommissionSetup ? "sm:grid-cols-3 xl:grid-cols-1" : "sm:grid-cols-2 xl:grid-cols-1"}`}>
-        <div className="rounded-2xl bg-clinic-mist p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Attributed sales</p>
-          <p className="mt-2 text-2xl font-semibold text-clinic-navy">{formatCurrency(node.revenueCents)}</p>
-        </div>
-        {showCommissionMetric ? (
-          <div className="rounded-2xl bg-emerald-50 p-4">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Commission earned</p>
-            <p className="mt-2 text-2xl font-semibold text-emerald-800">{formatCurrency(node.commissionCents)}</p>
+        <div className={`mt-6 grid gap-3 ${showCommissionMetric && showCommissionSetup ? "sm:grid-cols-3 xl:grid-cols-1" : "sm:grid-cols-2 xl:grid-cols-1"}`}>
+          <div className="rounded-2xl bg-clinic-mist p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Attributed sales</p>
+            <p className="mt-2 text-2xl font-semibold text-clinic-navy">{formatCurrency(node.revenueCents)}</p>
           </div>
-        ) : null}
-        {showCommissionSetup ? (
-          <div className="rounded-2xl bg-white p-4 ring-1 ring-border">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Commission setup</p>
-            <p className="mt-2 text-lg font-semibold text-clinic-ink">{node.commissionLabel}</p>
-          </div>
-        ) : null}
-      </div>
-
-      <div className="mt-6 space-y-3">
-        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Profile details</p>
-        <div className="rounded-2xl border border-border bg-white p-4 text-sm leading-6 text-slate-600">
-          <p>{node.subtitle ?? "No additional profile summary yet."}</p>
-          {node.notes?.length ? (
-            <ul className="mt-3 space-y-2">
-              {node.notes.map((note) => (
-                <li key={note} className="rounded-xl bg-clinic-mist px-3 py-2">{note}</li>
-              ))}
-            </ul>
+          {showCommissionMetric ? (
+            <div className="rounded-2xl bg-emerald-50 p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Commission earned</p>
+              <p className="mt-2 text-2xl font-semibold text-emerald-800">{formatCurrency(node.commissionCents)}</p>
+            </div>
           ) : null}
+          {showCommissionSetup ? (
+            <div className="rounded-2xl bg-white p-4 ring-1 ring-border">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Commission setup</p>
+              <p className="mt-2 text-lg font-semibold text-clinic-ink">{node.commissionLabel}</p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-6 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Profile details</p>
+          <div className="rounded-2xl border border-border bg-white p-4 text-sm leading-6 text-slate-600">
+            <p>{node.subtitle ?? "No additional profile summary yet."}</p>
+            {node.notes?.length ? (
+              <ul className="mt-3 space-y-2">
+                {node.notes.map((note) => (
+                  <li key={note} className="rounded-xl bg-clinic-mist px-3 py-2">{note}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         </div>
       </div>
     </aside>

@@ -42,6 +42,7 @@ function Field({
 export function EditConsultantModal({
   consultant,
   partnerProfileId,
+  groupLeaders,
   returnTo,
   canManageSellerCommission = false
 }: {
@@ -92,7 +93,7 @@ export function EditConsultantModal({
               <form action={updateConsultantCommercials} className="grid gap-5">
                 <input type="hidden" name="consultantProfileId" value={consultant.id} />
                 <input type="hidden" name="partnerProfileId" value={partnerProfileId} />
-                <input type="hidden" name="groupLeaderProfileId" value={consultant.groupLeaderProfileId ?? ""} />
+                {!canManageSellerCommission ? <input type="hidden" name="groupLeaderProfileId" value={consultant.groupLeaderProfileId ?? ""} /> : null}
                 <input type="hidden" name="returnTo" value={returnTo} />
 
                 <section className="rounded-3xl border border-border bg-clinic-mist/50 p-5">
@@ -126,6 +127,21 @@ export function EditConsultantModal({
                   </div>
                   {canManageSellerCommission ? (
                     <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Placement">
+                        <select
+                          name="groupLeaderProfileId"
+                          defaultValue={consultant.groupLeaderProfileId ?? ""}
+                          className="h-12 w-full rounded-xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+                        >
+                          <option value="">Direct partner</option>
+                          {groupLeaders.map((leader) => (
+                            <option key={leader.id} value={leader.id}>
+                              {leader.displayName}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs leading-5 text-slate-500">Move this seller under a group leader or keep them directly under the partner.</p>
+                      </Field>
                       <Field label="Consultant share">
                         <div className="relative">
                           <Input
