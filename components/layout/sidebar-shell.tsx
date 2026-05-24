@@ -1,11 +1,10 @@
 import Link from "next/link";
-import { Bell, Search } from "lucide-react";
+import { Bell } from "lucide-react";
 import { stopImpersonation } from "@/app/(auth)/actions";
 import { ClinicLogo } from "@/components/layout/logo";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { getImpersonationContext } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
 import { prisma } from "@/lib/db/prisma";
@@ -80,10 +79,6 @@ export async function SidebarShell({
               <h1 className="truncate text-xl font-semibold text-clinic-ink sm:text-2xl">{title}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <div className="relative hidden w-72 max-w-[40vw] md:block">
-                <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                <Input className="pl-9" placeholder="Search customers, orders, products..." />
-              </div>
               <Button size="icon" variant="outline" aria-label="Notifications">
                 <Bell className="h-4 w-4" />
               </Button>
