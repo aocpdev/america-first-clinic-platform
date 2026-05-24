@@ -136,7 +136,7 @@ function leaderNode(
     name: leader.displayName,
     email: leader.user.email,
     avatarUrl: leader.user.avatarUrl,
-    commissionLabel: `${percentLabel(leader.commissionBps)} direct pool / ${percentLabel(leader.consultantOverrideBps)} override pool`,
+    commissionLabel: `${percentLabel(leader.commissionBps)} direct from partner pool / ${percentLabel(leader.consultantOverrideBps)} override from partner pool`,
     revenueCents: sumBy(orders, (order) => leaderOwnsOrder(leader.id, order), (order) => order.totalCents),
     commissionCents: earnedByRole(orders, "GROUP_LEADER", leader.id),
     salesCount: salesCount(orders, (order) => leaderOwnsOrder(leader.id, order)),

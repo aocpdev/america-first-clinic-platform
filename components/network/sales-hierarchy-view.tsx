@@ -125,7 +125,7 @@ function PersonNode({
       </div>
       <div className="mt-3 flex items-center justify-between gap-2">
         {node.showCommissionSetup === false ? null : (
-          <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{node.commissionLabel}</Badge>
+          <Badge className="max-w-full whitespace-normal border-blue-100 bg-blue-50 text-clinic-navy">{node.commissionLabel}</Badge>
         )}
         <span className="text-xs font-semibold text-slate-400">{node.salesCount} sales</span>
       </div>
