@@ -136,7 +136,7 @@ function leaderNode(
     name: leader.displayName,
     email: leader.user.email,
     avatarUrl: leader.user.avatarUrl,
-    commissionLabel: `${percentLabel(leader.commissionBps)} direct from partner pool / ${percentLabel(leader.consultantOverrideBps)} override from partner pool`,
+    commissionLabel: `${percentLabel(leader.commissionBps)} direct from partner pool / ${percentLabel(leader.consultantOverrideBps)} override from seller share`,
     revenueCents: sumBy(orders, (order) => leaderOwnsOrder(leader.id, order), (order) => order.totalCents),
     commissionCents: earnedByRole(orders, "GROUP_LEADER", leader.id),
     salesCount: salesCount(orders, (order) => leaderOwnsOrder(leader.id, order)),
@@ -144,7 +144,7 @@ function leaderNode(
     subtitle: `${consultantCount} consultants assigned`,
     notes: [
       "Direct sale percent is paid from this partner's margin pool when the leader creates the sale.",
-      "Override percent is paid from this partner's margin pool for consultants assigned under this leader."
+      "Override percent is deducted from the assigned seller's share when that seller closes a sale."
     ]
   };
 }

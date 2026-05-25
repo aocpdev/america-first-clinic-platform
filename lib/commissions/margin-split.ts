@@ -17,7 +17,8 @@ export function calculateMarginCommissionSplit({
   partnerSplitBps = DEFAULT_PARTNER_SPLIT_BPS,
   partnerPoolBps,
   groupLeaderShareBps = 0,
-  consultantShareBps
+  consultantShareBps,
+  leaderOverrideFromConsultantShare = false
 }: {
   subtotalCents: number;
   internalCostCents: number;
@@ -26,19 +27,27 @@ export function calculateMarginCommissionSplit({
   partnerPoolBps?: number;
   groupLeaderShareBps?: number;
   consultantShareBps?: number;
+  leaderOverrideFromConsultantShare?: boolean;
 }) {
   const grossMarginCents = Math.max(0, subtotalCents - internalCostCents);
   const effectivePoolBps = partnerPoolBps ?? poolBps;
   const effectiveGroupLeaderShareBps = clampGroupLeaderPoolShareBps(groupLeaderShareBps);
   const commissionPoolCents = Math.round((grossMarginCents * effectivePoolBps) / 10000);
   const legacyPartnerAmountCents = Math.round((commissionPoolCents * partnerSplitBps) / 10000);
-  const groupLeaderAmountCents = Math.round((commissionPoolCents * effectiveGroupLeaderShareBps) / 10000);
-  const consultantAmountCents = consultantShareBps == null
+  const consultantBaseAmountCents = consultantShareBps == null
     ? commissionPoolCents - legacyPartnerAmountCents
     : Math.round((commissionPoolCents * consultantShareBps) / 10000);
+  const groupLeaderAmountCents = leaderOverrideFromConsultantShare
+    ? Math.round((consultantBaseAmountCents * effectiveGroupLeaderShareBps) / 10000)
+    : Math.round((commissionPoolCents * effectiveGroupLeaderShareBps) / 10000);
+  const consultantAmountCents = leaderOverrideFromConsultantShare
+    ? Math.max(0, consultantBaseAmountCents - groupLeaderAmountCents)
+    : consultantBaseAmountCents;
   const partnerAmountCents = partnerPoolBps == null && consultantShareBps == null && groupLeaderShareBps === 0
     ? legacyPartnerAmountCents
-    : Math.max(0, commissionPoolCents - groupLeaderAmountCents - consultantAmountCents);
+    : leaderOverrideFromConsultantShare
+      ? Math.max(0, commissionPoolCents - consultantBaseAmountCents)
+      : Math.max(0, commissionPoolCents - groupLeaderAmountCents - consultantAmountCents);
 
   return {
     grossMarginCents,
@@ -107,7 +116,7 @@ export async function createMarginCommissionLedger({
       ? clampGroupLeaderPoolShareBps(groupLeaderProfile?.commissionBps)
       : 0;
   const consultantShareBps = isConsultantSale
-    ? Math.max(0, (order.consultantProfile?.commissionBps ?? DEFAULT_CONSULTANT_SHARE_BPS) - groupLeaderShareBps)
+    ? order.consultantProfile?.commissionBps ?? DEFAULT_CONSULTANT_SHARE_BPS
     : undefined;
 
   const split = calculateMarginCommissionSplit({
@@ -115,7 +124,8 @@ export async function createMarginCommissionLedger({
     internalCostCents,
     partnerPoolBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" || commissionMode === "GROUP_LEADER_DIRECT" ? partnerProfile?.commissionBps : undefined,
     groupLeaderShareBps,
-    consultantShareBps
+    consultantShareBps,
+    leaderOverrideFromConsultantShare: isConsultantSale
   });
 
   await prisma.$transaction(async (tx) => {

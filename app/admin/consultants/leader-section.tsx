@@ -75,7 +75,7 @@ export function CreateLeaderModal({
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner team</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Create group leader</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Add a leader under this partner and define their share of the partner margin pool for direct sales and consultant overrides.
+                  Add a leader under this partner. Direct leader sales use the partner pool; seller overrides are deducted from the seller share.
                 </p>
               </div>
               <button
@@ -115,12 +115,12 @@ export function CreateLeaderModal({
                       </div>
                       <p className="text-xs leading-5 text-slate-500">Used when this leader creates the sale. Max 50% of the partner pool.</p>
                     </Field>
-                    <Field label="Consultant override from partner pool">
+                    <Field label="Consultant override from seller share">
                       <div className="relative">
                         <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue="0" className="pr-10" required />
                         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
                       </div>
-                      <p className="text-xs leading-5 text-slate-500">Optional share from sellers under this leader. Max 50% of the partner pool.</p>
+                      <p className="text-xs leading-5 text-slate-500">Optional override from sellers under this leader. Max 50% of each seller's share.</p>
                     </Field>
                   </>
                 ) : (
@@ -173,7 +173,7 @@ export function EditLeaderModal({
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Leader profile</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">{leader.displayName}</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Edit identity, contact information, and the leader payout rules inside the partner margin pool.
+                  Edit identity, contact information, and leader payout rules for direct sales and seller overrides.
                 </p>
               </div>
               <button
@@ -227,7 +227,7 @@ export function EditLeaderModal({
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner pool</p>
                     <h4 className="mt-1 text-xl font-semibold text-clinic-ink">Commission rules</h4>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      These percentages are calculated only from the partner pool, never from the full company margin.
+                      Direct leader sales are paid from the partner pool. Overrides are deducted from the assigned seller's share.
                     </p>
                   </div>
                   {canManageCommissions ? (
@@ -244,7 +244,7 @@ export function EditLeaderModal({
                           <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue={leader.consultantOverrideBps / 100} className="pr-10" required />
                           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
                         </div>
-                        <p className="text-xs leading-5 text-slate-500">Optional share from sellers under this leader. Max 50% of partner pool.</p>
+                        <p className="text-xs leading-5 text-slate-500">Optional override from sellers under this leader. Max 50% of each seller's share.</p>
                       </Field>
                     </div>
                   ) : (
@@ -308,7 +308,7 @@ export function LeaderSection({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-clinic-ink">Group leaders</h2>
-          <p className="mt-1 text-sm text-slate-500">Manage leader profiles and how the partner margin pool is distributed.</p>
+          <p className="mt-1 text-sm text-slate-500">Manage leader profiles, direct commissions, and seller-share overrides.</p>
         </div>
         <CreateLeaderModal partnerProfileId={partnerProfileId} canManageCommissions={canManageCommissions} />
       </div>
@@ -339,11 +339,11 @@ export function LeaderSection({
             <div className="mt-5 grid grid-cols-2 gap-2 text-center text-xs font-semibold text-slate-500">
               <div className="rounded-2xl bg-clinic-mist px-2 py-3">
                 <p className="text-2xl text-clinic-navy">{percentLabel(leader.commissionBps)}</p>
-                <p className="mt-1">Direct pool</p>
+                <p className="mt-1">Direct share</p>
               </div>
               <div className="rounded-2xl bg-blue-50 px-2 py-3">
                 <p className="text-2xl text-clinic-navy">{percentLabel(leader.consultantOverrideBps)}</p>
-                <p className="mt-1">Override pool</p>
+                <p className="mt-1">Seller override</p>
               </div>
             </div>
 

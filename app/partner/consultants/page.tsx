@@ -295,7 +295,7 @@ export default async function PartnerConsultantsPage({
             <div className="mt-6 rounded-3xl border border-border bg-clinic-mist/70 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Commission governance</p>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                The company admin controls the partner margin pool. Inside this workspace, the partner can organize leaders and set how sellers share the partner pool.
+                The company admin controls the partner margin pool. Inside this workspace, the partner can organize leaders, set seller shares, and define leader overrides from seller shares.
               </p>
             </div>
           </Card>
@@ -306,7 +306,7 @@ export default async function PartnerConsultantsPage({
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-2xl font-semibold text-clinic-ink">Group leaders</h2>
-                <p className="mt-1 text-sm text-slate-500">Manage how your partner pool is shared with leaders and assigned sellers.</p>
+                <p className="mt-1 text-sm text-slate-500">Manage direct leader commissions and seller-share overrides.</p>
               </div>
               <CreateLeaderModal partnerProfileId={partnerProfile.id} canManageCommissions />
             </div>
@@ -340,11 +340,11 @@ export default async function PartnerConsultantsPage({
                     <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs font-semibold text-slate-500">
                       <div className="rounded-2xl bg-clinic-mist px-2 py-3">
                         <p className="text-2xl text-clinic-navy">{percentLabel(leader.commissionBps)}</p>
-                        <p className="mt-1">Direct pool</p>
+                        <p className="mt-1">Direct share</p>
                       </div>
                       <div className="rounded-2xl bg-blue-50 px-2 py-3">
                         <p className="text-2xl text-clinic-navy">{percentLabel(leader.consultantOverrideBps)}</p>
-                        <p className="mt-1">Override pool</p>
+                        <p className="mt-1">Seller override</p>
                       </div>
                       <div className="rounded-2xl bg-clinic-mist px-2 py-3">
                         <p className="text-2xl text-clinic-navy">{leaderConsultants.length}</p>
