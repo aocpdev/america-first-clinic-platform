@@ -136,6 +136,19 @@ async function assertEmailAvailable(companyId: string, email: string, customerId
   }
 }
 
+async function assertPhoneAvailable(companyId: string, phone?: string | null, customerId?: string) {
+  if (!phone) return;
+
+  const existing = await prisma.customer.findFirst({
+    where: { companyId, phone },
+    select: { id: true }
+  });
+
+  if (existing && existing.id !== customerId) {
+    redirect(`${roleBasePath((await requireUser()).role)}?error=duplicate_customer_phone`);
+  }
+}
+
 export async function createCustomer(formData: FormData) {
   const scope = await customerScope();
   const parsed = customerSchema.parse({
@@ -154,6 +167,7 @@ export async function createCustomer(formData: FormData) {
   const pipelineStage = parsed.pipelineStage && isCustomerPipelineStage(parsed.pipelineStage) ? parsed.pipelineStage : "AWAITING_PAYMENT";
 
   await assertEmailAvailable(scope.companyId, email);
+  await assertPhoneAvailable(scope.companyId, parsed.phone);
   const customer = await prisma.customer.create({
     data: {
       companyId: scope.companyId,
@@ -202,6 +216,7 @@ export async function updateCustomer(formData: FormData) {
   const pipelineStage = parsed.pipelineStage && isCustomerPipelineStage(parsed.pipelineStage) ? parsed.pipelineStage : "AWAITING_PAYMENT";
 
   await assertEmailAvailable(scope.companyId, email, parsed.customerId);
+  await assertPhoneAvailable(scope.companyId, parsed.phone, parsed.customerId);
   await prisma.customer.update({
     where: { id: parsed.customerId },
     data: {

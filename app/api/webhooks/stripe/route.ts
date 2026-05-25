@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { prisma } from "@/lib/db/prisma";
+import { companyAdminUserIds, moneyFromCents, notifyUsers, orderRecipientUserIds, personDisplayName } from "@/lib/notifications";
 import { StripeProvider } from "@/lib/payments/providers/stripe-provider";
 import { phoneForWebhook } from "@/lib/phone";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
@@ -104,21 +105,33 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
         ])
   ]);
 
-  const sellerUserId = order.consultantProfile?.userId ?? order.groupLeaderProfile?.userId ?? order.partnerProfile?.userId;
-  if (!wasCaptured && sellerUserId) {
-    await prisma.notification.create({
-      data: {
-        userId: sellerUserId,
+  if (!wasCaptured) {
+    const adminIds = await companyAdminUserIds(prisma, order.companyId);
+    const customerName = personDisplayName(order.customer);
+    await notifyUsers(prisma, [
+      ...orderRecipientUserIds(order).map((userId) => ({
+        userId,
         title: "Payment received",
-        body: `Order #${order.id.slice(0, 8).toUpperCase()} is now a New Sale and ready for the clinical workflow.`,
+        body: `${customerName}'s order is paid and now pending clinical review.`,
         metadata: {
           orderId: order.id,
           customerId: order.customerId,
           stage: "NEW_SALE",
           amountCents: order.totalCents
         }
-      }
-    });
+      })),
+      ...adminIds.map((userId) => ({
+        userId,
+        title: "New sale ready for GFE",
+        body: `${customerName} paid ${moneyFromCents(order.totalCents)}. Start the GFE workflow.`,
+        metadata: {
+          orderId: order.id,
+          customerId: order.customerId,
+          stage: "NEW_SALE",
+          amountCents: order.totalCents
+        }
+      }))
+    ]);
   }
 
   const payload = {

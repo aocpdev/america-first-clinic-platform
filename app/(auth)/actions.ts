@@ -15,6 +15,7 @@ import {
   DEFAULT_CONSULTANT_SHARE_BPS,
   DEFAULT_GROUP_LEADER_SHARE_BPS
 } from "@/lib/commissions/margin-split";
+import { companyAdminUserIds, notifyUsers, personDisplayName } from "@/lib/notifications";
 import { normalizePhoneToE164 } from "@/lib/phone";
 
 function formValue(formData: FormData, key: string) {
@@ -104,7 +105,7 @@ export async function registerUser(formData: FormData) {
       id: requestedPartnerProfileId,
       companyId: company.id
     },
-    select: { id: true }
+    select: { id: true, userId: true, companyName: true, displayName: true }
   });
 
   if (!selectedPartner) {
@@ -177,6 +178,34 @@ export async function registerUser(formData: FormData) {
       isActive: false
     }
   });
+
+  const adminIds = await companyAdminUserIds(prisma, company.id);
+  const applicantName = personDisplayName({ firstName, lastName, email });
+  const roleLabel = requestedRole === "GROUP_LEADER" ? "group leader" : "seller";
+  await notifyUsers(prisma, [
+    ...adminIds.map((adminId) => ({
+      userId: adminId,
+      title: `New ${roleLabel} registration`,
+      body: `${applicantName} applied under ${selectedPartner.companyName || selectedPartner.displayName || "a partner"}.`,
+      metadata: {
+        type: "registration",
+        userId: user.id,
+        requestedRole,
+        partnerProfileId: selectedPartner.id
+      }
+    })),
+    {
+      userId: selectedPartner.userId,
+      title: `New ${roleLabel} registration`,
+      body: `${applicantName} is waiting for approval.`,
+      metadata: {
+        type: "registration",
+        userId: user.id,
+        requestedRole,
+        partnerProfileId: selectedPartner.id
+      }
+    }
+  ]);
 
   redirect("/pending-approval");
 }
@@ -413,6 +442,25 @@ export async function approveConsultant(formData: FormData) {
       });
     });
 
+    const partnerProfile = await prisma.partnerProfile.findUnique({
+      where: { id: partnerProfileId },
+      select: { userId: true }
+    });
+    await notifyUsers(prisma, [
+      {
+        userId: user.id,
+        title: "Group leader account approved",
+        body: "Your America First Clinic workspace is ready.",
+        metadata: { type: "approval", userId: user.id, role: "GROUP_LEADER", partnerProfileId }
+      },
+      {
+        userId: partnerProfile?.userId,
+        title: "New group leader approved",
+        body: `${displayName} is now active in your network.`,
+        metadata: { type: "approval", userId: user.id, role: "GROUP_LEADER", partnerProfileId }
+      }
+    ]);
+
     const adminClient = createSupabaseAdminClient();
     await adminClient.auth.admin.updateUserById(user.authUserId, {
       app_metadata: {
@@ -495,6 +543,42 @@ export async function approveConsultant(formData: FormData) {
       }
     });
   });
+
+  const [leaderProfile, partnerProfile] = await Promise.all([
+    groupLeaderProfileId
+      ? prisma.groupLeaderProfile.findUnique({
+          where: { id: groupLeaderProfileId },
+          select: { userId: true, displayName: true }
+        })
+      : null,
+    partnerProfileId
+      ? prisma.partnerProfile.findUnique({
+          where: { id: partnerProfileId },
+          select: { userId: true }
+        })
+      : null
+  ]);
+  const consultantName = displayNameForUser(user);
+  await notifyUsers(prisma, [
+    {
+      userId: user.id,
+      title: "Seller account approved",
+      body: "Your America First Clinic seller workspace is ready.",
+      metadata: { type: "approval", userId: user.id, role: "CONSULTANT", partnerProfileId, groupLeaderProfileId }
+    },
+    {
+      userId: leaderProfile?.userId,
+      title: "New seller approved",
+      body: `${consultantName} has been added to your seller group.`,
+      metadata: { type: "approval", userId: user.id, role: "CONSULTANT", partnerProfileId, groupLeaderProfileId }
+    },
+    {
+      userId: partnerProfile?.userId,
+      title: "New seller approved",
+      body: `${consultantName} is now active in your network.`,
+      metadata: { type: "approval", userId: user.id, role: "CONSULTANT", partnerProfileId, groupLeaderProfileId }
+    }
+  ]);
 
   const adminClient = createSupabaseAdminClient();
   await adminClient.auth.admin.updateUserById(user.authUserId, {

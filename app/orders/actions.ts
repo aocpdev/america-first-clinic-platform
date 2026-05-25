@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
+import { moneyFromCents, notifyUsers, orderRecipientUserIds, personDisplayName } from "@/lib/notifications";
 import { getPaymentProvider } from "@/lib/payments/registry";
 import type { PaymentProviderCode } from "@/lib/payments/types";
 import { phoneForWebhook } from "@/lib/phone";
@@ -70,6 +71,8 @@ async function ensureOrderAccess(user: Awaited<ReturnType<typeof requireUser>>, 
     include: {
       customer: true,
       consultantProfile: true,
+      partnerProfile: true,
+      groupLeaderProfile: true,
       paymentTransactions: {
         where: { status: "CAPTURED", providerTransactionId: { not: null } },
         orderBy: { createdAt: "desc" },
@@ -242,6 +245,38 @@ export async function updateOrderPipelineStage(formData: FormData) {
       }
     })
   ]);
+
+  if (requestedStage === "APPROVAL" || requestedStage === "DEFERRED" || requestedStage === "SHIPPED") {
+    const customerName = personDisplayName(order.customer);
+    const recipients = orderRecipientUserIds(order);
+    const title =
+      requestedStage === "APPROVAL"
+        ? "Client approved"
+        : requestedStage === "DEFERRED"
+          ? "Client deferred"
+          : "Commission approved";
+    const body =
+      requestedStage === "APPROVAL"
+        ? `${customerName}'s order was approved. Commission remains pending until fulfillment is complete.`
+        : requestedStage === "DEFERRED"
+          ? `${customerName}'s order was deferred. A full ${moneyFromCents(order.totalCents)} refund will be processed and pending commission was rejected.`
+          : `${customerName}'s order has been approved for commission.`;
+
+    await notifyUsers(
+      prisma,
+      recipients.map((userId) => ({
+        userId,
+        title,
+        body,
+        metadata: {
+          orderId: order.id,
+          customerId: order.customerId,
+          stage: requestedStage,
+          amountCents: order.totalCents
+        }
+      }))
+    );
+  }
 
   if (nextTrackingCode && (requestedStage === "FULFILLMENT" || requestedStage === "SHIPPED")) {
     await dispatchWebhookEvent({

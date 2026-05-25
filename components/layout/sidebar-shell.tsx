@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { Bell } from "lucide-react";
 import { stopImpersonation } from "@/app/(auth)/actions";
 import { ClinicLogo } from "@/components/layout/logo";
 import { MobileNav } from "@/components/layout/mobile-nav";
+import { NotificationMenu } from "@/components/layout/notification-menu";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
 import { getImpersonationContext } from "@/lib/auth/current-user";
@@ -32,6 +32,17 @@ export async function SidebarShell({
   const impersonationTargets = realUser
     ? await prismaUserImpersonationTargets(realUser)
     : [];
+  const [notifications, unreadCount] = user
+    ? await Promise.all([
+        prisma.notification.findMany({
+          where: { userId: user.id },
+          orderBy: { createdAt: "desc" },
+          take: 10,
+          select: { id: true, title: true, body: true, readAt: true, createdAt: true }
+        }),
+        prisma.notification.count({ where: { userId: user.id, readAt: null } })
+      ])
+    : [[], 0];
 
   return (
     <div className="min-h-screen overflow-x-clip bg-clinic-mist">
@@ -79,9 +90,16 @@ export async function SidebarShell({
               <h1 className="truncate text-xl font-semibold text-clinic-ink sm:text-2xl">{title}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <Button size="icon" variant="outline" aria-label="Notifications">
-                <Bell className="h-4 w-4" />
-              </Button>
+              <NotificationMenu
+                unreadCount={unreadCount}
+                notifications={notifications.map((notification) => ({
+                  id: notification.id,
+                  title: notification.title,
+                  body: notification.body,
+                  readAt: notification.readAt?.toISOString() ?? null,
+                  createdAt: notification.createdAt.toISOString()
+                }))}
+              />
               {user ? (
                 <UserMenu
                   user={{

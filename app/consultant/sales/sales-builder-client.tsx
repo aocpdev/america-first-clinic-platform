@@ -70,6 +70,7 @@ const errorCopy: Record<string, string> = {
   commission_setup_required: "Commission setup must be completed before orders can be created.",
   empty_order: "Select at least one product before creating an order.",
   invalid_customer: "Customer information is incomplete.",
+  duplicate_customer_contact: "This email or phone already belongs to another customer. Select the existing customer before creating the order.",
   customer_not_assigned: "That customer is not assigned to your consultant account.",
   invalid_products: "One or more selected products are no longer active.",
   invalid_shipping_address: "Shipping address is required before collecting payment or sending an invoice."

@@ -231,15 +231,31 @@ async function createWorkspaceOrder(
     }
 
     const email = parsed.data.email.toLowerCase();
-    const existingCustomer = await prisma.customer.findUnique({
-      where: { companyId_email: { companyId, email } },
+    const existingCustomers = await prisma.customer.findMany({
+      where: {
+        companyId,
+        OR: [
+          { email },
+          ...(parsed.data.phone ? [{ phone: parsed.data.phone }] : [])
+        ]
+      },
       select: {
         id: true,
+        email: true,
+        phone: true,
         consultantProfileId: true,
         partnerProfileId: true,
         groupLeaderProfileId: true
       }
     });
+    const emailMatch = existingCustomers.find((customer) => customer.email.toLowerCase() === email);
+    const phoneMatch = parsed.data.phone ? existingCustomers.find((customer) => customer.phone === parsed.data.phone) : null;
+
+    if (emailMatch && phoneMatch && emailMatch.id !== phoneMatch.id) {
+      redirect(`${redirectBasePath}?error=duplicate_customer_contact`);
+    }
+
+    const existingCustomer = emailMatch ?? phoneMatch ?? null;
 
     if (workspace === "consultant" && existingCustomer?.consultantProfileId && existingCustomer.consultantProfileId !== consultantProfileId) {
       redirect(`${redirectBasePath}?error=customer_not_assigned`);
