@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Clock3 } from "lucide-react";
 import { logoutUser } from "@/app/(auth)/actions";
 import { ClinicLogo } from "@/components/layout/logo";
@@ -18,10 +17,7 @@ export default function PendingApprovalPage() {
           Your consultant account was received. A company admin must approve your seller access before
           you can use the consultant CRM, referral links, sales tools, and commission dashboard.
         </p>
-        <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-          <Link href="/shop">
-            <Button variant="outline">Browse the shop</Button>
-          </Link>
+        <div className="mt-7 flex justify-center">
           <form action={logoutUser}>
             <Button type="submit" variant="accent">Log out</Button>
           </form>
