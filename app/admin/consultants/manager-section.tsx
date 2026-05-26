@@ -64,8 +64,8 @@ export function CreateManagerModal({
       </Button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="mx-auto max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-clinic-navy/30 p-4 backdrop-blur-sm sm:p-6">
+          <div className="my-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)]">
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner team</p>
@@ -86,7 +86,7 @@ export function CreateManagerModal({
 
             <form action={createManager} className="grid max-h-[calc(92vh-120px)] gap-5 overflow-y-auto px-5 py-6 sm:px-6">
               <input type="hidden" name="partnerProfileId" value={partnerProfileId} />
-              <div className="grid gap-4 xl:grid-cols-2">
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-4">
                 <Field label="First name">
                   <Input name="firstName" placeholder="Jesus" required />
                 </Field>
@@ -148,8 +148,8 @@ export function EditManagerModal({ manager, returnTo }: { manager: Manager; retu
       </Button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="mx-auto max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-clinic-navy/30 p-4 backdrop-blur-sm sm:p-6">
+          <div className="my-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)]">
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Manager profile</p>
@@ -184,7 +184,7 @@ export function EditManagerModal({ manager, returnTo }: { manager: Manager; retu
                     <h4 className="text-xl font-semibold text-clinic-ink">Personal information</h4>
                   </div>
                 </div>
-                <div className="grid gap-4 xl:grid-cols-2">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-4">
                   <Field label="First name">
                     <Input name="firstName" defaultValue={manager.user.firstName ?? fallbackFirstName} required />
                   </Field>
@@ -208,7 +208,7 @@ export function EditManagerModal({ manager, returnTo }: { manager: Manager; retu
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner pool</p>
                   <h4 className="mt-1 text-xl font-semibold text-clinic-ink">Commission rules</h4>
                 </div>
-                <div className="grid gap-4 xl:grid-cols-2">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-4">
                   <Field label="Direct sale share">
                     <div className="relative">
                       <Input name="commissionPercent" type="number" min="0" max="50" step="0.01" defaultValue={manager.commissionBps / 100} className="pr-10" required />

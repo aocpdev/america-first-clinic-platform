@@ -76,8 +76,8 @@ export function EditConsultantModal({
       </Button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="mx-auto max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
+        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-clinic-navy/30 p-4 backdrop-blur-sm sm:p-6">
+          <div className="my-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)]">
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Consultant profile</p>
@@ -111,7 +111,7 @@ export function EditConsultantModal({
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Identity</p>
                     <h4 className="mt-1 text-xl font-semibold text-clinic-ink">Personal information</h4>
                   </div>
-                  <div className="grid gap-4 xl:grid-cols-2">
+                  <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-4">
                     <Field label="First name">
                       <Input name="firstName" defaultValue={consultant.firstName ?? ""} placeholder="First name" required />
                     </Field>
@@ -136,7 +136,7 @@ export function EditConsultantModal({
                     </p>
                   </div>
                   {canManageSellerCommission ? (
-                    <div className="grid gap-4 xl:grid-cols-2">
+                    <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-4">
                       <Field label="Manager">
                         <select
                           name="managerProfileId"
