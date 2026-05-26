@@ -40,7 +40,7 @@ function initialsFromName(name: string) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="space-y-2">
+    <label className="min-w-0 space-y-2">
       <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</span>
       {children}
     </label>
@@ -65,8 +65,8 @@ export function CreateManagerModal({
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="mx-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+          <div className="mx-auto max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
+            <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner team</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Create manager</h3>
@@ -84,9 +84,9 @@ export function CreateManagerModal({
               </button>
             </div>
 
-            <form action={createManager} className="grid max-h-[calc(92vh-120px)] gap-5 overflow-y-auto p-6">
+            <form action={createManager} className="grid max-h-[calc(92vh-120px)] gap-5 overflow-y-auto px-5 py-6 sm:px-6">
               <input type="hidden" name="partnerProfileId" value={partnerProfileId} />
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 xl:grid-cols-2">
                 <Field label="First name">
                   <Input name="firstName" placeholder="Jesus" required />
                 </Field>
@@ -149,8 +149,8 @@ export function EditManagerModal({ manager, returnTo }: { manager: Manager; retu
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="mx-auto max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+          <div className="mx-auto max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
+            <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Manager profile</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">{manager.displayName}</h3>
@@ -168,7 +168,7 @@ export function EditManagerModal({ manager, returnTo }: { manager: Manager; retu
               </button>
             </div>
 
-            <form action={updateManagerProfile} className="grid max-h-[calc(92vh-120px)] gap-5 overflow-y-auto p-6">
+            <form action={updateManagerProfile} className="grid max-h-[calc(92vh-120px)] gap-5 overflow-y-auto px-5 py-6 sm:px-6">
               <input type="hidden" name="managerProfileId" value={manager.id} />
               {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
               <section className="rounded-3xl border border-border bg-clinic-mist/50 p-5">
@@ -184,7 +184,7 @@ export function EditManagerModal({ manager, returnTo }: { manager: Manager; retu
                     <h4 className="text-xl font-semibold text-clinic-ink">Personal information</h4>
                   </div>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 xl:grid-cols-2">
                   <Field label="First name">
                     <Input name="firstName" defaultValue={manager.user.firstName ?? fallbackFirstName} required />
                   </Field>
@@ -208,7 +208,7 @@ export function EditManagerModal({ manager, returnTo }: { manager: Manager; retu
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner pool</p>
                   <h4 className="mt-1 text-xl font-semibold text-clinic-ink">Commission rules</h4>
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 xl:grid-cols-2">
                   <Field label="Direct sale share">
                     <div className="relative">
                       <Input name="commissionPercent" type="number" min="0" max="50" step="0.01" defaultValue={manager.commissionBps / 100} className="pr-10" required />

@@ -54,7 +54,7 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <label className="space-y-2">
+    <label className="min-w-0 space-y-2">
       <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</span>
       {children}
     </label>
@@ -85,8 +85,8 @@ export function CreateLeaderModal({
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="mx-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+          <div className="mx-auto max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
+            <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner team</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Create group leader</h3>
@@ -104,10 +104,10 @@ export function CreateLeaderModal({
               </button>
             </div>
 
-            <form action={createGroupLeader} className="grid max-h-[calc(92vh-120px)] gap-5 overflow-y-auto p-6">
+            <form action={createGroupLeader} className="grid max-h-[calc(92vh-120px)] gap-5 overflow-y-auto px-5 py-6 sm:px-6">
               <input type="hidden" name="partnerProfileId" value={partnerProfileId} />
               {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-4 xl:grid-cols-2">
                 <Field label="First name">
                   <Input name="firstName" placeholder="John" required />
                 </Field>
@@ -127,7 +127,7 @@ export function CreateLeaderModal({
                   <select
                     name="managerProfileId"
                     defaultValue={defaultManagerProfileId ?? ""}
-                    className="h-11 w-full rounded-lg border border-input bg-white px-3 text-sm shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="h-11 w-full min-w-0 rounded-lg border border-input bg-white px-3 text-sm shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <option value="">Direct partner</option>
                     {managers.map((manager) => (
@@ -154,7 +154,7 @@ export function CreateLeaderModal({
                     </Field>
                   </>
                 ) : (
-                  <div className="rounded-2xl border border-border bg-clinic-mist p-4 text-sm leading-6 text-slate-600 sm:col-span-2">
+                  <div className="rounded-2xl border border-border bg-clinic-mist p-4 text-sm leading-6 text-slate-600 xl:col-span-2">
                     The partner controls leader and consultant commission percentages from their partner workspace.
                   </div>
                 )}
@@ -199,8 +199,8 @@ export function EditLeaderModal({
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="mx-auto max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+          <div className="mx-auto max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
+            <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Leader profile</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">{leader.displayName}</h3>
@@ -218,7 +218,7 @@ export function EditLeaderModal({
               </button>
             </div>
 
-            <div className="max-h-[calc(92vh-120px)] overflow-y-auto p-6">
+            <div className="max-h-[calc(92vh-120px)] overflow-y-auto px-5 py-6 sm:px-6">
               <form action={updateGroupLeaderProfile} className="grid gap-5">
                 <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
 
@@ -235,7 +235,7 @@ export function EditLeaderModal({
                       <h4 className="text-xl font-semibold text-clinic-ink">Personal information</h4>
                     </div>
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 xl:grid-cols-2">
                     <Field label="First name">
                       <Input name="firstName" defaultValue={leader.user.firstName ?? fallbackFirstName} placeholder="First name" required />
                     </Field>
@@ -255,7 +255,7 @@ export function EditLeaderModal({
                       <select
                         name="managerProfileId"
                         defaultValue={leader.managerProfileId ?? ""}
-                        className="h-12 w-full rounded-xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+                    className="h-12 w-full min-w-0 rounded-xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
                       >
                         <option value="">Direct partner</option>
                         {managers.map((manager) => (
@@ -275,7 +275,7 @@ export function EditLeaderModal({
                     </p>
                   </div>
                   {canManageCommissions ? (
-                    <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 xl:grid-cols-2">
                       <Field label="Direct sale share">
                         <div className="relative">
                           <Input name="commissionPercent" type="number" min="0" max="50" step="0.01" defaultValue={leader.commissionBps / 100} className="pr-10" required />
@@ -309,7 +309,7 @@ export function EditLeaderModal({
               <form action={convertLeaderToConsultant} className="mt-5 rounded-3xl border border-border bg-clinic-mist/60 p-5">
                 <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
                 {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
-                <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Role conversion</p>
                     <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Convert leader to consultant</h4>

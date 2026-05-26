@@ -39,7 +39,7 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="space-y-2">
+    <label className="min-w-0 space-y-2">
       <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</span>
       {children}
     </label>
@@ -77,8 +77,8 @@ export function EditConsultantModal({
 
       {open ? (
         <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="mx-auto max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
-            <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
+          <div className="mx-auto max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
+            <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Consultant profile</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">
@@ -98,7 +98,7 @@ export function EditConsultantModal({
               </button>
             </div>
 
-            <div className="max-h-[calc(92vh-120px)] overflow-y-auto p-6">
+            <div className="max-h-[calc(92vh-120px)] overflow-y-auto px-5 py-6 sm:px-6">
               <form action={updateConsultantCommercials} className="grid gap-5">
                 <input type="hidden" name="consultantProfileId" value={consultant.id} />
                 <input type="hidden" name="partnerProfileId" value={partnerProfileId} />
@@ -111,7 +111,7 @@ export function EditConsultantModal({
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Identity</p>
                     <h4 className="mt-1 text-xl font-semibold text-clinic-ink">Personal information</h4>
                   </div>
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-4 xl:grid-cols-2">
                     <Field label="First name">
                       <Input name="firstName" defaultValue={consultant.firstName ?? ""} placeholder="First name" required />
                     </Field>
@@ -136,12 +136,12 @@ export function EditConsultantModal({
                     </p>
                   </div>
                   {canManageSellerCommission ? (
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid gap-4 xl:grid-cols-2">
                       <Field label="Manager">
                         <select
                           name="managerProfileId"
                           defaultValue={consultant.managerProfileId ?? ""}
-                          className="h-12 w-full rounded-xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+                          className="h-12 w-full min-w-0 rounded-xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
                         >
                           <option value="">Direct partner</option>
                           {managers.map((manager) => (
@@ -154,7 +154,7 @@ export function EditConsultantModal({
                         <select
                           name="groupLeaderProfileId"
                           defaultValue={consultant.groupLeaderProfileId ?? ""}
-                          className="h-12 w-full rounded-xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+                          className="h-12 w-full min-w-0 rounded-xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
                         >
                           <option value="">Direct partner</option>
                           {groupLeaders.map((leader) => (
@@ -200,7 +200,7 @@ export function EditConsultantModal({
               <form action={promoteConsultantToLeader} className="mt-5 rounded-3xl border border-border bg-clinic-mist/60 p-5">
                 <input type="hidden" name="consultantProfileId" value={consultant.id} />
                 <input type="hidden" name="returnTo" value={returnTo} />
-                <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Role conversion</p>
                     <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Promote consultant to group leader</h4>
