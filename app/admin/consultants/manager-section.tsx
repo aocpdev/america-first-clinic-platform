@@ -6,6 +6,7 @@ import { createManager, updateManagerProfile } from "@/app/(auth)/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ModalPortal } from "@/components/ui/modal-portal";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { percentLabel } from "@/lib/network/sales-hierarchy";
@@ -64,8 +65,9 @@ export function CreateManagerModal({
       </Button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-clinic-navy/30 p-4 backdrop-blur-sm sm:p-6">
-          <div className="my-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)]">
+        <ModalPortal>
+          <div className="fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-clinic-navy/30 p-4 backdrop-blur-sm sm:p-6">
+            <div className="my-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)]">
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner team</p>
@@ -127,8 +129,9 @@ export function CreateManagerModal({
                 <SubmitButton variant="accent" pendingText="Creating manager...">Create manager</SubmitButton>
               </div>
             </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       ) : null}
     </>
   );
@@ -148,8 +151,9 @@ export function EditManagerModal({ manager, returnTo }: { manager: Manager; retu
       </Button>
 
       {open ? (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-clinic-navy/30 p-4 backdrop-blur-sm sm:p-6">
-          <div className="my-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)]">
+        <ModalPortal>
+          <div className="fixed inset-0 z-[100] grid place-items-center overflow-y-auto bg-clinic-navy/30 p-4 backdrop-blur-sm sm:p-6">
+            <div className="my-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)]">
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Manager profile</p>
@@ -231,8 +235,9 @@ export function EditManagerModal({ manager, returnTo }: { manager: Manager; retu
                 <SubmitButton variant="accent" pendingText="Saving manager...">Save manager</SubmitButton>
               </div>
             </form>
+            </div>
           </div>
-        </div>
+        </ModalPortal>
       ) : null}
     </>
   );
