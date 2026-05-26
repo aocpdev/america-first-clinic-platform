@@ -2,18 +2,20 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent } from "react";
-import { Building2, Search, UserRound, X, ZoomIn, ZoomOut } from "lucide-react";
+import { Building2, UserRound, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export type HierarchyNode = {
   id: string;
-  type: "PARTNER" | "GROUP_LEADER" | "CONSULTANT";
+  type: "PARTNER" | "MANAGER" | "GROUP_LEADER" | "CONSULTANT";
   name: string;
   email: string;
   avatarUrl: string | null;
   commissionLabel: string;
   revenueCents: number;
   commissionCents: number;
+  personalCommissionCents?: number;
+  groupCommissionCents?: number;
   salesCount: number;
   showCommissionMetric?: boolean;
   showCommissionSetup?: boolean;
@@ -26,9 +28,16 @@ export type HierarchyLeaderGroup = {
   consultants: HierarchyNode[];
 };
 
+export type HierarchyManagerGroup = {
+  manager: HierarchyNode;
+  leaderGroups: HierarchyLeaderGroup[];
+  directConsultants: HierarchyNode[];
+};
+
 export type SalesHierarchyTree = {
   partner: HierarchyNode;
-  leaderGroups: HierarchyLeaderGroup[];
+  managerGroups: HierarchyManagerGroup[];
+  directLeaderGroups: HierarchyLeaderGroup[];
   directConsultants: HierarchyNode[];
 };
 
@@ -51,6 +60,7 @@ function initials(name: string) {
 
 function roleLabel(type: HierarchyNode["type"]) {
   if (type === "PARTNER") return "Partner";
+  if (type === "MANAGER") return "Manager";
   if (type === "GROUP_LEADER") return "Group leader";
   return "Consultant";
 }
@@ -90,12 +100,14 @@ function PersonNode({
 }) {
   const isPartner = node.type === "PARTNER";
   const showCommissionMetric = node.showCommissionMetric !== false;
+  const showGroupEarn = node.type === "MANAGER" || node.type === "GROUP_LEADER";
 
   return (
     <button
       type="button"
       onClick={() => onSelect(node)}
       draggable={false}
+      onPointerDown={(event) => event.currentTarget.blur()}
       className={`group min-w-[220px] select-none rounded-2xl border bg-white p-4 text-left shadow-line transition hover:-translate-y-0.5 hover:border-clinic-navy/40 hover:shadow-soft ${
         selected ? "border-clinic-navy ring-4 ring-clinic-navy/10" : "border-border"
       }`}
@@ -118,11 +130,19 @@ function PersonNode({
         </div>
         {showCommissionMetric ? (
           <div className="rounded-xl bg-emerald-50 px-3 py-2">
-            <p className="font-semibold text-emerald-800">{formatCurrency(node.commissionCents)}</p>
-            <p className="mt-1 text-emerald-700">Earned</p>
+            <p className="font-semibold text-emerald-800">
+              {formatCurrency(showGroupEarn ? node.groupCommissionCents ?? 0 : node.commissionCents)}
+            </p>
+            <p className="mt-1 text-emerald-700">{showGroupEarn ? "Group earn" : "Earned"}</p>
           </div>
         ) : null}
       </div>
+      {showCommissionMetric && showGroupEarn ? (
+        <div className="mt-2 rounded-xl bg-white px-3 py-2 text-xs ring-1 ring-border">
+          <p className="font-semibold text-clinic-navy">{formatCurrency(node.personalCommissionCents ?? 0)}</p>
+          <p className="mt-1 text-slate-500">Personal earn</p>
+        </div>
+      ) : null}
       <div className="mt-3 flex items-center justify-between gap-2">
         {node.showCommissionSetup === false ? null : (
           <Badge className="max-w-full whitespace-normal border-blue-100 bg-blue-50 text-clinic-navy">{node.commissionLabel}</Badge>
@@ -137,6 +157,7 @@ function DetailPanel({ node, onClose }: { node: HierarchyNode | null; onClose: (
   if (!node) return null;
   const showCommissionMetric = node.showCommissionMetric !== false;
   const showCommissionSetup = node.showCommissionSetup !== false;
+  const showGroupEarn = node.type === "MANAGER" || node.type === "GROUP_LEADER";
 
   return (
     <aside className="overflow-hidden rounded-3xl border border-border bg-white shadow-soft xl:sticky xl:top-24">
@@ -168,8 +189,18 @@ function DetailPanel({ node, onClose }: { node: HierarchyNode | null; onClose: (
           </div>
           {showCommissionMetric ? (
             <div className="rounded-2xl bg-emerald-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Commission earned</p>
-              <p className="mt-2 text-2xl font-semibold text-emerald-800">{formatCurrency(node.commissionCents)}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">
+                {showGroupEarn ? "Group earned" : "Commission earned"}
+              </p>
+              <p className="mt-2 text-2xl font-semibold text-emerald-800">
+                {formatCurrency(showGroupEarn ? node.groupCommissionCents ?? 0 : node.commissionCents)}
+              </p>
+            </div>
+          ) : null}
+          {showCommissionMetric && showGroupEarn ? (
+            <div className="rounded-2xl bg-white p-4 ring-1 ring-border">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Personal earned</p>
+              <p className="mt-2 text-2xl font-semibold text-clinic-navy">{formatCurrency(node.personalCommissionCents ?? 0)}</p>
             </div>
           ) : null}
           {showCommissionSetup ? (
@@ -203,7 +234,6 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
   const [zoom, setZoom] = useState(80);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isPanning, setIsPanning] = useState(false);
-  const [query, setQuery] = useState("");
   const dragStartRef = useRef<{
     pointerId: number;
     startX: number;
@@ -215,13 +245,17 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
   const nodes = useMemo(
     () => [
       tree.partner,
-      ...tree.leaderGroups.flatMap((group) => [group.leader, ...group.consultants]),
+      ...tree.managerGroups.flatMap((managerGroup) => [
+        managerGroup.manager,
+        ...managerGroup.leaderGroups.flatMap((group) => [group.leader, ...group.consultants]),
+        ...managerGroup.directConsultants
+      ]),
+      ...tree.directLeaderGroups.flatMap((group) => [group.leader, ...group.consultants]),
       ...tree.directConsultants
     ],
     [tree]
   );
   const selectedNode = selectedId ? nodes.find((node) => node.id === selectedId) ?? null : null;
-  const normalizedQuery = query.trim().toLowerCase();
 
   useEffect(() => {
     if (!isPanning) return;
@@ -237,11 +271,6 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
       document.body.style.webkitUserSelect = previousWebkitUserSelect;
     };
   }, [isPanning]);
-
-  function isVisible(node: HierarchyNode) {
-    if (!normalizedQuery) return true;
-    return `${node.name} ${node.email} ${roleLabel(node.type)}`.toLowerCase().includes(normalizedQuery);
-  }
 
   function handleCanvasPointerDown(event: PointerEvent<HTMLDivElement>) {
     if (event.button !== 0 || isInteractiveTarget(event.target)) return;
@@ -289,15 +318,6 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
           <p className="mt-1 text-sm text-slate-500">Click any avatar card to view profile, sales, and commission details.</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <label className="relative block">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-            <input
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search people..."
-              className="h-10 w-full rounded-xl border border-border bg-white pl-9 pr-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10 sm:w-64"
-            />
-          </label>
           <div className="flex h-10 items-center gap-3 rounded-xl border border-border bg-clinic-mist px-3 shadow-line">
             <ZoomOut className="h-4 w-4 text-slate-500" />
             <input
@@ -334,45 +354,76 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
             }}
           >
             <div className="flex flex-col items-center">
-              {isVisible(tree.partner) ? (
-                <PersonNode node={tree.partner} selected={selectedId === tree.partner.id} onSelect={(node) => setSelectedId(node.id)} />
-              ) : null}
+              <PersonNode node={tree.partner} selected={selectedId === tree.partner.id} onSelect={(node) => setSelectedId(node.id)} />
 
               <div className="h-8 w-px bg-border" />
 
               <div className="flex items-start gap-6">
-                {tree.leaderGroups.map((group) => {
-                  const visibleConsultants = group.consultants.filter(isVisible);
-                  const leaderVisible = isVisible(group.leader);
-
-                  if (!leaderVisible && visibleConsultants.length === 0) {
-                    return null;
-                  }
-
-                  return (
-                    <div key={group.leader.id} className="flex flex-col items-center">
-                      <div className="h-px w-full bg-border" />
-                      {leaderVisible ? (
-                        <PersonNode
-                          node={group.leader}
-                          selected={selectedId === group.leader.id}
-                          onSelect={(node) => setSelectedId(node.id)}
-                        />
-                      ) : null}
-                      {visibleConsultants.length > 0 ? <div className="h-7 w-px bg-border" /> : null}
-                      <div className="grid gap-3">
-                        {visibleConsultants.map((consultant) => (
+                {tree.managerGroups.map((managerGroup) => (
+                  <div key={managerGroup.manager.id} className="flex flex-col items-center">
+                    <PersonNode
+                      node={managerGroup.manager}
+                      selected={selectedId === managerGroup.manager.id}
+                      onSelect={(node) => setSelectedId(node.id)}
+                    />
+                    {(managerGroup.leaderGroups.length > 0 || managerGroup.directConsultants.length > 0) ? <div className="h-7 w-px bg-border" /> : null}
+                    <div className="flex items-start gap-5">
+                      {managerGroup.leaderGroups.map((group) => (
+                        <div key={group.leader.id} className="flex flex-col items-center">
+                          <PersonNode
+                            node={group.leader}
+                            selected={selectedId === group.leader.id}
+                            onSelect={(node) => setSelectedId(node.id)}
+                          />
+                          {group.consultants.length > 0 ? <div className="h-7 w-px bg-border" /> : null}
+                          <div className="grid gap-3">
+                            {group.consultants.map((consultant) => (
+                              <PersonNode
+                                key={consultant.id}
+                                node={consultant}
+                                selected={selectedId === consultant.id}
+                                onSelect={(node) => setSelectedId(node.id)}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                      {managerGroup.directConsultants.length > 0 ? (
+                        <div className="grid gap-3">
+                          {managerGroup.directConsultants.map((consultant) => (
                           <PersonNode
                             key={consultant.id}
                             node={consultant}
                             selected={selectedId === consultant.id}
                             onSelect={(node) => setSelectedId(node.id)}
                           />
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
+
+                {tree.directLeaderGroups.map((group) => (
+                  <div key={group.leader.id} className="flex flex-col items-center">
+                    <PersonNode
+                      node={group.leader}
+                      selected={selectedId === group.leader.id}
+                      onSelect={(node) => setSelectedId(node.id)}
+                    />
+                    {group.consultants.length > 0 ? <div className="h-7 w-px bg-border" /> : null}
+                    <div className="grid gap-3">
+                      {group.consultants.map((consultant) => (
+                        <PersonNode
+                          key={consultant.id}
+                          node={consultant}
+                          selected={selectedId === consultant.id}
+                          onSelect={(node) => setSelectedId(node.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
 
                 {tree.directConsultants.length > 0 ? (
                   <div className="flex flex-col items-center">
@@ -380,7 +431,7 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
                       Direct consultants
                     </div>
                     <div className="grid gap-3">
-                      {tree.directConsultants.filter(isVisible).map((consultant) => (
+                      {tree.directConsultants.map((consultant) => (
                         <PersonNode
                           key={consultant.id}
                           node={consultant}

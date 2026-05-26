@@ -20,6 +20,13 @@ type PartnerOption = {
 type LeaderOption = {
   id: string;
   partnerProfileId: string;
+  managerProfileId: string | null;
+  displayName: string;
+};
+
+type ManagerOption = {
+  id: string;
+  partnerProfileId: string;
   displayName: string;
 };
 
@@ -27,26 +34,34 @@ type RegistrationRole = "CONSULTANT" | "GROUP_LEADER";
 
 export function RegisterForm({
   partners,
+  managers,
   groupLeaders,
   error,
   errorMessage
 }: {
   partners: PartnerOption[];
+  managers: ManagerOption[];
   groupLeaders: LeaderOption[];
   error?: string;
   errorMessage?: string;
 }) {
   const [requestedRole, setRequestedRole] = useState<RegistrationRole>("CONSULTANT");
   const [partnerProfileId, setPartnerProfileId] = useState("");
+  const [managerProfileId, setManagerProfileId] = useState("");
   const [groupLeaderProfileId, setGroupLeaderProfileId] = useState("");
 
+  const visibleManagers = useMemo(
+    () => managers.filter((manager) => manager.partnerProfileId === partnerProfileId),
+    [managers, partnerProfileId]
+  );
   const visibleLeaders = useMemo(
-    () => groupLeaders.filter((leader) => leader.partnerProfileId === partnerProfileId),
-    [groupLeaders, partnerProfileId]
+    () => groupLeaders.filter((leader) => leader.partnerProfileId === partnerProfileId && (!managerProfileId || leader.managerProfileId === managerProfileId)),
+    [groupLeaders, managerProfileId, partnerProfileId]
   );
 
   function selectPartner(value: string) {
     setPartnerProfileId(value);
+    setManagerProfileId("");
     setGroupLeaderProfileId("");
   }
 
@@ -133,6 +148,25 @@ export function RegisterForm({
               ))}
             </select>
           </label>
+
+          {requestedRole === "GROUP_LEADER" ? (
+            <label className="sm:col-span-2 space-y-2 text-sm font-semibold text-clinic-ink">
+              <span>Manager</span>
+              <select
+                name="requestedManagerProfileId"
+                className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={managerProfileId}
+                onChange={(event) => setManagerProfileId(event.target.value)}
+                disabled={!partnerProfileId}
+              >
+                <option value="">Direct to partner / not sure yet</option>
+                {visibleManagers.map((manager) => (
+                  <option key={manager.id} value={manager.id}>{manager.displayName}</option>
+                ))}
+              </select>
+              <p className="text-xs font-medium text-slate-500">Managers appear after selecting a partner company.</p>
+            </label>
+          ) : null}
 
           {requestedRole === "CONSULTANT" ? (
             <label className="sm:col-span-2 space-y-2 text-sm font-semibold text-clinic-ink">

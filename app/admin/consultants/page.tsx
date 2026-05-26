@@ -8,7 +8,8 @@ import { AssignConsultantModal } from "@/app/admin/consultants/assign-consultant
 import { CreateConsultantModal } from "@/app/admin/consultants/create-consultant-modal";
 import { CreatePartnerModal } from "@/app/admin/consultants/create-partner-modal";
 import { EditConsultantModal } from "@/app/admin/consultants/edit-consultant-modal";
-import { LeaderSection } from "@/app/admin/consultants/leader-section";
+import { CreateLeaderModal, LeaderSection } from "@/app/admin/consultants/leader-section";
+import { ManagerSection } from "@/app/admin/consultants/manager-section";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { SalesHierarchyView } from "@/components/network/sales-hierarchy-view";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ function initialsFromName(name: string) {
 const partnerSections = [
   { id: "hierarchy", label: "Hierarchy" },
   { id: "workspace", label: "Partner Profile" },
+  { id: "managers", label: "Managers" },
   { id: "leaders", label: "Leaders" },
   { id: "approval", label: "Approval workflow" },
   { id: "network", label: "Seller Network" }
@@ -53,7 +55,7 @@ function getPartnerSection(section: string | undefined): PartnerSection {
 export default async function AdminConsultantsPage({
   searchParams
 }: {
-  searchParams: Promise<{ error?: string; updated?: string; partnerId?: string; section?: string; leaderId?: string }>;
+  searchParams: Promise<{ error?: string; updated?: string; partnerId?: string; section?: string; managerId?: string; leaderId?: string }>;
 }) {
   const params = await searchParams;
   const [pendingConsultants, partners] = await Promise.all([
@@ -67,14 +69,19 @@ export default async function AdminConsultantsPage({
     prisma.partnerProfile.findMany({
       include: {
         user: true,
+        managers: {
+          where: { user: { is: { role: "MANAGER" } } },
+          include: { user: true },
+          orderBy: { displayName: "asc" }
+        },
         groupLeaders: {
           where: { user: { is: { role: "GROUP_LEADER" } } },
-          include: { user: true },
+          include: { user: true, managerProfile: true },
           orderBy: { displayName: "asc" }
         },
         consultants: {
           where: { user: { is: { role: "CONSULTANT" } } },
-          include: { user: true, groupLeaderProfile: true },
+          include: { user: true, managerProfile: true, groupLeaderProfile: true },
           orderBy: { createdAt: "desc" }
         }
       },
@@ -85,6 +92,9 @@ export default async function AdminConsultantsPage({
   const selectedPartner = params.partnerId
     ? partners.find((partner) => partner.id === params.partnerId) ?? null
     : null;
+  const selectedManager = selectedPartner && params.managerId
+    ? selectedPartner.managers.find((manager) => manager.id === params.managerId) ?? null
+    : null;
   const selectedLeader = selectedPartner && params.leaderId
     ? selectedPartner.groupLeaders.find((leader) => leader.id === params.leaderId) ?? null
     : null;
@@ -93,17 +103,26 @@ export default async function AdminConsultantsPage({
         where: {
           OR: [
             { partnerProfileId: selectedPartner.id },
+            { managerProfile: { partnerProfileId: selectedPartner.id } },
+            { groupLeaderProfile: { partnerProfileId: selectedPartner.id } },
             { consultantProfile: { partnerProfileId: selectedPartner.id } }
           ]
         },
         select: {
           totalCents: true,
           partnerProfileId: true,
+          managerProfileId: true,
           groupLeaderProfileId: true,
           consultantProfileId: true,
+          groupLeaderProfile: {
+            select: {
+              managerProfileId: true
+            }
+          },
           consultantProfile: {
             select: {
               partnerProfileId: true,
+              managerProfileId: true,
               groupLeaderProfileId: true
             }
           },
@@ -112,6 +131,7 @@ export default async function AdminConsultantsPage({
               participantRole: true,
               amountCents: true,
               partnerProfileId: true,
+              managerProfileId: true,
               groupLeaderProfileId: true,
               consultantProfileId: true
             }
@@ -122,9 +142,11 @@ export default async function AdminConsultantsPage({
   const hierarchyTree = selectedPartner
     ? buildSalesHierarchyTree({
         partner: selectedPartner,
+        managers: selectedPartner.managers,
         groupLeaders: selectedPartner.groupLeaders,
         consultants: selectedPartner.consultants,
         orders: selectedOrders,
+        visibleManagerId: selectedManager?.id ?? null,
         visibleGroupLeaderId: selectedLeader?.id ?? null
       })
     : null;
@@ -132,11 +154,13 @@ export default async function AdminConsultantsPage({
     ? pendingConsultants.filter((user) => user.requestedPartnerProfileId === selectedPartner.id)
     : [];
   const activeSection = getPartnerSection(params.section);
+  const canManageCommissions = true;
   const sectionHref = (section: PartnerSection) =>
     selectedPartner ? `/admin/consultants?partnerId=${selectedPartner.id}&section=${section}` : "/admin/consultants";
   const errorMessages: Record<string, string> = {
     duplicate_email: "That email is already assigned to another partner, leader, or consultant.",
     duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant.",
+    invalid_manager: "That manager does not belong to this partner network.",
     invalid_group_leader: "That leader does not belong to this partner network.",
     application_not_found: "That application could not be found or has already been processed.",
     consultant_not_found: "That consultant could not be found.",
@@ -189,7 +213,11 @@ export default async function AdminConsultantsPage({
                       </div>
                       <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{percentLabel(partner.commissionBps)}</Badge>
                     </div>
-                    <div className="mt-5 grid grid-cols-3 gap-2 text-center text-xs font-semibold text-slate-500">
+                    <div className="mt-5 grid grid-cols-4 gap-2 text-center text-xs font-semibold text-slate-500">
+                      <div className="rounded-2xl bg-clinic-mist px-2 py-3">
+                        <p className="text-2xl text-clinic-navy">{partner.managers.length}</p>
+                        <p className="mt-1">Managers</p>
+                      </div>
                       <div className="rounded-2xl bg-clinic-mist px-2 py-3">
                         <p className="text-2xl text-clinic-navy">{partner.groupLeaders.length}</p>
                         <p className="mt-1">Leaders</p>
@@ -264,10 +292,14 @@ export default async function AdminConsultantsPage({
                     </h2>
                     <p className="mt-2 text-sm text-slate-500">{selectedPartner.user.email}</p>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="grid grid-cols-2 gap-3 text-center md:grid-cols-4">
                     <div className="rounded-2xl bg-clinic-mist px-4 py-3">
                       <p className="text-2xl font-semibold text-clinic-navy">{percentLabel(selectedPartner.commissionBps)}</p>
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Margin pool</p>
+                    </div>
+                    <div className="rounded-2xl bg-clinic-mist px-4 py-3">
+                      <p className="text-2xl font-semibold text-clinic-navy">{selectedPartner.managers.length}</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Managers</p>
                     </div>
                     <div className="rounded-2xl bg-clinic-mist px-4 py-3">
                       <p className="text-2xl font-semibold text-clinic-navy">{selectedPartner.groupLeaders.length}</p>
@@ -320,7 +352,46 @@ export default async function AdminConsultantsPage({
 
               {activeSection === "hierarchy" && hierarchyTree ? (
                 <div className="space-y-4">
-                  {selectedLeader ? (
+                  {selectedManager ? (
+                    <Card className="p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <Link
+                            href={sectionHref("managers")}
+                            className="text-sm font-semibold text-clinic-navy transition hover:text-clinic-red"
+                          >
+                            Back to managers
+                          </Link>
+                          <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">{selectedManager.displayName} hierarchy</h2>
+                          <p className="mt-1 text-sm text-slate-500">
+                            This view shows leaders and direct sellers assigned under this manager.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <CreateLeaderModal
+                            partnerProfileId={selectedPartner.id}
+                            managers={selectedPartner.managers.map((manager) => ({ id: manager.id, displayName: manager.displayName }))}
+                            defaultManagerProfileId={selectedManager.id}
+                            returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=hierarchy&managerId=${selectedManager.id}`}
+                          />
+                          <CreateConsultantModal
+                            partnerProfileId={selectedPartner.id}
+                            managerProfileId={selectedManager.id}
+                            managerName={selectedManager.displayName}
+                            groupLeaders={selectedPartner.groupLeaders
+                              .filter((leader) => leader.managerProfileId === selectedManager.id)
+                              .map((leader) => ({
+                                id: leader.id,
+                                displayName: leader.displayName,
+                                managerProfileId: leader.managerProfileId,
+                                managerName: selectedManager.displayName
+                              }))}
+                            returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=hierarchy&managerId=${selectedManager.id}`}
+                          />
+                        </div>
+                      </div>
+                    </Card>
+                  ) : selectedLeader ? (
                     <Card className="p-4">
                       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
@@ -335,6 +406,8 @@ export default async function AdminConsultantsPage({
                         </div>
                         <CreateConsultantModal
                           partnerProfileId={selectedPartner.id}
+                          managerProfileId={selectedLeader.managerProfileId}
+                          managerName={selectedLeader.managerProfile?.displayName ?? null}
                           groupLeaderProfileId={selectedLeader.id}
                           groupLeaderName={selectedLeader.displayName}
                           returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=hierarchy&leaderId=${selectedLeader.id}`}
@@ -344,16 +417,32 @@ export default async function AdminConsultantsPage({
                   ) : null}
                   <SalesHierarchyView
                     tree={hierarchyTree}
-                    title={selectedLeader ? `${selectedLeader.displayName} hierarchy` : `${selectedPartner.companyName || selectedPartner.displayName} hierarchy`}
+                    title={
+                      selectedManager
+                        ? `${selectedManager.displayName} hierarchy`
+                        : selectedLeader
+                          ? `${selectedLeader.displayName} hierarchy`
+                          : `${selectedPartner.companyName || selectedPartner.displayName} hierarchy`
+                    }
                   />
                 </div>
+              ) : null}
+
+              {activeSection === "managers" ? (
+              <ManagerSection
+                partnerProfileId={selectedPartner.id}
+                managers={selectedPartner.managers}
+                returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=managers`}
+              />
               ) : null}
 
               {activeSection === "leaders" ? (
               <LeaderSection
                 partnerProfileId={selectedPartner.id}
                 leaders={selectedPartner.groupLeaders}
+                managers={selectedPartner.managers.map((manager) => ({ id: manager.id, displayName: manager.displayName }))}
                 returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=leaders`}
+                canManageCommissions
               />
               ) : null}
 
@@ -399,11 +488,18 @@ export default async function AdminConsultantsPage({
                   </div>
                   <CreateConsultantModal
                     partnerProfileId={selectedPartner.id}
+                    managers={selectedPartner.managers.map((manager) => ({
+                      id: manager.id,
+                      displayName: manager.displayName
+                    }))}
                     groupLeaders={selectedPartner.groupLeaders.map((leader) => ({
                       id: leader.id,
-                      displayName: leader.displayName
+                      displayName: leader.displayName,
+                      managerProfileId: leader.managerProfileId,
+                      managerName: leader.managerProfile?.displayName ?? null
                     }))}
                     returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=network`}
+                    canManageSellerCommission={canManageCommissions}
                   />
                 </div>
               </Card>
@@ -419,6 +515,7 @@ export default async function AdminConsultantsPage({
                       <tr>
                         <th className="px-5 py-3">Consultant</th>
                         <th className="px-5 py-3">Leader</th>
+                        <th className="px-5 py-3">Manager</th>
                         <th className="px-5 py-3">Referral</th>
                         <th className="px-5 py-3">Pool share</th>
                         <th className="px-5 py-3 text-right">Actions</th>
@@ -432,6 +529,7 @@ export default async function AdminConsultantsPage({
                             <p className="mt-1 text-xs text-slate-500">{profile.user.email}</p>
                           </td>
                           <td className="px-5 py-4 text-slate-600">{profile.groupLeaderProfile?.displayName ?? "Direct partner"}</td>
+                          <td className="px-5 py-4 text-slate-600">{profile.managerProfile?.displayName ?? "No manager"}</td>
                           <td className="px-5 py-4 font-semibold text-clinic-navy">/c/{profile.referralSlug}</td>
                           <td className="px-5 py-4">{percentLabel(profile.commissionBps)} of partner pool</td>
                           <td className="px-5 py-4 text-right">
@@ -442,12 +540,18 @@ export default async function AdminConsultantsPage({
                                   name: displayUserName(profile.user),
                                   email: profile.user.email,
                                   avatarUrl: profile.user.avatarUrl,
+                                  managerProfileId: profile.managerProfileId,
                                   groupLeaderProfileId: profile.groupLeaderProfileId
                                 }}
                                 partnerProfileId={selectedPartner.id}
+                                managers={selectedPartner.managers.map((manager) => ({
+                                  id: manager.id,
+                                  displayName: manager.displayName
+                                }))}
                                 groupLeaders={selectedPartner.groupLeaders.map((leader) => ({
                                   id: leader.id,
-                                  displayName: leader.displayName
+                                  displayName: leader.displayName,
+                                  managerProfileId: leader.managerProfileId
                                 }))}
                                 returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=network&updated=assignment_updated`}
                               />
@@ -458,15 +562,22 @@ export default async function AdminConsultantsPage({
                                   lastName: profile.user.lastName,
                                   email: profile.user.email,
                                   phone: profile.user.phone,
+                                  managerProfileId: profile.managerProfileId,
                                   groupLeaderProfileId: profile.groupLeaderProfileId,
                                   commissionPercent: profile.commissionBps / 100
                                 }}
                                 partnerProfileId={selectedPartner.id}
+                                managers={selectedPartner.managers.map((manager) => ({
+                                  id: manager.id,
+                                  displayName: manager.displayName
+                                }))}
                                 groupLeaders={selectedPartner.groupLeaders.map((leader) => ({
                                   id: leader.id,
-                                  displayName: leader.displayName
+                                  displayName: leader.displayName,
+                                  managerProfileId: leader.managerProfileId
                                 }))}
                                 returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=network&updated=consultant_updated`}
+                                canManageSellerCommission={canManageCommissions}
                               />
                             </div>
                           </td>
@@ -474,7 +585,7 @@ export default async function AdminConsultantsPage({
                       ))}
                       {selectedPartner.consultants.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="px-5 py-8 text-center text-slate-500">No consultants are assigned to this partner yet.</td>
+                          <td colSpan={6} className="px-5 py-8 text-center text-slate-500">No consultants are assigned to this partner yet.</td>
                         </tr>
                       )}
                     </tbody>
@@ -514,15 +625,29 @@ export default async function AdminConsultantsPage({
                             <input type="hidden" name="userId" value={user.id} />
                             <input type="hidden" name="partnerProfileId" value={selectedPartner.id} />
                             {isLeaderApplication ? (
-                              <span className="rounded-lg border border-border bg-clinic-mist px-3 py-2 text-xs font-semibold text-slate-600">
-                                Partner sets leader commission
-                              </span>
+                              <>
+                                <select
+                                  name="managerProfileId"
+                                  className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                                  defaultValue={user.requestedManagerProfileId ?? ""}
+                                >
+                                  <option value="">Direct partner</option>
+                                  {selectedPartner.managers.map((manager) => (
+                                    <option key={manager.id} value={manager.id}>{manager.displayName}</option>
+                                  ))}
+                                </select>
+                                <span className="rounded-lg border border-border bg-clinic-mist px-3 py-2 text-xs font-semibold text-slate-600">
+                                  Partner sets leader commission
+                                </span>
+                              </>
                             ) : (
                               <>
                                 <select name="groupLeaderProfileId" className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink" defaultValue={user.requestedGroupLeaderProfileId ?? ""}>
                                   <option value="">Direct partner</option>
                                   {selectedPartner.groupLeaders.map((leader) => (
-                                    <option key={leader.id} value={leader.id}>{leader.displayName}</option>
+                                    <option key={leader.id} value={leader.id}>
+                                      {leader.displayName}{leader.managerProfile ? ` · ${leader.managerProfile.displayName}` : ""}
+                                    </option>
                                   ))}
                                 </select>
                                 <span className="rounded-lg border border-border bg-clinic-mist px-3 py-2 text-xs font-semibold text-slate-600">

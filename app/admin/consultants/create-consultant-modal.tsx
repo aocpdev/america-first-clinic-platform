@@ -26,6 +26,9 @@ function Field({
 
 export function CreateConsultantModal({
   partnerProfileId,
+  managerProfileId,
+  managerName,
+  managers = [],
   groupLeaderProfileId,
   groupLeaderName,
   groupLeaders = [],
@@ -34,11 +37,19 @@ export function CreateConsultantModal({
   canManageSellerCommission = false
 }: {
   partnerProfileId: string;
+  managerProfileId?: string | null;
+  managerName?: string | null;
+  managers?: Array<{
+    id: string;
+    displayName: string;
+  }>;
   groupLeaderProfileId?: string | null;
   groupLeaderName?: string | null;
   groupLeaders?: Array<{
     id: string;
     displayName: string;
+    managerProfileId?: string | null;
+    managerName?: string | null;
   }>;
   returnTo?: string;
   buttonLabel?: string;
@@ -78,6 +89,7 @@ export function CreateConsultantModal({
 
             <form action={createConsultantByAdmin} className="grid max-h-[calc(92vh-120px)] gap-5 overflow-y-auto p-6">
               <input type="hidden" name="partnerProfileId" value={partnerProfileId} />
+              {managerProfileId !== undefined ? <input type="hidden" name="managerProfileId" value={managerProfileId ?? ""} /> : null}
               {groupLeaderProfileId !== undefined ? <input type="hidden" name="groupLeaderProfileId" value={groupLeaderProfileId ?? ""} /> : null}
               {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
               <div className="grid gap-4 sm:grid-cols-2">
@@ -97,6 +109,25 @@ export function CreateConsultantModal({
                   <Input name="password" type="password" minLength={8} placeholder="Minimum 8 characters" required />
                 </Field>
                 {groupLeaderProfileId === undefined ? (
+                  <>
+                  {managerProfileId === undefined ? (
+                    <Field label="Manager">
+                      <select
+                        name="managerProfileId"
+                        className="h-11 w-full rounded-lg border border-input bg-white px-3 text-sm shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        defaultValue=""
+                      >
+                        <option value="">Direct partner</option>
+                        {managers.map((manager) => (
+                          <option key={manager.id} value={manager.id}>{manager.displayName}</option>
+                        ))}
+                      </select>
+                    </Field>
+                  ) : (
+                    <div className="rounded-2xl border border-border bg-clinic-mist p-4 text-sm font-semibold text-clinic-ink">
+                      Manager: {managerName ?? "Selected manager"}
+                    </div>
+                  )}
                   <Field label="Group leader">
                     <select
                       name="groupLeaderProfileId"
@@ -105,10 +136,13 @@ export function CreateConsultantModal({
                     >
                       <option value="">Direct partner</option>
                       {groupLeaders.map((leader) => (
-                        <option key={leader.id} value={leader.id}>{leader.displayName}</option>
+                        <option key={leader.id} value={leader.id}>
+                          {leader.displayName}{leader.managerName ? ` · ${leader.managerName}` : ""}
+                        </option>
                       ))}
                     </select>
                   </Field>
+                  </>
                 ) : null}
                 {canManageSellerCommission ? (
                   <Field label="Consultant share">

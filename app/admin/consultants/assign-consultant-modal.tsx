@@ -9,6 +9,12 @@ import { SubmitButton } from "@/components/ui/submit-button";
 type LeaderOption = {
   id: string;
   displayName: string;
+  managerProfileId?: string | null;
+};
+
+type ManagerOption = {
+  id: string;
+  displayName: string;
 };
 
 type ConsultantForAssignment = {
@@ -16,6 +22,7 @@ type ConsultantForAssignment = {
   name: string;
   email: string;
   avatarUrl?: string | null;
+  managerProfileId: string | null;
   groupLeaderProfileId: string | null;
 };
 
@@ -31,11 +38,13 @@ function initialsFromName(name: string) {
 export function AssignConsultantModal({
   consultant,
   partnerProfileId,
+  managers,
   groupLeaders,
   returnTo
 }: {
   consultant: ConsultantForAssignment;
   partnerProfileId: string;
+  managers: ManagerOption[];
   groupLeaders: LeaderOption[];
   returnTo: string;
 }) {
@@ -96,8 +105,22 @@ export function AssignConsultantModal({
                 </div>
               </div>
 
+              <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-2">
-                <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Assignment</span>
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Manager</span>
+                <select
+                  name="managerProfileId"
+                  className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-base font-semibold text-clinic-ink shadow-line outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+                  defaultValue={consultant.managerProfileId ?? ""}
+                >
+                  <option value="">Direct partner</option>
+                  {managers.map((manager) => (
+                    <option key={manager.id} value={manager.id}>{manager.displayName}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Leader</span>
                 <select
                   name="groupLeaderProfileId"
                   className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-base font-semibold text-clinic-ink shadow-line outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
@@ -105,10 +128,13 @@ export function AssignConsultantModal({
                 >
                   <option value="">Direct partner</option>
                   {groupLeaders.map((leader) => (
-                    <option key={leader.id} value={leader.id}>{leader.displayName}</option>
+                    <option key={leader.id} value={leader.id}>
+                      {leader.displayName}{leader.managerProfileId ? " · Manager assigned" : ""}
+                    </option>
                   ))}
                 </select>
               </label>
+              </div>
 
               <div className="grid gap-3 rounded-3xl border border-blue-100 bg-blue-50 p-4 text-sm leading-6 text-clinic-navy sm:grid-cols-[auto_1fr]">
                 <ShieldCheck className="mt-0.5 h-5 w-5" />

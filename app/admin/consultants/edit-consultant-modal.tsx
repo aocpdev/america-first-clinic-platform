@@ -12,6 +12,12 @@ import { SubmitButton } from "@/components/ui/submit-button";
 type LeaderOption = {
   id: string;
   displayName: string;
+  managerProfileId?: string | null;
+};
+
+type ManagerOption = {
+  id: string;
+  displayName: string;
 };
 
 type ConsultantForEdit = {
@@ -20,6 +26,7 @@ type ConsultantForEdit = {
   lastName: string | null;
   email: string;
   phone: string | null;
+  managerProfileId: string | null;
   groupLeaderProfileId: string | null;
   commissionPercent: number;
 };
@@ -42,12 +49,14 @@ function Field({
 export function EditConsultantModal({
   consultant,
   partnerProfileId,
+  managers,
   groupLeaders,
   returnTo,
   canManageSellerCommission = false
 }: {
   consultant: ConsultantForEdit;
   partnerProfileId: string;
+  managers: ManagerOption[];
   groupLeaders: LeaderOption[];
   returnTo: string;
   canManageSellerCommission?: boolean;
@@ -93,6 +102,7 @@ export function EditConsultantModal({
               <form action={updateConsultantCommercials} className="grid gap-5">
                 <input type="hidden" name="consultantProfileId" value={consultant.id} />
                 <input type="hidden" name="partnerProfileId" value={partnerProfileId} />
+                {!canManageSellerCommission ? <input type="hidden" name="managerProfileId" value={consultant.managerProfileId ?? ""} /> : null}
                 {!canManageSellerCommission ? <input type="hidden" name="groupLeaderProfileId" value={consultant.groupLeaderProfileId ?? ""} /> : null}
                 <input type="hidden" name="returnTo" value={returnTo} />
 
@@ -127,6 +137,19 @@ export function EditConsultantModal({
                   </div>
                   {canManageSellerCommission ? (
                     <div className="grid gap-4 sm:grid-cols-2">
+                      <Field label="Manager">
+                        <select
+                          name="managerProfileId"
+                          defaultValue={consultant.managerProfileId ?? ""}
+                          className="h-12 w-full rounded-xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+                        >
+                          <option value="">Direct partner</option>
+                          {managers.map((manager) => (
+                            <option key={manager.id} value={manager.id}>{manager.displayName}</option>
+                          ))}
+                        </select>
+                        <p className="text-xs leading-5 text-slate-500">Use this for direct manager placement. Leader placement overrides this automatically.</p>
+                      </Field>
                       <Field label="Placement">
                         <select
                           name="groupLeaderProfileId"
@@ -136,7 +159,7 @@ export function EditConsultantModal({
                           <option value="">Direct partner</option>
                           {groupLeaders.map((leader) => (
                             <option key={leader.id} value={leader.id}>
-                              {leader.displayName}
+                              {leader.displayName}{leader.managerProfileId ? " · Manager assigned" : ""}
                             </option>
                           ))}
                         </select>
@@ -182,14 +205,14 @@ export function EditConsultantModal({
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Role conversion</p>
                     <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Promote consultant to group leader</h4>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Keeps historical sales intact and creates an active leader profile. Direct leader sales use the partner pool; overrides are deducted from seller share.
+                      Keeps historical sales intact and creates an active leader profile. Direct leader sales and team overrides are paid from the partner pool.
                     </p>
                   </div>
                   <div className={canManageSellerCommission ? "grid gap-3 sm:grid-cols-[150px_150px_auto]" : "flex justify-end"}>
                     {canManageSellerCommission ? (
                       <>
                         <Input name="leaderCommissionPercent" type="number" min="0" max="50" step="0.01" defaultValue="25" aria-label="Leader direct share of partner pool percent" />
-                        <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue="0" aria-label="Leader consultant override from seller share percent" />
+                        <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue="0" aria-label="Leader team override from partner pool percent" />
                       </>
                     ) : null}
                     <SubmitButton variant="outline" pendingText="Promoting...">

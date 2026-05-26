@@ -15,9 +15,14 @@ type Leader = {
   id: string;
   userId: string;
   partnerProfileId: string;
+  managerProfileId?: string | null;
   displayName: string;
   commissionBps: number;
   consultantOverrideBps: number;
+  managerProfile?: {
+    id: string;
+    displayName: string;
+  } | null;
   user: {
     firstName: string | null;
     lastName: string | null;
@@ -25,6 +30,11 @@ type Leader = {
     phone: string | null;
     avatarUrl: string | null;
   };
+};
+
+type ManagerOption = {
+  id: string;
+  displayName: string;
 };
 
 function initialsFromName(name: string) {
@@ -53,9 +63,15 @@ function Field({
 
 export function CreateLeaderModal({
   partnerProfileId,
+  managers = [],
+  defaultManagerProfileId = null,
+  returnTo,
   canManageCommissions = false
 }: {
   partnerProfileId: string;
+  managers?: ManagerOption[];
+  defaultManagerProfileId?: string | null;
+  returnTo?: string;
   canManageCommissions?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -75,7 +91,7 @@ export function CreateLeaderModal({
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner team</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Create group leader</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Add a leader under this partner. Direct leader sales use the partner pool; seller overrides are deducted from the seller share.
+                  Add a leader under this partner. Direct leader sales and team overrides are paid from the partner pool.
                 </p>
               </div>
               <button
@@ -90,6 +106,7 @@ export function CreateLeaderModal({
 
             <form action={createGroupLeader} className="grid max-h-[calc(92vh-120px)] gap-5 overflow-y-auto p-6">
               <input type="hidden" name="partnerProfileId" value={partnerProfileId} />
+              {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="First name">
                   <Input name="firstName" placeholder="John" required />
@@ -106,6 +123,19 @@ export function CreateLeaderModal({
                 <Field label="Temporary password">
                   <Input name="password" type="password" minLength={8} placeholder="Minimum 8 characters" required />
                 </Field>
+                <Field label="Manager">
+                  <select
+                    name="managerProfileId"
+                    defaultValue={defaultManagerProfileId ?? ""}
+                    className="h-11 w-full rounded-lg border border-input bg-white px-3 text-sm shadow-line focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <option value="">Direct partner</option>
+                    {managers.map((manager) => (
+                      <option key={manager.id} value={manager.id}>{manager.displayName}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs leading-5 text-slate-500">Managers can oversee multiple leaders. Leave blank for direct partner placement.</p>
+                </Field>
                 {canManageCommissions ? (
                   <>
                     <Field label="Direct share of partner pool">
@@ -115,12 +145,12 @@ export function CreateLeaderModal({
                       </div>
                       <p className="text-xs leading-5 text-slate-500">Used when this leader creates the sale. Max 50% of the partner pool.</p>
                     </Field>
-                    <Field label="Consultant override from seller share">
+                    <Field label="Team override from partner pool">
                       <div className="relative">
                         <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue="0" className="pr-10" required />
                         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
                       </div>
-                      <p className="text-xs leading-5 text-slate-500">Optional override from sellers under this leader. Max 50% of each seller's share.</p>
+                      <p className="text-xs leading-5 text-slate-500">Optional team override when sellers under this leader close sales. Max 50% of partner pool.</p>
                     </Field>
                   </>
                 ) : (
@@ -146,10 +176,12 @@ export function CreateLeaderModal({
 
 export function EditLeaderModal({
   leader,
+  managers = [],
   returnTo,
   canManageCommissions = false
 }: {
   leader: Leader;
+  managers?: ManagerOption[];
   returnTo?: string;
   canManageCommissions?: boolean;
 }) {
@@ -219,6 +251,18 @@ export function EditLeaderModal({
                     <Field label="Phone">
                       <PhoneInput name="phone" defaultValue={leader.user.phone ?? ""} />
                     </Field>
+                    <Field label="Manager">
+                      <select
+                        name="managerProfileId"
+                        defaultValue={leader.managerProfileId ?? ""}
+                        className="h-12 w-full rounded-xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+                      >
+                        <option value="">Direct partner</option>
+                        {managers.map((manager) => (
+                          <option key={manager.id} value={manager.id}>{manager.displayName}</option>
+                        ))}
+                      </select>
+                    </Field>
                   </div>
                 </section>
 
@@ -227,7 +271,7 @@ export function EditLeaderModal({
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner pool</p>
                     <h4 className="mt-1 text-xl font-semibold text-clinic-ink">Commission rules</h4>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Direct leader sales are paid from the partner pool. Overrides are deducted from the assigned seller's share.
+                      Direct leader sales and team overrides are paid from the partner pool.
                     </p>
                   </div>
                   {canManageCommissions ? (
@@ -244,7 +288,7 @@ export function EditLeaderModal({
                           <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue={leader.consultantOverrideBps / 100} className="pr-10" required />
                           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
                         </div>
-                        <p className="text-xs leading-5 text-slate-500">Optional override from sellers under this leader. Max 50% of each seller's share.</p>
+                        <p className="text-xs leading-5 text-slate-500">Optional team override when sellers under this leader close sales. Max 50% of partner pool.</p>
                       </Field>
                     </div>
                   ) : (
@@ -295,11 +339,13 @@ export function EditLeaderModal({
 export function LeaderSection({
   partnerProfileId,
   leaders,
+  managers = [],
   returnTo,
   canManageCommissions = false
 }: {
   partnerProfileId: string;
   leaders: Leader[];
+  managers?: ManagerOption[];
   returnTo?: string;
   canManageCommissions?: boolean;
 }) {
@@ -308,9 +354,14 @@ export function LeaderSection({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-clinic-ink">Group leaders</h2>
-          <p className="mt-1 text-sm text-slate-500">Manage leader profiles, direct commissions, and seller-share overrides.</p>
+          <p className="mt-1 text-sm text-slate-500">Manage leader profiles, direct commissions, and team overrides.</p>
         </div>
-        <CreateLeaderModal partnerProfileId={partnerProfileId} canManageCommissions={canManageCommissions} />
+        <CreateLeaderModal
+          partnerProfileId={partnerProfileId}
+          managers={managers}
+          returnTo={returnTo}
+          canManageCommissions={canManageCommissions}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -331,6 +382,9 @@ export function LeaderSection({
                 <div className="min-w-0">
                   <p className="truncate text-lg font-semibold text-clinic-ink">{leader.displayName}</p>
                   <p className="mt-1 truncate text-sm text-slate-500">{leader.user.email}</p>
+                  <p className="mt-1 truncate text-xs font-semibold text-slate-400">
+                    {leader.managerProfile ? `Manager: ${leader.managerProfile.displayName}` : "Direct partner"}
+                  </p>
                 </div>
               </div>
               <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{percentLabel(leader.commissionBps)}</Badge>
@@ -343,7 +397,7 @@ export function LeaderSection({
               </div>
               <div className="rounded-2xl bg-blue-50 px-2 py-3">
                 <p className="text-2xl text-clinic-navy">{percentLabel(leader.consultantOverrideBps)}</p>
-                <p className="mt-1">Seller override</p>
+                <p className="mt-1">Team override</p>
               </div>
             </div>
 
@@ -354,7 +408,12 @@ export function LeaderSection({
               >
                 View hierarchy
               </Link>
-              <EditLeaderModal leader={leader} returnTo={returnTo} canManageCommissions={canManageCommissions} />
+              <EditLeaderModal
+                leader={leader}
+                managers={managers}
+                returnTo={returnTo}
+                canManageCommissions={canManageCommissions}
+              />
             </div>
           </div>
         ))}

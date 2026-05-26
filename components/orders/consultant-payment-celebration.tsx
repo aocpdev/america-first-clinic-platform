@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "framer-motion";
 import { CheckCircle2, ClipboardList, Sparkles } from "lucide-react";
 import { currency } from "@/lib/utils";
 
@@ -29,6 +28,20 @@ function shortId(id: string) {
   return id.slice(0, 8).toUpperCase();
 }
 
+const confettiAnimationStyle = `
+  @keyframes consultant-confetti-fall {
+    0% { opacity: 0; transform: translateY(-40px) rotate(0deg); }
+    16% { opacity: 1; }
+    72% { opacity: 1; }
+    100% { opacity: 0; transform: translateY(210px) rotate(180deg); }
+  }
+
+  @keyframes consultant-card-rise {
+    0% { opacity: 0; transform: translateY(18px) scale(0.98); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+`;
+
 export function ConsultantPaymentCelebration({
   orderId,
   customerName,
@@ -37,19 +50,19 @@ export function ConsultantPaymentCelebration({
 }: ConsultantPaymentCelebrationProps) {
   return (
     <section className="relative overflow-hidden rounded-[32px] border border-emerald-200 bg-[radial-gradient(circle_at_top_left,_#ECFDF5,_#FFFFFF_48%,_#F8FBFF)] px-6 py-7 shadow-line sm:px-8">
+      <style>{confettiAnimationStyle}</style>
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         {confettiPieces.map((piece, index) => (
-          <motion.span
+          <span
             key={`${piece.left}-${index}`}
-            initial={{ y: -40, opacity: 0, rotate: 0 }}
-            animate={{ y: 210, opacity: [0, 1, 1, 0], rotate: 180 }}
-            transition={{ duration: 2.8, delay: piece.delay, ease: "easeOut", repeat: 1, repeatDelay: 1.5 }}
             className="absolute top-0 rounded-sm"
             style={{
               left: piece.left,
               width: piece.size,
               height: piece.size * 1.8,
-              backgroundColor: piece.color
+              backgroundColor: piece.color,
+              animation: `consultant-confetti-fall 2.8s ease-out ${piece.delay}s 2`,
+              animationDelay: `${piece.delay}s`
             }}
           />
         ))}
@@ -84,11 +97,9 @@ export function ConsultantPaymentCelebration({
           </div>
         </div>
 
-        <motion.div
-          initial={{ y: 18, opacity: 0, scale: 0.98 }}
-          animate={{ y: 0, opacity: 1, scale: 1 }}
-          transition={{ duration: 0.45, ease: "easeOut" }}
+        <div
           className="rounded-[28px] border border-emerald-200 bg-white p-5 shadow-soft"
+          style={{ animation: "consultant-card-rise 0.45s ease-out both" }}
         >
           <div className="rounded-[24px] bg-emerald-50 p-5">
             <div className="flex items-center gap-2 text-sm font-black uppercase tracking-[0.16em] text-emerald-800">
@@ -108,7 +119,7 @@ export function ConsultantPaymentCelebration({
               <p className="mt-2 text-2xl font-black text-clinic-navy">Paid</p>
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

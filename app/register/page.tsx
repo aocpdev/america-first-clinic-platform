@@ -14,9 +14,10 @@ export default async function RegisterPage({
     duplicate_phone: "That phone number is already registered. Please use another phone number.",
     invalid_role: "Please choose whether you are registering as a seller or group leader.",
     invalid_partner: "Please select a valid partner company.",
+    invalid_manager: "Please select a valid manager for that partner.",
     invalid_group_leader: "Please select a valid group leader for that partner."
   };
-  const [partners, groupLeaders] = await Promise.all([
+  const [partners, managers, groupLeaders] = await Promise.all([
     prisma.partnerProfile.findMany({
       where: {
         company: { slug: "america-first-clinic" },
@@ -24,6 +25,14 @@ export default async function RegisterPage({
       },
       include: { user: true },
       orderBy: [{ companyName: "asc" }, { displayName: "asc" }]
+    }),
+    prisma.managerProfile.findMany({
+      where: {
+        company: { slug: "america-first-clinic" },
+        user: { isActive: true }
+      },
+      include: { partnerProfile: true },
+      orderBy: [{ partnerProfile: { companyName: "asc" } }, { displayName: "asc" }]
     }),
     prisma.groupLeaderProfile.findMany({
       where: {
@@ -46,9 +55,15 @@ export default async function RegisterPage({
             id: partner.id,
             name: partner.companyName || partner.displayName
           }))}
+          managers={managers.map((manager) => ({
+            id: manager.id,
+            partnerProfileId: manager.partnerProfileId,
+            displayName: manager.displayName
+          }))}
           groupLeaders={groupLeaders.map((leader) => ({
             id: leader.id,
             partnerProfileId: leader.partnerProfileId,
+            managerProfileId: leader.managerProfileId,
             displayName: leader.displayName
           }))}
           error={error}

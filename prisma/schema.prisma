@@ -68,6 +68,7 @@ enum CommissionRuleType {
 
 enum CommissionParticipantRole {
   PARTNER
+  MANAGER
   GROUP_LEADER
   CONSULTANT
 }
@@ -95,201 +96,237 @@ enum CustomerDocumentType {
 }
 
 model User {
-  id                String             @id @default(uuid()) @db.Uuid
-  authUserId        String             @unique
-  companyId         String?            @db.Uuid
-  company           Company?           @relation(fields: [companyId], references: [id])
-  role              UserRole           @default(CUSTOMER)
-  requestedRole     UserRole           @default(CUSTOMER)
-  requestedPartnerProfileId String?    @db.Uuid
-  requestedGroupLeaderProfileId String? @db.Uuid
-  status            UserStatus         @default(ACTIVE)
-  email             String             @unique
-  firstName         String?
-  lastName          String?
-  phone             String?
-  avatarUrl         String?
-  isActive          Boolean            @default(true)
-  emailVerifiedAt   DateTime?
-  approvedAt        DateTime?
-  approvedByUserId  String?            @db.Uuid
-  rejectedAt        DateTime?
-  rejectionReason   String?
-  consultantProfile ConsultantProfile?
-  partnerProfile    PartnerProfile?
-  groupLeaderProfile GroupLeaderProfile?
-  customer          Customer?
-  teamMemberships   TeamMember[]
-  activityLogs      ActivityLog[]
-  notifications     Notification[]
-  auditLogs         AuditLog[]
-  onboardingSteps   OnboardingStep[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  id                            String              @id @default(uuid()) @db.Uuid
+  authUserId                    String              @unique
+  companyId                     String?             @db.Uuid
+  company                       Company?            @relation(fields: [companyId], references: [id])
+  role                          UserRole            @default(CUSTOMER)
+  requestedRole                 UserRole            @default(CUSTOMER)
+  requestedPartnerProfileId     String?             @db.Uuid
+  requestedManagerProfileId     String?             @db.Uuid
+  requestedGroupLeaderProfileId String?             @db.Uuid
+  status                        UserStatus          @default(ACTIVE)
+  email                         String              @unique
+  firstName                     String?
+  lastName                      String?
+  phone                         String?
+  avatarUrl                     String?
+  isActive                      Boolean             @default(true)
+  emailVerifiedAt               DateTime?
+  approvedAt                    DateTime?
+  approvedByUserId              String?             @db.Uuid
+  rejectedAt                    DateTime?
+  rejectionReason               String?
+  consultantProfile             ConsultantProfile?
+  partnerProfile                PartnerProfile?
+  managerProfile                ManagerProfile?
+  groupLeaderProfile            GroupLeaderProfile?
+  customer                      Customer?
+  teamMemberships               TeamMember[]
+  activityLogs                  ActivityLog[]
+  notifications                 Notification[]
+  auditLogs                     AuditLog[]
+  onboardingSteps               OnboardingStep[]
+  createdAt                     DateTime            @default(now())
+  updatedAt                     DateTime            @updatedAt
 
   @@index([companyId, role])
   @@index([companyId, status, requestedRole])
 }
 
 model Company {
-  id                String             @id @default(uuid()) @db.Uuid
-  name              String
-  slug              String             @unique
-  logoUrl           String?
-  primaryColor      String             @default("#073763")
-  accentColor       String             @default("#DC1F2A")
-  users             User[]
-  products          Product[]
-  productCategories ProductCategory[]
-  customers         Customer[]
-  orders            Order[]
-  commissionRules   CommissionRule[]
-  paymentProviders  PaymentProvider[]
-  webhookEndpoints  WebhookEndpoint[]
-  webhookDeliveries WebhookDelivery[]
-  customerDocuments CustomerDocument[]
-  rewardLevels      RewardLevel[]
-  rewards           Reward[]
-  rewardCampaigns   RewardCampaign[]
-  partnerProfiles   PartnerProfile[]
+  id                  String               @id @default(uuid()) @db.Uuid
+  name                String
+  slug                String               @unique
+  logoUrl             String?
+  primaryColor        String               @default("#073763")
+  accentColor         String               @default("#DC1F2A")
+  users               User[]
+  products            Product[]
+  productCategories   ProductCategory[]
+  customers           Customer[]
+  orders              Order[]
+  commissionRules     CommissionRule[]
+  paymentProviders    PaymentProvider[]
+  webhookEndpoints    WebhookEndpoint[]
+  webhookDeliveries   WebhookDelivery[]
+  customerDocuments   CustomerDocument[]
+  rewardLevels        RewardLevel[]
+  rewards             Reward[]
+  rewardCampaigns     RewardCampaign[]
+  partnerProfiles     PartnerProfile[]
+  managerProfiles     ManagerProfile[]
   groupLeaderProfiles GroupLeaderProfile[]
-  teams             Team[]
-  leads             Lead[]
-  activityLogs      ActivityLog[]
-  auditLogs         AuditLog[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
+  teams               Team[]
+  leads               Lead[]
+  activityLogs        ActivityLog[]
+  auditLogs           AuditLog[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 }
 
 model ConsultantProfile {
-  id             String         @id @default(uuid()) @db.Uuid
-  userId         String         @unique @db.Uuid
-  user           User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyId      String         @db.Uuid
-  partnerProfileId String?      @db.Uuid
-  partnerProfile PartnerProfile? @relation(fields: [partnerProfileId], references: [id])
-  groupLeaderProfileId String? @db.Uuid
-  groupLeaderProfile GroupLeaderProfile? @relation(fields: [groupLeaderProfileId], references: [id])
-  referralSlug   String         @unique
-  referralCode   String         @unique
-  commissionBps  Int            @default(1250)
-  bio            String?
-  rank           Int?
-  monthlyGoal    Int            @default(0)
-  onboardingDone Boolean        @default(false)
-  customers      Customer[]
-  orders         Order[]
-  commissions    Commission[]
-  commissionSplits CommissionSplit[]
-  referralLinks  ReferralLink[]
-  leads          Lead[]
-  teamMembers    TeamMember[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  id                   String              @id @default(uuid()) @db.Uuid
+  userId               String              @unique @db.Uuid
+  user                 User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId            String              @db.Uuid
+  partnerProfileId     String?             @db.Uuid
+  partnerProfile       PartnerProfile?     @relation(fields: [partnerProfileId], references: [id])
+  managerProfileId     String?             @db.Uuid
+  managerProfile       ManagerProfile?     @relation(fields: [managerProfileId], references: [id])
+  groupLeaderProfileId String?             @db.Uuid
+  groupLeaderProfile   GroupLeaderProfile? @relation(fields: [groupLeaderProfileId], references: [id])
+  referralSlug         String              @unique
+  referralCode         String              @unique
+  commissionBps        Int                 @default(1250)
+  bio                  String?
+  rank                 Int?
+  monthlyGoal          Int                 @default(0)
+  onboardingDone       Boolean             @default(false)
+  customers            Customer[]
+  orders               Order[]
+  commissions          Commission[]
+  commissionSplits     CommissionSplit[]
+  referralLinks        ReferralLink[]
+  leads                Lead[]
+  teamMembers          TeamMember[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
   @@index([companyId])
   @@index([partnerProfileId])
+  @@index([managerProfileId])
   @@index([groupLeaderProfileId])
 }
 
 model PartnerProfile {
-  id              String              @id @default(uuid()) @db.Uuid
-  userId          String              @unique @db.Uuid
-  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyId       String              @db.Uuid
-  company         Company             @relation(fields: [companyId], references: [id])
-  displayName     String
-  companyName     String?
-  commissionBps   Int                 @default(1250)
+  id                   String               @id @default(uuid()) @db.Uuid
+  userId               String               @unique @db.Uuid
+  user                 User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId            String               @db.Uuid
+  company              Company              @relation(fields: [companyId], references: [id])
+  displayName          String
+  companyName          String?
+  commissionBps        Int                  @default(1250)
   payoutResponsibility PayoutResponsibility @default(PARTNER)
-  consultants     ConsultantProfile[]
-  groupLeaders    GroupLeaderProfile[]
-  customers       Customer[]
-  orders          Order[]
-  commissionSplits CommissionSplit[]
-  webhookEndpoints WebhookEndpoint[]
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  managers             ManagerProfile[]
+  consultants          ConsultantProfile[]
+  groupLeaders         GroupLeaderProfile[]
+  customers            Customer[]
+  orders               Order[]
+  commissionSplits     CommissionSplit[]
+  webhookEndpoints     WebhookEndpoint[]
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
 
   @@index([companyId])
 }
 
-model GroupLeaderProfile {
-  id              String              @id @default(uuid()) @db.Uuid
-  userId          String              @unique @db.Uuid
-  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  companyId       String              @db.Uuid
-  company         Company             @relation(fields: [companyId], references: [id])
-  partnerProfileId String             @db.Uuid
-  partnerProfile  PartnerProfile      @relation(fields: [partnerProfileId], references: [id])
-  displayName     String
-  commissionBps   Int                 @default(625)
-  consultantOverrideBps Int           @default(0)
-  consultants     ConsultantProfile[]
-  customers       Customer[]
-  orders          Order[]
-  commissionSplits CommissionSplit[]
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+model ManagerProfile {
+  id                String               @id @default(uuid()) @db.Uuid
+  userId            String               @unique @db.Uuid
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId         String               @db.Uuid
+  company           Company              @relation(fields: [companyId], references: [id])
+  partnerProfileId  String               @db.Uuid
+  partnerProfile    PartnerProfile       @relation(fields: [partnerProfileId], references: [id])
+  displayName       String
+  commissionBps     Int                  @default(2500)
+  leaderOverrideBps Int                  @default(0)
+  consultants       ConsultantProfile[]
+  groupLeaders      GroupLeaderProfile[]
+  customers         Customer[]
+  orders            Order[]
+  commissionSplits  CommissionSplit[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
 
   @@index([companyId])
   @@index([partnerProfileId])
 }
 
+model GroupLeaderProfile {
+  id                    String              @id @default(uuid()) @db.Uuid
+  userId                String              @unique @db.Uuid
+  user                  User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId             String              @db.Uuid
+  company               Company             @relation(fields: [companyId], references: [id])
+  partnerProfileId      String              @db.Uuid
+  partnerProfile        PartnerProfile      @relation(fields: [partnerProfileId], references: [id])
+  managerProfileId      String?             @db.Uuid
+  managerProfile        ManagerProfile?     @relation(fields: [managerProfileId], references: [id])
+  displayName           String
+  commissionBps         Int                 @default(625)
+  consultantOverrideBps Int                 @default(0)
+  consultants           ConsultantProfile[]
+  customers             Customer[]
+  orders                Order[]
+  commissionSplits      CommissionSplit[]
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@index([companyId])
+  @@index([partnerProfileId])
+  @@index([managerProfileId])
+}
+
 model Customer {
-  id                  String              @id @default(uuid()) @db.Uuid
-  userId              String?             @unique @db.Uuid
-  user                User?               @relation(fields: [userId], references: [id])
-  companyId           String              @db.Uuid
-  company             Company             @relation(fields: [companyId], references: [id])
-  consultantProfileId String?             @db.Uuid
-  consultantProfile   ConsultantProfile?  @relation(fields: [consultantProfileId], references: [id])
-  partnerProfileId    String?             @db.Uuid
-  partnerProfile      PartnerProfile?     @relation(fields: [partnerProfileId], references: [id])
-  groupLeaderProfileId String?            @db.Uuid
-  groupLeaderProfile  GroupLeaderProfile? @relation(fields: [groupLeaderProfileId], references: [id])
-  email               String
-  firstName           String?
-  lastName            String?
-  dateOfBirth         DateTime?
-  birthSex            String?
-  phone               String?
-  pipelineStage       String              @default("AWAITING_PAYMENT")
-  pipelineUpdatedAt   DateTime?
-  tags                String[]
-  notes               String?
-  lifetimeValueCents  Int                 @default(0)
-  lastPurchaseAt      DateTime?
-  orders              Order[]
-  addresses           CustomerAddress[]
-  documents           CustomerDocument[]
-  subscriptions       Subscription[]
-  paymentMethods      PaymentMethod[]
-  activityLogs        ActivityLog[]
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
+  id                   String              @id @default(uuid()) @db.Uuid
+  userId               String?             @unique @db.Uuid
+  user                 User?               @relation(fields: [userId], references: [id])
+  companyId            String              @db.Uuid
+  company              Company             @relation(fields: [companyId], references: [id])
+  consultantProfileId  String?             @db.Uuid
+  consultantProfile    ConsultantProfile?  @relation(fields: [consultantProfileId], references: [id])
+  partnerProfileId     String?             @db.Uuid
+  partnerProfile       PartnerProfile?     @relation(fields: [partnerProfileId], references: [id])
+  managerProfileId     String?             @db.Uuid
+  managerProfile       ManagerProfile?     @relation(fields: [managerProfileId], references: [id])
+  groupLeaderProfileId String?             @db.Uuid
+  groupLeaderProfile   GroupLeaderProfile? @relation(fields: [groupLeaderProfileId], references: [id])
+  email                String
+  firstName            String?
+  lastName             String?
+  dateOfBirth          DateTime?
+  birthSex             String?
+  phone                String?
+  pipelineStage        String              @default("AWAITING_PAYMENT")
+  pipelineUpdatedAt    DateTime?
+  tags                 String[]
+  notes                String?
+  lifetimeValueCents   Int                 @default(0)
+  lastPurchaseAt       DateTime?
+  orders               Order[]
+  addresses            CustomerAddress[]
+  documents            CustomerDocument[]
+  subscriptions        Subscription[]
+  paymentMethods       PaymentMethod[]
+  activityLogs         ActivityLog[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
 
   @@unique([companyId, email])
   @@index([companyId, consultantProfileId])
   @@index([partnerProfileId])
+  @@index([managerProfileId])
   @@index([groupLeaderProfileId])
 }
 
 model CustomerAddress {
-  id          String    @id @default(uuid()) @db.Uuid
-  customerId  String    @db.Uuid
-  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  label       String?
-  line1       String
-  line2       String?
-  city        String
-  state       String
-  postalCode  String
-  country     String    @default("US")
-  isDefault   Boolean   @default(false)
-  lastUsedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         String    @id @default(uuid()) @db.Uuid
+  customerId String    @db.Uuid
+  customer   Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  label      String?
+  line1      String
+  line2      String?
+  city       String
+  state      String
+  postalCode String
+  country    String    @default("US")
+  isDefault  Boolean   @default(false)
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@index([customerId])
   @@index([customerId, isDefault])
@@ -309,29 +346,29 @@ model ProductCategory {
 }
 
 model Product {
-  id                    String           @id @default(uuid()) @db.Uuid
-  companyId             String           @db.Uuid
-  company               Company          @relation(fields: [companyId], references: [id])
-  categoryId            String           @db.Uuid
-  category              ProductCategory  @relation(fields: [categoryId], references: [id])
-  title                 String
-  slug                  String
-  description           String
-  priceCents            Int
-  internalCostCents     Int              @default(0)
-  marginBps             Int              @default(0)
-  sku                   String
-  active                Boolean          @default(true)
-  supportsSubscription  Boolean          @default(false)
-  supportsRecurring     Boolean          @default(false)
-  metadata              Json?
-  images                ProductImage[]
-  inventory             Inventory?
-  orderItems            OrderItem[]
+  id                     String                  @id @default(uuid()) @db.Uuid
+  companyId              String                  @db.Uuid
+  company                Company                 @relation(fields: [companyId], references: [id])
+  categoryId             String                  @db.Uuid
+  category               ProductCategory         @relation(fields: [categoryId], references: [id])
+  title                  String
+  slug                   String
+  description            String
+  priceCents             Int
+  internalCostCents      Int                     @default(0)
+  marginBps              Int                     @default(0)
+  sku                    String
+  active                 Boolean                 @default(true)
+  supportsSubscription   Boolean                 @default(false)
+  supportsRecurring      Boolean                 @default(false)
+  metadata               Json?
+  images                 ProductImage[]
+  inventory              Inventory?
+  orderItems             OrderItem[]
   rewardCampaignProducts RewardCampaignProduct[]
-  commissionRules       CommissionRule[]
-  createdAt             DateTime         @default(now())
-  updatedAt             DateTime         @updatedAt
+  commissionRules        CommissionRule[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
 
   @@unique([companyId, slug])
   @@unique([companyId, sku])
@@ -349,191 +386,197 @@ model ProductImage {
 }
 
 model Inventory {
-  id              String   @id @default(uuid()) @db.Uuid
-  productId       String   @unique @db.Uuid
-  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  quantityOnHand  Int      @default(0)
-  reorderPoint    Int      @default(10)
-  reservedQuantity Int     @default(0)
-  updatedAt       DateTime @updatedAt
+  id               String   @id @default(uuid()) @db.Uuid
+  productId        String   @unique @db.Uuid
+  product          Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantityOnHand   Int      @default(0)
+  reorderPoint     Int      @default(10)
+  reservedQuantity Int      @default(0)
+  updatedAt        DateTime @updatedAt
 }
 
 model Order {
-  id                  String              @id @default(uuid()) @db.Uuid
-  companyId           String              @db.Uuid
-  company             Company             @relation(fields: [companyId], references: [id])
-  customerId          String              @db.Uuid
-  customer            Customer            @relation(fields: [customerId], references: [id])
-  consultantProfileId String?             @db.Uuid
-  consultantProfile   ConsultantProfile?  @relation(fields: [consultantProfileId], references: [id])
-  partnerProfileId    String?             @db.Uuid
-  partnerProfile      PartnerProfile?     @relation(fields: [partnerProfileId], references: [id])
-  groupLeaderProfileId String?            @db.Uuid
-  groupLeaderProfile  GroupLeaderProfile? @relation(fields: [groupLeaderProfileId], references: [id])
-  subtotalCents        Int
-  discountCents        Int                 @default(0)
-  taxCents             Int                 @default(0)
-  shippingCents        Int                 @default(0)
-  totalCents           Int
-  grossMarginCents     Int                 @default(0)
-  commissionPoolCents  Int                 @default(0)
-  paymentProviderCode  String
-  paymentStatus        PaymentStatus       @default(PENDING)
-  orderStatus          OrderStatus         @default(PENDING)
-  orderPipelineStage   String              @default("AWAITING_PAYMENT")
-  orderPipelineUpdatedAt DateTime?
-  subscriptionStatus   SubscriptionStatus?
-  commissionStatus     CommissionStatus    @default(PENDING)
-  referralSource       String?
-  referralMetadata     Json?
-  orderNotes           String?
-  gfeDocumentUrl       String?
-  gfeNotes             String?
-  gfeStoredAt          DateTime?
-  rxDocumentUrl        String?
-  rxNotes              String?
-  rxStoredAt           DateTime?
-  prescriptionDocumentUrl String?
-  prescriptionNotes    String?
-  prescriptionStoredAt DateTime?
-  prescriptionStoredByUserId String?       @db.Uuid
-  shippingCarrier      String?
-  shippingTrackingCode String?
-  shippedAt            DateTime?
-  items                OrderItem[]
-  clinicalDocuments    CustomerDocument[]
-  commissions          Commission[]
-  commissionSplits     CommissionSplit[]
-  paymentTransactions  PaymentTransaction[]
-  subscriptions        Subscription[]
-  createdAt            DateTime            @default(now())
-  updatedAt            DateTime            @updatedAt
+  id                         String               @id @default(uuid()) @db.Uuid
+  companyId                  String               @db.Uuid
+  company                    Company              @relation(fields: [companyId], references: [id])
+  customerId                 String               @db.Uuid
+  customer                   Customer             @relation(fields: [customerId], references: [id])
+  consultantProfileId        String?              @db.Uuid
+  consultantProfile          ConsultantProfile?   @relation(fields: [consultantProfileId], references: [id])
+  partnerProfileId           String?              @db.Uuid
+  partnerProfile             PartnerProfile?      @relation(fields: [partnerProfileId], references: [id])
+  managerProfileId           String?              @db.Uuid
+  managerProfile             ManagerProfile?      @relation(fields: [managerProfileId], references: [id])
+  groupLeaderProfileId       String?              @db.Uuid
+  groupLeaderProfile         GroupLeaderProfile?  @relation(fields: [groupLeaderProfileId], references: [id])
+  subtotalCents              Int
+  discountCents              Int                  @default(0)
+  taxCents                   Int                  @default(0)
+  shippingCents              Int                  @default(0)
+  totalCents                 Int
+  grossMarginCents           Int                  @default(0)
+  commissionPoolCents        Int                  @default(0)
+  paymentProviderCode        String
+  paymentStatus              PaymentStatus        @default(PENDING)
+  orderStatus                OrderStatus          @default(PENDING)
+  orderPipelineStage         String               @default("AWAITING_PAYMENT")
+  orderPipelineUpdatedAt     DateTime?
+  subscriptionStatus         SubscriptionStatus?
+  commissionStatus           CommissionStatus     @default(PENDING)
+  referralSource             String?
+  referralMetadata           Json?
+  orderNotes                 String?
+  gfeDocumentUrl             String?
+  gfeNotes                   String?
+  gfeStoredAt                DateTime?
+  rxDocumentUrl              String?
+  rxNotes                    String?
+  rxStoredAt                 DateTime?
+  prescriptionDocumentUrl    String?
+  prescriptionNotes          String?
+  prescriptionStoredAt       DateTime?
+  prescriptionStoredByUserId String?              @db.Uuid
+  shippingCarrier            String?
+  shippingTrackingCode       String?
+  shippedAt                  DateTime?
+  items                      OrderItem[]
+  clinicalDocuments          CustomerDocument[]
+  commissions                Commission[]
+  commissionSplits           CommissionSplit[]
+  paymentTransactions        PaymentTransaction[]
+  subscriptions              Subscription[]
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt
 
   @@index([companyId, customerId])
   @@index([consultantProfileId])
   @@index([partnerProfileId])
+  @@index([managerProfileId])
   @@index([groupLeaderProfileId])
   @@index([companyId, orderPipelineStage])
 }
 
 model CustomerDocument {
-  id              String               @id @default(uuid()) @db.Uuid
-  companyId       String               @db.Uuid
-  company         Company              @relation(fields: [companyId], references: [id])
-  customerId      String               @db.Uuid
-  customer        Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  orderId         String?              @db.Uuid
-  order           Order?               @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  uploadedByUserId String?             @db.Uuid
-  type            CustomerDocumentType
-  title           String
-  notes           String?
-  fileName        String
-  storageBucket   String
-  storagePath     String
-  mimeType        String
-  sizeBytes       Int
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  id               String               @id @default(uuid()) @db.Uuid
+  companyId        String               @db.Uuid
+  company          Company              @relation(fields: [companyId], references: [id])
+  customerId       String               @db.Uuid
+  customer         Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  orderId          String?              @db.Uuid
+  order            Order?               @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  uploadedByUserId String?              @db.Uuid
+  type             CustomerDocumentType
+  title            String
+  notes            String?
+  fileName         String
+  storageBucket    String
+  storagePath      String
+  mimeType         String
+  sizeBytes        Int
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
 
   @@index([companyId, customerId, type])
   @@index([orderId, type])
 }
 
 model OrderItem {
-  id              String   @id @default(uuid()) @db.Uuid
-  orderId         String   @db.Uuid
-  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  productId       String   @db.Uuid
-  product         Product  @relation(fields: [productId], references: [id])
-  quantity        Int
-  unitPriceCents  Int
-  totalCents      Int
-  metadata        Json?
+  id             String  @id @default(uuid()) @db.Uuid
+  orderId        String  @db.Uuid
+  order          Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String  @db.Uuid
+  product        Product @relation(fields: [productId], references: [id])
+  quantity       Int
+  unitPriceCents Int
+  totalCents     Int
+  metadata       Json?
 }
 
 model Commission {
-  id                  String             @id @default(uuid()) @db.Uuid
-  companyId           String             @db.Uuid
-  consultantProfileId String             @db.Uuid
-  consultantProfile   ConsultantProfile  @relation(fields: [consultantProfileId], references: [id])
-  orderId             String             @db.Uuid
-  order               Order              @relation(fields: [orderId], references: [id])
-  ruleId              String?            @db.Uuid
-  rule                CommissionRule?    @relation(fields: [ruleId], references: [id])
-  amountCents         Int
-  grossMarginCents    Int                @default(0)
-  commissionPoolCents Int                @default(0)
-  partnerAmountCents  Int                @default(0)
-  consultantAmountCents Int              @default(0)
-  status              CommissionStatus   @default(PENDING)
-  approvedAt          DateTime?
-  paidAt              DateTime?
-  payoutId            String?            @db.Uuid
-  payout              Payout?            @relation(fields: [payoutId], references: [id])
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  id                    String            @id @default(uuid()) @db.Uuid
+  companyId             String            @db.Uuid
+  consultantProfileId   String            @db.Uuid
+  consultantProfile     ConsultantProfile @relation(fields: [consultantProfileId], references: [id])
+  orderId               String            @db.Uuid
+  order                 Order             @relation(fields: [orderId], references: [id])
+  ruleId                String?           @db.Uuid
+  rule                  CommissionRule?   @relation(fields: [ruleId], references: [id])
+  amountCents           Int
+  grossMarginCents      Int               @default(0)
+  commissionPoolCents   Int               @default(0)
+  partnerAmountCents    Int               @default(0)
+  consultantAmountCents Int               @default(0)
+  status                CommissionStatus  @default(PENDING)
+  approvedAt            DateTime?
+  paidAt                DateTime?
+  payoutId              String?           @db.Uuid
+  payout                Payout?           @relation(fields: [payoutId], references: [id])
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
 
   @@index([companyId, consultantProfileId, status])
 }
 
 model CommissionSplit {
-  id                  String                    @id @default(uuid()) @db.Uuid
-  companyId           String                    @db.Uuid
-  orderId             String                    @db.Uuid
-  order               Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  consultantProfileId String?                   @db.Uuid
-  consultantProfile   ConsultantProfile?        @relation(fields: [consultantProfileId], references: [id])
-  partnerProfileId    String?                   @db.Uuid
-  partnerProfile      PartnerProfile?           @relation(fields: [partnerProfileId], references: [id])
-  groupLeaderProfileId String?                  @db.Uuid
-  groupLeaderProfile  GroupLeaderProfile?       @relation(fields: [groupLeaderProfileId], references: [id])
-  participantRole     CommissionParticipantRole
-  amountCents         Int
-  grossMarginCents    Int
-  commissionPoolCents Int
-  status              CommissionStatus          @default(PENDING)
-  payoutResponsibility PayoutResponsibility     @default(PARTNER)
-  paidAt              DateTime?
-  createdAt           DateTime                  @default(now())
-  updatedAt           DateTime                  @updatedAt
+  id                   String                    @id @default(uuid()) @db.Uuid
+  companyId            String                    @db.Uuid
+  orderId              String                    @db.Uuid
+  order                Order                     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  consultantProfileId  String?                   @db.Uuid
+  consultantProfile    ConsultantProfile?        @relation(fields: [consultantProfileId], references: [id])
+  partnerProfileId     String?                   @db.Uuid
+  partnerProfile       PartnerProfile?           @relation(fields: [partnerProfileId], references: [id])
+  managerProfileId     String?                   @db.Uuid
+  managerProfile       ManagerProfile?           @relation(fields: [managerProfileId], references: [id])
+  groupLeaderProfileId String?                   @db.Uuid
+  groupLeaderProfile   GroupLeaderProfile?       @relation(fields: [groupLeaderProfileId], references: [id])
+  participantRole      CommissionParticipantRole
+  amountCents          Int
+  grossMarginCents     Int
+  commissionPoolCents  Int
+  status               CommissionStatus          @default(PENDING)
+  payoutResponsibility PayoutResponsibility      @default(PARTNER)
+  paidAt               DateTime?
+  createdAt            DateTime                  @default(now())
+  updatedAt            DateTime                  @updatedAt
 
+  @@unique([orderId, participantRole])
   @@index([companyId, participantRole, status])
   @@index([partnerProfileId, status])
+  @@index([managerProfileId, status])
   @@index([groupLeaderProfileId, status])
   @@index([consultantProfileId, status])
-  @@unique([orderId, participantRole])
 }
 
 model CommissionRule {
-  id              String              @id @default(uuid()) @db.Uuid
-  companyId       String              @db.Uuid
-  company         Company             @relation(fields: [companyId], references: [id])
-  productId       String?             @db.Uuid
-  product         Product?            @relation(fields: [productId], references: [id])
-  categoryId      String?             @db.Uuid
-  type            CommissionRuleType
-  name            String
-  percentageBps   Int?
+  id               String             @id @default(uuid()) @db.Uuid
+  companyId        String             @db.Uuid
+  company          Company            @relation(fields: [companyId], references: [id])
+  productId        String?            @db.Uuid
+  product          Product?           @relation(fields: [productId], references: [id])
+  categoryId       String?            @db.Uuid
+  type             CommissionRuleType
+  name             String
+  percentageBps    Int?
   fixedAmountCents Int?
-  volumeThreshold Int?
+  volumeThreshold  Int?
   bonusAmountCents Int?
-  active          Boolean             @default(true)
-  commissions     Commission[]
-  createdAt       DateTime            @default(now())
-  updatedAt       DateTime            @updatedAt
+  active           Boolean            @default(true)
+  commissions      Commission[]
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
 }
 
 model Payout {
-  id             String        @id @default(uuid()) @db.Uuid
-  companyId      String        @db.Uuid
-  totalCents     Int
-  status         String        @default("PENDING")
-  providerCode   String?
-  providerRef    String?
-  commissions    Commission[]
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id           String       @id @default(uuid()) @db.Uuid
+  companyId    String       @db.Uuid
+  totalCents   Int
+  status       String       @default("PENDING")
+  providerCode String?
+  providerRef  String?
+  commissions  Commission[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 model Subscription {
@@ -569,22 +612,22 @@ model PaymentTransaction {
 }
 
 model PaymentMethod {
-  id                     String   @id @default(uuid()) @db.Uuid
-  companyId              String   @db.Uuid
-  customerId             String   @db.Uuid
-  customer               Customer @relation(fields: [customerId], references: [id])
-  providerCode           String
-  providerCustomerId     String?
+  id                      String   @id @default(uuid()) @db.Uuid
+  companyId               String   @db.Uuid
+  customerId              String   @db.Uuid
+  customer                Customer @relation(fields: [customerId], references: [id])
+  providerCode            String
+  providerCustomerId      String?
   providerPaymentMethodId String
-  type                   String
-  last4                  String?
-  brand                  String?
-  expMonth               Int?
-  expYear                Int?
-  isDefault              Boolean  @default(false)
-  status                 String   @default("ACTIVE")
-  createdAt              DateTime @default(now())
-  updatedAt              DateTime @updatedAt
+  type                    String
+  last4                   String?
+  brand                   String?
+  expMonth                Int?
+  expYear                 Int?
+  isDefault               Boolean  @default(false)
+  status                  String   @default("ACTIVE")
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
 
   @@unique([companyId, providerCode, providerPaymentMethodId])
   @@index([companyId, customerId, providerCode])
@@ -626,20 +669,20 @@ model WebhookEndpoint {
 }
 
 model WebhookDelivery {
-  id          String          @id @default(uuid()) @db.Uuid
-  companyId   String          @db.Uuid
-  company     Company         @relation(fields: [companyId], references: [id])
-  endpointId  String          @db.Uuid
-  endpoint    WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
-  eventType   String
-  payload     Json
-  status      String          @default("PENDING")
-  attempts    Int             @default(0)
+  id           String          @id @default(uuid()) @db.Uuid
+  companyId    String          @db.Uuid
+  company      Company         @relation(fields: [companyId], references: [id])
+  endpointId   String          @db.Uuid
+  endpoint     WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  eventType    String
+  payload      Json
+  status       String          @default("PENDING")
+  attempts     Int             @default(0)
   lastResponse String?
-  nextRetryAt DateTime?
-  deliveredAt DateTime?
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  nextRetryAt  DateTime?
+  deliveredAt  DateTime?
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
 
   @@index([companyId, eventType, status])
   @@index([endpointId, status])
@@ -681,22 +724,22 @@ model Reward {
 }
 
 model RewardCampaign {
-  id                String                 @id @default(uuid()) @db.Uuid
-  companyId         String                 @db.Uuid
-  company           Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  id                String                  @id @default(uuid()) @db.Uuid
+  companyId         String                  @db.Uuid
+  company           Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
   title             String
   description       String?
   startsAt          DateTime
   endsAt            DateTime
-  status            RewardCampaignStatus   @default(ACTIVE)
+  status            RewardCampaignStatus    @default(ACTIVE)
   rewardTitle       String
   rewardDescription String?
   rewardImageUrl    String?
-  rewardValueType   RewardValueType        @default(NON_CASH)
-  rewardValueCents  Int                    @default(0)
+  rewardValueType   RewardValueType         @default(NON_CASH)
+  rewardValueCents  Int                     @default(0)
   products          RewardCampaignProduct[]
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
 
   @@index([companyId, status])
   @@index([startsAt, endsAt])
@@ -786,28 +829,28 @@ model ActivityLog {
 }
 
 model Notification {
-  id        String   @id @default(uuid()) @db.Uuid
-  userId    String   @db.Uuid
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   body      String
   readAt    DateTime?
   metadata  Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 }
 
 model AuditLog {
-  id        String   @id @default(uuid()) @db.Uuid
-  companyId String?  @db.Uuid
-  company   Company? @relation(fields: [companyId], references: [id])
-  userId    String?  @db.Uuid
-  user      User?    @relation(fields: [userId], references: [id])
-  action    String
-  resource  String
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String?  @db.Uuid
+  company    Company? @relation(fields: [companyId], references: [id])
+  userId     String?  @db.Uuid
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  resource   String
   resourceId String?
-  ipAddress String?
-  metadata  Json?
-  createdAt DateTime @default(now())
+  ipAddress  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
 }
 
 model OnboardingStep {
