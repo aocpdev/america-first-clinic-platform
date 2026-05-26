@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell } from "lucide-react";
-import { markNotificationsRead } from "@/app/notifications/actions";
+import { markNotificationsRead, openNotification } from "@/app/notifications/actions";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -59,24 +59,33 @@ export function NotificationMenu({
         <div className="max-h-[28rem] overflow-y-auto p-2">
           {notifications.length ? (
             notifications.map((notification) => (
-              <div
+              <form
                 key={notification.id}
+                action={openNotification}
                 className={cn(
-                  "rounded-2xl px-4 py-3 transition hover:bg-clinic-mist",
+                  "rounded-2xl transition hover:bg-clinic-mist",
                   !notification.readAt && "bg-sky-50/70"
                 )}
               >
-                <div className="flex items-start gap-3">
-                  <span className={cn("mt-1 h-2 w-2 rounded-full", notification.readAt ? "bg-slate-300" : "bg-clinic-red")} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-bold text-clinic-ink">{notification.title}</p>
-                      <time className="shrink-0 text-xs font-semibold text-slate-400">{shortDate(notification.createdAt)}</time>
+                <input type="hidden" name="notificationId" value={notification.id} />
+                <button
+                  type="submit"
+                  className="block w-full rounded-2xl px-4 py-3 text-left focus:outline-none focus:ring-2 focus:ring-clinic-navy/20"
+                  title="Open notification"
+                >
+                  <div className="flex items-start gap-3">
+                    <span className={cn("mt-1 h-2 w-2 rounded-full", notification.readAt ? "bg-slate-300" : "bg-clinic-red")} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className="text-sm font-bold text-clinic-ink">{notification.title}</p>
+                        <time className="shrink-0 text-xs font-semibold text-slate-400">{shortDate(notification.createdAt)}</time>
+                      </div>
+                      <p className="mt-1 text-sm leading-5 text-slate-600">{notification.body}</p>
+                      <p className="mt-2 text-xs font-bold text-clinic-navy">Open to resolve</p>
                     </div>
-                    <p className="mt-1 text-sm leading-5 text-slate-600">{notification.body}</p>
                   </div>
-                </div>
-              </div>
+                </button>
+              </form>
             ))
           ) : (
             <div className="px-6 py-10 text-center">
