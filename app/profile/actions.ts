@@ -8,7 +8,6 @@ import { requireUser } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
 import { normalizePhoneToE164 } from "@/lib/phone";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
-import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 function textValue(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -93,20 +92,6 @@ export async function changePassword(formData: FormData) {
 
   if (error) {
     redirect(`${profilePath}?error=password_update_failed`);
-  }
-
-  if (user.companyId) {
-    await dispatchWebhookEvent({
-      companyId: user.companyId,
-      partnerProfileId: user.partnerProfile?.id ?? user.consultantProfile?.partnerProfileId ?? user.groupLeaderProfile?.partnerProfileId ?? user.managerProfile?.partnerProfileId ?? null,
-      eventType: "password.changed",
-      payload: {
-        userId: user.id,
-        email: user.email,
-        role: user.role,
-        changedAt: new Date().toISOString()
-      }
-    });
   }
 
   await revalidateUserProfilePaths(user.role);

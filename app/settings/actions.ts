@@ -19,7 +19,6 @@ const webhookEvents = [
   "receipt.resend_requested",
   "shipment.tracking_ready",
   "password.reset.requested",
-  "password.changed",
   "seller.registration.submitted",
   "leader.registration.submitted",
   "manager.registration.submitted",

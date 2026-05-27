@@ -43,7 +43,6 @@ const events = [
   { value: "leader.rejected", label: "Leader rejected", group: "Team access", description: "A group leader application is rejected." },
   { value: "manager.rejected", label: "Manager rejected", group: "Team access", description: "A manager application is rejected." },
   { value: "password.reset.requested", label: "Password reset requested", group: "Account", description: "A user asks for password reset communication." },
-  { value: "password.changed", label: "Password changed", group: "Account", description: "A user updates their CRM password." },
   { value: "consultant.approved", label: "Consultant approved legacy", group: "Legacy", description: "Legacy event kept for existing workflows." },
   { value: "consultant.rejected", label: "Consultant rejected legacy", group: "Legacy", description: "Legacy event kept for existing workflows." },
   { value: "commission.generated", label: "Commission generated", group: "Commissions", description: "Commission or partner payout math is generated." },
@@ -489,13 +488,6 @@ function sampleWebhookPayload(eventType: string, configuredEvents: string[]) {
       reset: {
         requestedBy: "consultant",
         resetUrl: "https://www.americafirstclinic.com/reset-password/demo"
-      }
-    },
-    "password.changed": {
-      ...base,
-      account: {
-        userId: "usr_demo_512",
-        changedAt: "2026-05-27T14:30:00.000Z"
       }
     }
   };
