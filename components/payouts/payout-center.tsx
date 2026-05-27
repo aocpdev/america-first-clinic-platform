@@ -1,0 +1,400 @@
+import Link from "next/link";
+import type { CommissionParticipantRole, CommissionStatus } from "@prisma/client";
+import { ArrowUpRight, BadgeCheck, Banknote, CheckCircle2, Clock3, Landmark, LockKeyhole, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
+
+import { markCommissionSplitPaid } from "@/app/payouts/actions";
+import type { CommissionLedgerEntry, CommissionLedgerScope } from "@/lib/commissions/queries";
+import { cn, currency } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+
+type PayoutCenterProps = {
+  entries: CommissionLedgerEntry[];
+  scope: CommissionLedgerScope;
+};
+
+const statusCopy: Record<CommissionStatus, string> = {
+  PENDING: "Pending",
+  APPROVED: "Ready",
+  REJECTED: "Deferred",
+  PAID: "Paid"
+};
+
+const statusClassName: Record<CommissionStatus, string> = {
+  PENDING: "border-amber-200 bg-amber-50 text-amber-700",
+  APPROVED: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  REJECTED: "border-red-200 bg-red-50 text-red-700",
+  PAID: "border-blue-200 bg-blue-50 text-clinic-navy"
+};
+
+const roleCopy: Record<CommissionParticipantRole, string> = {
+  PARTNER: "Partner",
+  MANAGER: "Manager",
+  GROUP_LEADER: "Leader",
+  CONSULTANT: "Seller"
+};
+
+function dollars(cents: number) {
+  return currency(cents / 100);
+}
+
+function sum(entries: CommissionLedgerEntry[], predicate: (entry: CommissionLedgerEntry) => boolean = () => true) {
+  return entries.reduce((total, entry) => total + (predicate(entry) ? entry.amountCents : 0), 0);
+}
+
+function uniqueOrderSum(entries: CommissionLedgerEntry[], selector: (entry: CommissionLedgerEntry) => number) {
+  const seen = new Set<string>();
+  return entries.reduce((total, entry) => {
+    if (seen.has(entry.orderId)) return total;
+    seen.add(entry.orderId);
+    return total + selector(entry);
+  }, 0);
+}
+
+function orderHref(scope: CommissionLedgerScope, orderId: string) {
+  if (scope === "admin") return `/admin/orders/${orderId}`;
+  if (scope === "consultant") return `/consultant/orders/${orderId}`;
+  return `/partner/orders/${orderId}`;
+}
+
+function returnPath(scope: CommissionLedgerScope) {
+  return scope === "admin" ? "/admin/payouts" : "/partner/payouts";
+}
+
+function visiblePayoutEntries(scope: CommissionLedgerScope, entries: CommissionLedgerEntry[]) {
+  if (scope === "admin") {
+    return entries.filter((entry) => entry.payoutResponsibility === "COMPANY" && entry.participantRole === "PARTNER");
+  }
+
+  if (scope === "partner") {
+    return entries.filter((entry) => entry.payoutResponsibility === "PARTNER" && entry.participantRole !== "PARTNER");
+  }
+
+  if (scope === "manager") {
+    return entries.filter((entry) => entry.participantRole === "MANAGER");
+  }
+
+  if (scope === "group_leader") {
+    return entries.filter((entry) => entry.participantRole === "GROUP_LEADER");
+  }
+
+  return entries.filter((entry) => entry.participantRole === "CONSULTANT");
+}
+
+function copyForScope(scope: CommissionLedgerScope) {
+  if (scope === "admin") {
+    return {
+      eyebrow: "Company payout control",
+      title: "Partner payout center",
+      description: "The company pays partners only. Partners then manage payouts for managers, leaders, and sellers from their partner pool.",
+      owedLabel: "Partner payouts owed",
+      readyLabel: "Ready to pay",
+      paidLabel: "Paid to partners",
+      empty: "No partner payout obligations are waiting right now.",
+      showActions: true
+    };
+  }
+
+  if (scope === "partner") {
+    return {
+      eyebrow: "Partner payout desk",
+      title: "Team payout center",
+      description: "Pay managers, leaders, and sellers from your partner pool. The company only pays your partner payout.",
+      owedLabel: "Team payouts owed",
+      readyLabel: "Ready to pay",
+      paidLabel: "Paid to team",
+      empty: "No team payout obligations are waiting right now.",
+      showActions: true
+    };
+  }
+
+  if (scope === "manager") {
+    return {
+      eyebrow: "Manager payout status",
+      title: "Your payout tracker",
+      description: "Review personal manager earnings and payout status. Partner-managed team payout details remain internal to the partner.",
+      owedLabel: "Pending earnings",
+      readyLabel: "Approved earnings",
+      paidLabel: "Paid earnings",
+      empty: "No manager payout activity yet.",
+      showActions: false
+    };
+  }
+
+  if (scope === "group_leader") {
+    return {
+      eyebrow: "Leader payout status",
+      title: "Your payout tracker",
+      description: "Review personal leader earnings and payout status. Seller payout management belongs to the partner.",
+      owedLabel: "Pending earnings",
+      readyLabel: "Approved earnings",
+      paidLabel: "Paid earnings",
+      empty: "No leader payout activity yet.",
+      showActions: false
+    };
+  }
+
+  return {
+    eyebrow: "Seller payout status",
+    title: "Your payout tracker",
+    description: "Track your own commissions from pending review to approved and paid. Internal split details are hidden.",
+    owedLabel: "Pending commission",
+    readyLabel: "Approved commission",
+    paidLabel: "Paid commission",
+    empty: "No seller payout activity yet.",
+    showActions: false
+  };
+}
+
+function PayoutMetric({
+  label,
+  value,
+  helper,
+  tone,
+  icon: Icon
+}: {
+  label: string;
+  value: number;
+  helper: string;
+  tone: "navy" | "green" | "red" | "blue";
+  icon: typeof WalletCards;
+}) {
+  const toneClassName = {
+    navy: "bg-clinic-mist text-clinic-navy",
+    green: "bg-emerald-50 text-emerald-700",
+    red: "bg-red-50 text-clinic-red",
+    blue: "bg-blue-50 text-clinic-navy"
+  }[tone];
+
+  return (
+    <div className="rounded-[28px] border border-border bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+        <span className={cn("flex h-11 w-11 items-center justify-center rounded-2xl", toneClassName)}>
+          <Icon className="h-5 w-5" />
+        </span>
+      </div>
+      <p className="mt-5 text-3xl font-semibold tracking-tight text-clinic-navy">{dollars(value)}</p>
+      <p className="mt-2 text-sm leading-6 text-slate-500">{helper}</p>
+    </div>
+  );
+}
+
+function PayoutRow({
+  entry,
+  scope,
+  canMarkPaid
+}: {
+  entry: CommissionLedgerEntry;
+  scope: CommissionLedgerScope;
+  canMarkPaid: boolean;
+}) {
+  return (
+    <div className="grid gap-4 border-t border-border px-5 py-5 lg:grid-cols-[1.15fr_1fr_0.75fr_0.7fr_auto] lg:items-center">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-semibold text-clinic-ink">{entry.participantName}</p>
+          <Badge className="border-blue-200 bg-blue-50 text-clinic-navy">{roleCopy[entry.participantRole]}</Badge>
+        </div>
+        <p className="mt-1 break-all text-sm text-slate-500">{entry.participantEmail || "No email on file"}</p>
+      </div>
+
+      <div className="min-w-0 rounded-2xl bg-clinic-mist p-4">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Order / customer</p>
+        <Link href={orderHref(scope, entry.orderId)} className="mt-1 inline-flex items-center gap-2 font-semibold text-clinic-navy">
+          {entry.orderNumber} <ArrowUpRight className="h-4 w-4" />
+        </Link>
+        <p className="mt-1 truncate text-sm text-slate-600">{entry.customerName}</p>
+      </div>
+
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Amount</p>
+        <p className="mt-1 text-2xl font-semibold text-clinic-navy">{dollars(entry.amountCents)}</p>
+      </div>
+
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Status</p>
+        <Badge className={cn("mt-2 px-3 py-1.5", statusClassName[entry.status])}>{statusCopy[entry.status]}</Badge>
+      </div>
+
+      <div className="flex flex-wrap gap-2 lg:justify-end">
+        <Link href={orderHref(scope, entry.orderId)} className="inline-flex items-center justify-center rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-clinic-navy shadow-sm">
+          Review
+        </Link>
+        {canMarkPaid && entry.status === "APPROVED" ? (
+          <form action={markCommissionSplitPaid}>
+            <input type="hidden" name="splitId" value={entry.id} />
+            <input type="hidden" name="returnPath" value={returnPath(scope)} />
+            <button className="inline-flex items-center justify-center rounded-2xl bg-clinic-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-clinic-blue">
+              Mark paid
+            </button>
+          </form>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function EmptyPayouts({ message }: { message: string }) {
+  return (
+    <div className="p-10 text-center">
+      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[28px] bg-clinic-mist text-clinic-navy">
+        <WalletCards className="h-7 w-7" />
+      </div>
+      <h3 className="mt-5 text-2xl font-semibold text-clinic-ink">Payout queue is clear</h3>
+      <p className="mx-auto mt-2 max-w-2xl text-slate-600">{message}</p>
+    </div>
+  );
+}
+
+export function PayoutCenter({ entries, scope }: PayoutCenterProps) {
+  const rows = visiblePayoutEntries(scope, entries);
+  const copy = copyForScope(scope);
+  const pending = sum(rows, (entry) => entry.status === "PENDING");
+  const approved = sum(rows, (entry) => entry.status === "APPROVED");
+  const paid = sum(rows, (entry) => entry.status === "PAID");
+  const deferred = sum(rows, (entry) => entry.status === "REJECTED");
+  const grossMargin = uniqueOrderSum(entries, (entry) => entry.grossMarginCents);
+  const partnerPool = uniqueOrderSum(entries, (entry) => entry.commissionPoolCents);
+  const companyNet = Math.max(grossMargin - partnerPool, 0);
+  const pendingRows = rows.filter((entry) => entry.status === "PENDING");
+  const readyRows = rows.filter((entry) => entry.status === "APPROVED");
+  const historyRows = rows.filter((entry) => entry.status === "PAID" || entry.status === "REJECTED").slice(0, 12);
+
+  return (
+    <div className="space-y-6">
+      <Card className="overflow-hidden">
+        <div className="border-b border-border p-6 sm:p-8">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-clinic-red">{copy.eyebrow}</p>
+              <h2 className="mt-3 text-3xl font-semibold tracking-tight text-clinic-ink sm:text-5xl">{copy.title}</h2>
+              <p className="mt-4 max-w-4xl text-lg leading-8 text-slate-600">{copy.description}</p>
+            </div>
+            <div className="rounded-[28px] border border-blue-100 bg-blue-50 p-5 text-clinic-navy">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="mt-1 h-5 w-5 shrink-0" />
+                <div>
+                  <p className="font-semibold">Payment responsibility is role-based</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    {scope === "admin" ? "Company payout queue only shows partner obligations." : "Partner queue only shows network obligations funded by the partner pool."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+          <PayoutMetric label={copy.owedLabel} value={pending} helper="Not payable until approval or fulfillment is complete." tone="red" icon={Clock3} />
+          <PayoutMetric label={copy.readyLabel} value={approved} helper="Approved and ready to be recorded as paid." tone="green" icon={BadgeCheck} />
+          <PayoutMetric label={copy.paidLabel} value={paid} helper="Already closed in the payout ledger." tone="blue" icon={CheckCircle2} />
+          <PayoutMetric label="Deferred / lost" value={deferred} helper="Rejected, refunded, or no longer payable." tone="navy" icon={LockKeyhole} />
+        </div>
+      </Card>
+
+      {scope === "admin" ? (
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="p-6">
+            <div className="flex items-center gap-3">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-clinic-mist text-clinic-navy">
+                <Landmark className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Company gross margin</p>
+                <p className="text-2xl font-semibold text-clinic-navy">{dollars(grossMargin)}</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-6">
+            <div className="flex items-center gap-3">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-clinic-red">
+                <WalletCards className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner pool</p>
+                <p className="text-2xl font-semibold text-clinic-red">{dollars(partnerPool)}</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-6">
+            <div className="flex items-center gap-3">
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Company net before rewards</p>
+                <p className="text-2xl font-semibold text-emerald-700">{dollars(companyNet)}</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      ) : null}
+
+      <Card className="overflow-hidden">
+        <div className="border-b border-border p-6">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">Payout queue</p>
+              <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Ready and pending items</h3>
+            </div>
+            <Badge className="w-fit border-blue-200 bg-blue-50 px-4 py-2 text-clinic-navy">{rows.length} payout {rows.length === 1 ? "item" : "items"}</Badge>
+          </div>
+        </div>
+
+        {rows.length === 0 ? (
+          <EmptyPayouts message={copy.empty} />
+        ) : (
+          <>
+            {readyRows.length ? (
+              <div>
+                <div className="bg-emerald-50 px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Ready to pay</div>
+                {readyRows.map((entry) => (
+                  <PayoutRow key={entry.id} entry={entry} scope={scope} canMarkPaid={copy.showActions} />
+                ))}
+              </div>
+            ) : null}
+
+            {pendingRows.length ? (
+              <div>
+                <div className="bg-amber-50 px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Pending approval</div>
+                {pendingRows.map((entry) => (
+                  <PayoutRow key={entry.id} entry={entry} scope={scope} canMarkPaid={false} />
+                ))}
+              </div>
+            ) : null}
+
+            {historyRows.length ? (
+              <div>
+                <div className="bg-clinic-mist px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Recent history</div>
+                {historyRows.map((entry) => (
+                  <PayoutRow key={entry.id} entry={entry} scope={scope} canMarkPaid={false} />
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
+      </Card>
+
+      <Card className="overflow-hidden">
+        <div className="grid gap-0 lg:grid-cols-3">
+          <div className="border-b border-border p-6 lg:border-b-0 lg:border-r">
+            <Banknote className="h-6 w-6 text-clinic-red" />
+            <h3 className="mt-4 text-xl font-semibold text-clinic-ink">Money path</h3>
+            <p className="mt-2 text-slate-600">Gross margin creates the partner pool. The company pays partners, then partners distribute their pool downline.</p>
+          </div>
+          <div className="border-b border-border p-6 lg:border-b-0 lg:border-r">
+            <Clock3 className="h-6 w-6 text-clinic-red" />
+            <h3 className="mt-4 text-xl font-semibold text-clinic-ink">Pending rule</h3>
+            <p className="mt-2 text-slate-600">Commission stays pending until the order clears approval and fulfillment. Deferred or refunded orders are no longer payable.</p>
+          </div>
+          <div className="p-6">
+            <ShieldCheck className="h-6 w-6 text-clinic-red" />
+            <h3 className="mt-4 text-xl font-semibold text-clinic-ink">Role privacy</h3>
+            <p className="mt-2 text-slate-600">Sellers only see their own payout. Managers and leaders see their own status. Partners manage the network payout queue.</p>
+          </div>
+        </div>
+      </Card>
+    </div>
+  );
+}

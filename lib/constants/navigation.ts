@@ -51,6 +51,7 @@ export const managerNav = [
   { href: "/manager/team", label: "Team" },
   { href: "/partner/products", label: "Products" },
   { href: "/partner/commissions", label: "Commissions" },
+  { href: "/partner/payouts", label: "Payouts" },
   { href: "/partner/rewards", label: "Rewards" },
   { href: "/manager/reports", label: "Reports" },
   { href: "/manager/profile", label: "Profile" }
@@ -65,6 +66,7 @@ export const groupLeaderNav = [
   { href: "/partner/customers", label: "Customers" },
   { href: "/partner/products", label: "Products" },
   { href: "/partner/commissions", label: "Commissions" },
+  { href: "/partner/payouts", label: "Payouts" },
   { href: "/partner/rewards", label: "Rewards" },
   { href: "/partner/reports", label: "Reports" },
   { href: "/partner/profile", label: "Profile" }

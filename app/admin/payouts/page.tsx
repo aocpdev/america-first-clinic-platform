@@ -1,7 +1,16 @@
-import { ModulePage } from "@/components/dashboard/module-page";
+import { PayoutCenter } from "@/components/payouts/payout-center";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
+import { requireRole } from "@/lib/auth/current-user";
+import { getAdminCommissionLedger } from "@/lib/commissions/queries";
 import { adminNav } from "@/lib/constants/navigation";
 
-export default function AdminPayoutsPage() {
-  return <SidebarShell nav={adminNav} eyebrow="Admin" title="Payouts"><ModulePage title="Payout approvals" description="Review payout batches, provider references, ACH readiness, tax placeholders, and commission approvals." items={["Payout batches", "Approval queue", "ACH destination", "Tax setup placeholder", "Audit events", "Export files"]} /></SidebarShell>;
+export default async function AdminPayoutsPage() {
+  const user = await requireRole("COMPANY_ADMIN");
+  const entries = await getAdminCommissionLedger(user.companyId);
+
+  return (
+    <SidebarShell nav={adminNav} eyebrow="Admin" title="Payouts">
+      <PayoutCenter entries={entries} scope="admin" />
+    </SidebarShell>
+  );
 }
