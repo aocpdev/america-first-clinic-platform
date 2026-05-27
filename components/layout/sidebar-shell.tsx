@@ -1,5 +1,4 @@
 import { stopImpersonation } from "@/app/(auth)/actions";
-import { BackNavigator } from "@/components/layout/back-navigator";
 import { ClinicLogo } from "@/components/layout/logo";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NotificationMenu } from "@/components/layout/notification-menu";
@@ -64,7 +63,6 @@ export async function SidebarShell({
         <header className="sticky top-0 z-30 border-b border-border bg-white/88 backdrop-blur-xl">
           <div className="flex min-h-16 min-w-0 items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:min-h-20 lg:px-8">
             <div className="flex min-w-0 items-center gap-3">
-              <BackNavigator />
               <h1 className="truncate text-xl font-semibold text-clinic-ink sm:text-2xl">{title}</h1>
             </div>
             <div className="flex shrink-0 items-center gap-2 sm:gap-3">

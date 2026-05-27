@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { CustomerRecord } from "@/components/customers/customer-record";
+import { BackNavigator } from "@/components/layout/back-navigator";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requireApprovedConsultant } from "@/lib/auth/current-user";
 import { consultantNav } from "@/lib/constants/navigation";
@@ -27,7 +28,10 @@ export default async function ConsultantCustomerRecordPage({
 
   return (
     <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Customer record">
-      <CustomerRecord customer={mapCustomerRecord(customer)} mode="consultant" />
+      <div className="space-y-6">
+        <BackNavigator />
+        <CustomerRecord customer={mapCustomerRecord(customer)} mode="consultant" />
+      </div>
     </SidebarShell>
   );
 }

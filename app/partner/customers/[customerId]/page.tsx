@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { CustomerRecord } from "@/components/customers/customer-record";
+import { BackNavigator } from "@/components/layout/back-navigator";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requirePartner } from "@/lib/auth/current-user";
 import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
@@ -47,7 +48,10 @@ export default async function PartnerCustomerRecordPage({
 
   return (
     <SidebarShell nav={isGroupLeader ? groupLeaderNav : partnerNav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Customer record">
-      <CustomerRecord customer={mapCustomerRecord(customer)} mode="partner" />
+      <div className="space-y-6">
+        <BackNavigator />
+        <CustomerRecord customer={mapCustomerRecord(customer)} mode="partner" />
+      </div>
     </SidebarShell>
   );
 }

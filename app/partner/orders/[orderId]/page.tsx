@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { BackNavigator } from "@/components/layout/back-navigator";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { OrderDocument } from "@/components/orders/order-document";
 import { requirePartner } from "@/lib/auth/current-user";
@@ -50,6 +51,7 @@ export default async function PartnerOrderDetailPage({
   return (
     <SidebarShell nav={isGroupLeader ? groupLeaderNav : partnerNav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Order document">
       <div className="space-y-6">
+        <BackNavigator />
         {paymentStatus === "success" ? (
           <div className="rounded-[24px] border border-emerald-200 bg-emerald-50 px-6 py-5 text-lg font-black text-emerald-900">
             Payment completed. Stripe will confirm the final order status through the webhook.

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { BackNavigator } from "@/components/layout/back-navigator";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { ConsultantPaymentCelebration } from "@/components/orders/consultant-payment-celebration";
 import { OrderDocument } from "@/components/orders/order-document";
@@ -44,6 +45,7 @@ export default async function ConsultantOrderDetailPage({
   return (
     <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Order document">
       <div className="space-y-6">
+        <BackNavigator />
         {paymentStatus === "success" ? (
           <ConsultantPaymentCelebration
             orderId={order.id}
