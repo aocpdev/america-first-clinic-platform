@@ -86,6 +86,11 @@ function notificationPathForRole(role: UserRole, metadata: Prisma.JsonValue | nu
       : "/admin/consultants";
   }
 
+  if (type === "reward_redeem") {
+    if (role === UserRole.SUPER_ADMIN || role === UserRole.COMPANY_ADMIN) return "/admin/rewards";
+    return fallbackPathForRole(role);
+  }
+
   if (type?.includes("order") || type?.includes("payment") || type?.includes("commission") || type?.includes("subscription")) {
     if (role === UserRole.PARTNER) return "/partner/orders";
     if (role === UserRole.CONSULTANT) return "/consultant/orders";
@@ -99,6 +104,18 @@ function notificationPathForRole(role: UserRole, metadata: Prisma.JsonValue | nu
 
 async function isResolvedNotification(metadata: Prisma.JsonValue | null) {
   const meta = metadataRecord(metadata);
+
+  if (meta.type === "reward_redeem") {
+    const claimId = stringValue(meta.claimId);
+    if (!claimId) return true;
+
+    const claim = await prisma.rewardCampaignClaim.findUnique({
+      where: { id: claimId },
+      select: { status: true }
+    });
+
+    return !claim || claim.status === "FULFILLED";
+  }
 
   if (meta.type !== "registration") return false;
 

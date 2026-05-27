@@ -90,6 +90,20 @@ enum RewardValueType {
   NON_CASH
 }
 
+enum RewardClaimStatus {
+  EARNED
+  PAYOUT_PENDING
+  PAYOUT_APPLIED
+  REDEEM_REQUESTED
+  FULFILLED
+}
+
+enum RewardParticipantRole {
+  MANAGER
+  GROUP_LEADER
+  CONSULTANT
+}
+
 enum CustomerDocumentType {
   RX
   GFE
@@ -125,6 +139,7 @@ model User {
   teamMemberships               TeamMember[]
   activityLogs                  ActivityLog[]
   notifications                 Notification[]
+  rewardCampaignClaims          RewardCampaignClaim[]
   auditLogs                     AuditLog[]
   onboardingSteps               OnboardingStep[]
   createdAt                     DateTime            @default(now())
@@ -154,6 +169,7 @@ model Company {
   rewardLevels        RewardLevel[]
   rewards             Reward[]
   rewardCampaigns     RewardCampaign[]
+  rewardCampaignClaims RewardCampaignClaim[]
   partnerProfiles     PartnerProfile[]
   managerProfiles     ManagerProfile[]
   groupLeaderProfiles GroupLeaderProfile[]
@@ -187,6 +203,7 @@ model ConsultantProfile {
   orders               Order[]
   commissions          Commission[]
   commissionSplits     CommissionSplit[]
+  rewardCampaignClaims RewardCampaignClaim[]
   referralLinks        ReferralLink[]
   leads                Lead[]
   teamMembers          TeamMember[]
@@ -238,6 +255,7 @@ model ManagerProfile {
   customers         Customer[]
   orders            Order[]
   commissionSplits  CommissionSplit[]
+  rewardCampaignClaims RewardCampaignClaim[]
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
 
@@ -262,6 +280,7 @@ model GroupLeaderProfile {
   customers             Customer[]
   orders                Order[]
   commissionSplits      CommissionSplit[]
+  rewardCampaignClaims  RewardCampaignClaim[]
   createdAt             DateTime            @default(now())
   updatedAt             DateTime            @updatedAt
 
@@ -738,6 +757,7 @@ model RewardCampaign {
   rewardValueType   RewardValueType         @default(NON_CASH)
   rewardValueCents  Int                     @default(0)
   products          RewardCampaignProduct[]
+  claims            RewardCampaignClaim[]
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
 
@@ -756,6 +776,40 @@ model RewardCampaignProduct {
 
   @@unique([campaignId, productId])
   @@index([productId])
+}
+
+model RewardCampaignClaim {
+  id                   String                @id @default(uuid()) @db.Uuid
+  companyId            String                @db.Uuid
+  company              Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  campaignId           String                @db.Uuid
+  campaign             RewardCampaign        @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  userId               String                @db.Uuid
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  consultantProfileId  String?               @db.Uuid
+  consultantProfile    ConsultantProfile?    @relation(fields: [consultantProfileId], references: [id])
+  managerProfileId     String?               @db.Uuid
+  managerProfile       ManagerProfile?       @relation(fields: [managerProfileId], references: [id])
+  groupLeaderProfileId String?               @db.Uuid
+  groupLeaderProfile   GroupLeaderProfile?   @relation(fields: [groupLeaderProfileId], references: [id])
+  participantRole      RewardParticipantRole
+  status               RewardClaimStatus     @default(EARNED)
+  rewardValueType      RewardValueType
+  rewardValueCents     Int                   @default(0)
+  completedAt          DateTime              @default(now())
+  redeemedAt           DateTime?
+  fulfilledAt          DateTime?
+  payoutAppliedAt      DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@unique([campaignId, userId])
+  @@index([companyId, status])
+  @@index([campaignId, status])
+  @@index([userId, status])
+  @@index([consultantProfileId, status])
+  @@index([managerProfileId, status])
+  @@index([groupLeaderProfileId, status])
 }
 
 model ReferralLink {

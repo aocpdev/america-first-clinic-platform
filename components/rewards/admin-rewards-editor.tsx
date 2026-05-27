@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, Gift, Pencil, Plus, Settings2, Target, Trophy } from "lucide-react";
-import { saveRewardCampaign, saveRewardLevelBundle } from "@/app/admin/rewards/actions";
+import { CalendarDays, CheckCircle2, DollarSign, Gift, Pencil, Plus, Send, Settings2, Target, Trophy } from "lucide-react";
+import { fulfillRewardClaim, markRewardPayoutApplied, saveRewardCampaign, saveRewardLevelBundle } from "@/app/admin/rewards/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -57,8 +57,40 @@ type RewardCampaign = {
   }>;
 };
 
+type RewardClaim = {
+  id: string;
+  status: "EARNED" | "PAYOUT_PENDING" | "PAYOUT_APPLIED" | "REDEEM_REQUESTED" | "FULFILLED";
+  participantRole: "MANAGER" | "GROUP_LEADER" | "CONSULTANT";
+  rewardValueType: "CASH" | "NON_CASH";
+  rewardValueCents: number;
+  completedAt: string;
+  redeemedAt: string | null;
+  user: { firstName: string | null; lastName: string | null; email: string; avatarUrl: string | null };
+  campaign: {
+    id: string;
+    title: string;
+    rewardTitle: string;
+    rewardImageUrl: string | null;
+    rewardValueType: "CASH" | "NON_CASH";
+  };
+};
+
 function money(cents: number) {
   return currency(cents / 100);
+}
+
+function personName(person: RewardClaim["user"]) {
+  return [person.firstName, person.lastName].filter(Boolean).join(" ").trim() || person.email;
+}
+
+function initialsFor(name: string) {
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
 }
 
 function dateInputValue(value: Date | string) {
@@ -396,14 +428,86 @@ function CampaignModal({
   );
 }
 
+function RewardClaimQueue({ claims }: { claims: RewardClaim[] }) {
+  return (
+    <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_22px_70px_rgba(7,55,99,0.08)]">
+      <div className="flex flex-col gap-4 border-b border-border p-6 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex items-center gap-3">
+          <DollarSign className="h-5 w-5 text-clinic-red" />
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Reward operations</p>
+            <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Reward payout and redemption</h2>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              Cash rewards can be applied to payouts. Non-cash rewards move through redemption and fulfillment.
+            </p>
+          </div>
+        </div>
+        <span className="rounded-full bg-clinic-mist px-4 py-2 text-sm font-bold text-clinic-navy">{claims.length} pending</span>
+      </div>
+
+      <div className="grid gap-3 p-5">
+        {claims.length ? (
+          claims.map((claim) => {
+            const name = personName(claim.user);
+            const statusLabel = claim.status.replaceAll("_", " ").toLowerCase();
+            return (
+              <div key={claim.id} className="flex flex-col gap-4 rounded-[1.5rem] border border-border bg-white p-4 shadow-line lg:flex-row lg:items-center">
+                <div className="grid size-14 shrink-0 place-items-center overflow-hidden rounded-2xl bg-clinic-navy text-sm font-bold text-white">
+                  {claim.user.avatarUrl ? <img src={claim.user.avatarUrl} alt={name} className="h-full w-full object-cover" /> : initialsFor(name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-lg font-semibold text-clinic-ink">{name}</p>
+                    <span className="rounded-full bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">{claim.participantRole.replaceAll("_", " ")}</span>
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold capitalize text-emerald-800">{statusLabel}</span>
+                  </div>
+                  <p className="mt-1 truncate text-sm text-slate-500">{claim.campaign.title} · {claim.campaign.rewardTitle}</p>
+                </div>
+                <div className="rounded-2xl bg-clinic-mist px-4 py-3 text-left lg:w-40">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Reward value</p>
+                  <p className="mt-1 text-lg font-semibold text-clinic-navy">{money(claim.rewardValueCents)}</p>
+                </div>
+                {claim.rewardValueType === "CASH" && claim.status === "PAYOUT_PENDING" ? (
+                  <form action={markRewardPayoutApplied}>
+                    <input type="hidden" name="claimId" value={claim.id} />
+                    <Button type="submit" className="w-full lg:w-auto">
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Apply to payout
+                    </Button>
+                  </form>
+                ) : null}
+                {claim.rewardValueType === "NON_CASH" && claim.status === "REDEEM_REQUESTED" ? (
+                  <form action={fulfillRewardClaim}>
+                    <input type="hidden" name="claimId" value={claim.id} />
+                    <Button type="submit" variant="accent" className="w-full lg:w-auto">
+                      <Send className="mr-2 h-4 w-4" />
+                      Mark fulfilled
+                    </Button>
+                  </form>
+                ) : null}
+              </div>
+            );
+          })
+        ) : (
+          <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500">
+            No reward payout or redemption items are waiting right now.
+          </div>
+        )}
+      </div>
+    </Card>
+  );
+}
+
 export function AdminRewardsEditor({
   levels,
   products,
-  campaigns
+  campaigns,
+  claims
 }: {
   levels: RewardLevel[];
   products: RewardProduct[];
   campaigns: RewardCampaign[];
+  claims: RewardClaim[];
 }) {
   const [editingLevel, setEditingLevel] = useState<RewardLevel | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<RewardCampaign | null | "new">(null);
@@ -442,6 +546,8 @@ export function AdminRewardsEditor({
           </div>
         </div>
       </Card>
+
+      <RewardClaimQueue claims={claims} />
 
       <Card className="overflow-hidden rounded-[2rem]">
         <div className="flex flex-col gap-4 border-b border-border p-6 lg:flex-row lg:items-center lg:justify-between">

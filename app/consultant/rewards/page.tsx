@@ -30,6 +30,7 @@ export default async function ConsultantRewardsPage() {
     getCompanyRewardLeaderboard(user.companyId),
     getActiveRewardCampaignProgress({
       companyId: user.companyId,
+      userId: user.id,
       consultantProfileId: user.consultantProfile.id
     })
   ]);

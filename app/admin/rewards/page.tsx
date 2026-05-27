@@ -4,7 +4,7 @@ import { Card } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
-import { getRewardCampaigns, getRewardLevelAdminModels, getRewardProducts } from "@/lib/rewards/reward-engine";
+import { getRewardCampaigns, getRewardClaimQueue, getRewardLevelAdminModels, getRewardProducts } from "@/lib/rewards/reward-engine";
 
 export default async function AdminRewardsPage() {
   const user = await requireRole("COMPANY_ADMIN");
@@ -20,10 +20,11 @@ export default async function AdminRewardsPage() {
     );
   }
 
-  const [levels, products, campaigns] = await Promise.all([
+  const [levels, products, campaigns, claims] = await Promise.all([
     getRewardLevelAdminModels(user.companyId),
     getRewardProducts(user.companyId),
-    getRewardCampaigns(user.companyId)
+    getRewardCampaigns(user.companyId),
+    getRewardClaimQueue(user.companyId)
   ]);
   const serializedLevels = levels.map((level) => ({
     id: level.id,
@@ -64,6 +65,17 @@ export default async function AdminRewardsPage() {
       product: item.product
     }))
   }));
+  const serializedClaims = claims.map((claim) => ({
+    id: claim.id,
+    status: claim.status,
+    participantRole: claim.participantRole,
+    rewardValueType: claim.rewardValueType,
+    rewardValueCents: claim.rewardValueCents,
+    completedAt: claim.completedAt.toISOString(),
+    redeemedAt: claim.redeemedAt?.toISOString() ?? null,
+    user: claim.user,
+    campaign: claim.campaign
+  }));
 
   return (
     <SidebarShell nav={adminNav} eyebrow="Admin" title="Rewards">
@@ -83,7 +95,7 @@ export default async function AdminRewardsPage() {
           </div>
         </Card>
 
-        <AdminRewardsEditor levels={serializedLevels} products={products} campaigns={serializedCampaigns} />
+        <AdminRewardsEditor levels={serializedLevels} products={products} campaigns={serializedCampaigns} claims={serializedClaims} />
       </div>
     </SidebarShell>
   );

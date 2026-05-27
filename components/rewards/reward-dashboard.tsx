@@ -1,4 +1,6 @@
 import { Award, CalendarDays, CheckCircle2, Gift, Lock, Medal, Sparkles, Target, Trophy } from "lucide-react";
+import { redeemRewardCampaign } from "@/app/rewards/actions";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { currency } from "@/lib/utils";
 
@@ -39,6 +41,13 @@ type CampaignProgress = {
   rewardValueCents: number;
   soldQuantity: number;
   targetQuantity: number;
+  revenueCents: number;
+  marginCents: number;
+  isCompleted: boolean;
+  claimId: string | null;
+  claimStatus: "EARNED" | "PAYOUT_PENDING" | "PAYOUT_APPLIED" | "REDEEM_REQUESTED" | "FULFILLED" | null;
+  claimRewardValueType: "CASH" | "NON_CASH" | null;
+  claimRewardValueCents: number | null;
   progressPercent: number;
   remainingQuantity: number;
   products: Array<{ product: { title: string } }>;
@@ -70,6 +79,23 @@ function durationLabel(startsAt: Date | string, endsAt: Date | string) {
   if (days <= 8) return "Weekly sprint";
   if (days <= 35) return "Monthly goal";
   return `${days}-day challenge`;
+}
+
+function productBundleLabel(campaign: CampaignProgress) {
+  const names = campaign.products.map((item) => item.product.title);
+  if (!names.length) return "Selected products";
+  if (names.length <= 2) return names.join(" + ");
+  return `${names.slice(0, 2).join(" + ")} + ${names.length - 2} more`;
+}
+
+function campaignStatusText(campaign: CampaignProgress) {
+  if (!campaign.isCompleted) return `${campaign.remainingQuantity} more to unlock`;
+  if (campaign.rewardValueType === "CASH") {
+    return campaign.claimStatus === "PAYOUT_APPLIED" ? "Applied to payout" : "Queued for payout";
+  }
+  if (campaign.claimStatus === "REDEEM_REQUESTED") return "Redemption requested";
+  if (campaign.claimStatus === "FULFILLED") return "Fulfilled";
+  return "Unlocked";
 }
 
 export function RewardDashboard({
@@ -263,6 +289,7 @@ export function RewardDashboard({
                           <p className="mt-1 text-sm text-slate-500">
                             {durationLabel(campaign.startsAt, campaign.endsAt)} · {formatShortDate(campaign.startsAt)} to {formatShortDate(campaign.endsAt)}
                           </p>
+                          <p className="mt-1 text-xs font-semibold text-clinic-navy">{productBundleLabel(campaign)}</p>
                         </div>
                         <span className="rounded-full bg-clinic-mist px-4 py-2 text-sm font-bold text-clinic-navy">
                           {campaign.soldQuantity}/{campaign.targetQuantity}
@@ -278,10 +305,19 @@ export function RewardDashboard({
                             {campaign.rewardTitle}
                             {campaign.rewardValueCents > 0 ? ` · ${money(campaign.rewardValueCents)}` : ""}
                           </p>
+                          <p className="mt-1 text-xs font-semibold text-emerald-700">
+                            {money(campaign.revenueCents)} revenue · {money(campaign.marginCents)} margin
+                          </p>
                         </div>
-                        <p className="text-sm font-semibold text-emerald-700">
-                          {campaign.remainingQuantity > 0 ? `${campaign.remainingQuantity} more to unlock` : "Unlocked"}
-                        </p>
+                        <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+                          <p className="text-sm font-semibold text-emerald-700">{campaignStatusText(campaign)}</p>
+                          {campaign.isCompleted && campaign.rewardValueType === "NON_CASH" && campaign.claimStatus === "EARNED" && campaign.claimId ? (
+                            <form action={redeemRewardCampaign}>
+                              <input type="hidden" name="claimId" value={campaign.claimId} />
+                              <Button type="submit" variant="accent" size="sm">Redeem</Button>
+                            </form>
+                          ) : null}
+                        </div>
                       </div>
                     </div>
                   </div>

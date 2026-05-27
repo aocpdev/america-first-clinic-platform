@@ -3,7 +3,7 @@ import { RewardDashboard } from "@/components/rewards/reward-dashboard";
 import { Card } from "@/components/ui/card";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requirePartner } from "@/lib/auth/current-user";
-import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
+import { groupLeaderNav, managerNav, partnerNav } from "@/lib/constants/navigation";
 import {
   getActiveRewardCampaignProgress,
   getCompanyRewardLeaderboard,
@@ -46,15 +46,40 @@ function durationLabel(startsAt: Date | string, endsAt: Date | string) {
 export default async function PartnerRewardsPage() {
   const user = await requirePartner();
   const isGroupLeader = user.role === "GROUP_LEADER";
-  const nav = isGroupLeader ? groupLeaderNav : partnerNav;
+  const isManager = user.role === "MANAGER";
+  const nav = isManager ? managerNav : isGroupLeader ? groupLeaderNav : partnerNav;
 
-  if (!user.companyId || (!user.partnerProfile?.id && !user.groupLeaderProfile?.id)) {
+  if (!user.companyId || (!user.partnerProfile?.id && !user.managerProfile?.id && !user.groupLeaderProfile?.id)) {
     return (
-      <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Rewards">
+      <SidebarShell nav={nav} eyebrow={isManager ? "Manager" : isGroupLeader ? "Group leader" : "Partner"} title="Rewards">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Seller profile required</h2>
-          <p className="mt-2 text-slate-600">Your partner or group leader profile is required before rewards can be viewed.</p>
+          <p className="mt-2 text-slate-600">Your partner, manager, or group leader profile is required before rewards can be viewed.</p>
         </Card>
+      </SidebarShell>
+    );
+  }
+
+  if (isManager && user.managerProfile?.id) {
+    const sellerName = user.managerProfile.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+    const [progress, leaderboard, campaignProgress] = await Promise.all([
+      getRewardProgress({
+        companyId: user.companyId,
+        sellerName,
+        avatarUrl: user.avatarUrl,
+        managerProfileId: user.managerProfile.id
+      }),
+      getCompanyRewardLeaderboard(user.companyId),
+      getActiveRewardCampaignProgress({
+        companyId: user.companyId,
+        userId: user.id,
+        managerProfileId: user.managerProfile.id
+      })
+    ]);
+
+    return (
+      <SidebarShell nav={nav} eyebrow="Manager" title="Rewards">
+        <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} />
       </SidebarShell>
     );
   }
@@ -71,6 +96,7 @@ export default async function PartnerRewardsPage() {
       getCompanyRewardLeaderboard(user.companyId),
       getActiveRewardCampaignProgress({
         companyId: user.companyId,
+        userId: user.id,
         groupLeaderProfileId: user.groupLeaderProfile.id
       })
     ]);

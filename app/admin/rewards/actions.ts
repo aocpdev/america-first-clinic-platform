@@ -255,3 +255,52 @@ export async function saveRewardCampaign(formData: FormData) {
   revalidatePath("/consultant/rewards");
   revalidatePath("/partner/rewards");
 }
+
+export async function markRewardPayoutApplied(formData: FormData) {
+  const user = await requireRole("COMPANY_ADMIN");
+  if (!user.companyId) return;
+
+  const claimId = String(formData.get("claimId") ?? "");
+  if (!claimId) return;
+
+  await prisma.rewardCampaignClaim.updateMany({
+    where: {
+      id: claimId,
+      companyId: user.companyId,
+      status: "PAYOUT_PENDING",
+      rewardValueType: "CASH"
+    },
+    data: {
+      status: "PAYOUT_APPLIED",
+      payoutAppliedAt: new Date()
+    }
+  });
+
+  revalidatePath("/admin/rewards");
+  revalidatePath("/consultant/rewards");
+  revalidatePath("/partner/rewards");
+}
+
+export async function fulfillRewardClaim(formData: FormData) {
+  const user = await requireRole("COMPANY_ADMIN");
+  if (!user.companyId) return;
+
+  const claimId = String(formData.get("claimId") ?? "");
+  if (!claimId) return;
+
+  await prisma.rewardCampaignClaim.updateMany({
+    where: {
+      id: claimId,
+      companyId: user.companyId,
+      status: "REDEEM_REQUESTED"
+    },
+    data: {
+      status: "FULFILLED",
+      fulfilledAt: new Date()
+    }
+  });
+
+  revalidatePath("/admin/rewards");
+  revalidatePath("/consultant/rewards");
+  revalidatePath("/partner/rewards");
+}
