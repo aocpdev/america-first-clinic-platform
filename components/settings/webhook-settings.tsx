@@ -5,6 +5,7 @@ import { Edit3, Link2, Plus, Power, Send, X } from "lucide-react";
 import {
   createAdminWebhookEndpoint,
   createPartnerWebhookEndpoint,
+  testWebhookConfiguration,
   testWebhookEndpoint,
   toggleWebhookEndpoint,
   updateWebhookEndpoint
@@ -59,6 +60,7 @@ export function WebhookSettings({
 }) {
   const createAction = scope === "admin" ? createAdminWebhookEndpoint : createPartnerWebhookEndpoint;
   const [editingEndpoint, setEditingEndpoint] = useState<WebhookEndpointRow | null>(null);
+  const [creatingEndpoint, setCreatingEndpoint] = useState(false);
 
   return (
     <Card className="overflow-hidden rounded-3xl">
@@ -70,25 +72,22 @@ export function WebhookSettings({
         </p>
       </div>
 
-      <div className="grid gap-6 p-6 xl:grid-cols-[420px_1fr]">
-        <form action={createAction} className="space-y-4 rounded-3xl border border-border bg-clinic-mist p-5">
+      <div className="grid gap-6 p-6 xl:grid-cols-[360px_1fr]">
+        <div className="rounded-3xl border border-border bg-clinic-mist p-5">
           <div className="flex items-center gap-3">
             <div className="grid size-11 place-items-center rounded-2xl bg-white text-clinic-navy shadow-line">
               <Link2 className="size-5" />
             </div>
             <div>
               <h3 className="text-xl font-semibold text-clinic-ink">Add endpoint</h3>
-              <p className="text-sm text-slate-500">Use your GHL webhook URL here.</p>
+              <p className="text-sm text-slate-500">Create, test, and preview a workflow payload.</p>
             </div>
           </div>
-          <Input name="name" placeholder="GHL invoice workflow" required />
-          <Input name="url" placeholder="https://services.leadconnectorhq.com/hooks/..." type="url" required />
-          <EventCheckboxGrid selectedEvents={[]} />
-          <Button type="submit" variant="accent" className="w-full">
+          <Button type="button" variant="accent" className="mt-5 w-full" onClick={() => setCreatingEndpoint(true)}>
             <Plus className="size-4" />
             Create webhook
           </Button>
-        </form>
+        </div>
 
         <section className="rounded-3xl border border-border bg-white p-5">
           <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
@@ -128,6 +127,15 @@ export function WebhookSettings({
           onClose={() => setEditingEndpoint(null)}
         />
       ) : null}
+
+      {creatingEndpoint ? (
+        <WebhookConfigurationModal
+          mode="create"
+          action={createAction}
+          scope={scope}
+          onClose={() => setCreatingEndpoint(false)}
+        />
+      ) : null}
     </Card>
   );
 }
@@ -161,23 +169,33 @@ function ConnectionRow({
   );
 }
 
-function EditWebhookModal({
+function WebhookConfigurationModal({
+  mode,
+  action,
   endpoint,
   scope,
   onClose
 }: {
-  endpoint: WebhookEndpointRow;
+  mode: "create" | "edit";
+  action: (formData: FormData) => void | Promise<void>;
+  endpoint?: WebhookEndpointRow;
   scope: "admin" | "partner";
   onClose: () => void;
 }) {
+  const [selectedEvents, setSelectedEvents] = useState<string[]>(endpoint?.events ?? ["invoice.requested"]);
+  const [previewEvent, setPreviewEvent] = useState(selectedEvents[0] || "invoice.requested");
+  const formId = `${mode}-webhook-${endpoint?.id || "new"}`;
+  const currentPreviewEvent = selectedEvents.includes(previewEvent) ? previewEvent : selectedEvents[0] || "webhook.test";
+  const payloadPreview = useMemo(() => sampleWebhookPayload(currentPreviewEvent, selectedEvents), [currentPreviewEvent, selectedEvents]);
+
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/35 px-4 py-8 backdrop-blur-sm">
-      <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] border border-border bg-white shadow-2xl">
+      <div className="w-full max-w-5xl overflow-hidden rounded-[2rem] border border-border bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-border p-6">
           <div>
-            <Badge>Edit connection</Badge>
+            <Badge>{mode === "create" ? "New connection" : "Edit connection"}</Badge>
             <h3 className="mt-3 text-3xl font-semibold text-clinic-ink">Webhook endpoint</h3>
-            <p className="mt-1 text-sm text-slate-500">Update the workflow name, destination URL, and event triggers.</p>
+            <p className="mt-1 text-sm text-slate-500">Configure the destination, test the connection, and inspect the JSON payload.</p>
           </div>
           <button
             type="button"
@@ -190,21 +208,48 @@ function EditWebhookModal({
         </div>
 
         <div className="max-h-[72vh] overflow-y-auto p-6">
-          <form id={`edit-webhook-${endpoint.id}`} action={updateWebhookEndpoint} className="space-y-5">
+          <form id={formId} action={action} className="space-y-5">
             <input type="hidden" name="scope" value={scope} />
-            <input type="hidden" name="endpointId" value={endpoint.id} />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="space-y-2">
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Connection name</span>
-                <Input name="name" defaultValue={endpoint.name} required />
-              </label>
-              <label className="space-y-2 sm:col-span-2">
-                <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Endpoint URL</span>
-                <Input name="url" defaultValue={endpoint.url} type="url" required />
-              </label>
-            </div>
+            {endpoint ? <input type="hidden" name="endpointId" value={endpoint.id} /> : null}
+            <div className="grid gap-6 lg:grid-cols-[1fr_420px]">
+              <div className="space-y-5">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Connection name</span>
+                    <Input name="name" defaultValue={endpoint?.name ?? ""} placeholder="GHL invoice workflow" required />
+                  </label>
+                  <label className="space-y-2 sm:col-span-2">
+                    <span className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Endpoint URL</span>
+                    <Input name="url" defaultValue={endpoint?.url ?? ""} placeholder="https://services.leadconnectorhq.com/hooks/..." type="url" required />
+                  </label>
+                </div>
 
-            <EventCheckboxGrid selectedEvents={endpoint.events} />
+                <EventCheckboxGrid selectedEvents={selectedEvents} onSelectedEventsChange={setSelectedEvents} />
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-3xl border border-border bg-clinic-mist p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-clinic-ink">Test payload</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">This is the JSON format GHL will receive.</p>
+                    </div>
+                    <select
+                      className="h-11 rounded-2xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line"
+                      value={currentPreviewEvent}
+                      onChange={(event) => setPreviewEvent(event.target.value)}
+                    >
+                      {(selectedEvents.length ? selectedEvents : ["webhook.test"]).map((event) => (
+                        <option key={event} value={event}>{event}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <pre className="mt-4 max-h-96 overflow-auto rounded-2xl bg-slate-950 p-4 text-xs leading-5 text-slate-100">
+                    {JSON.stringify(payloadPreview, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </div>
           </form>
 
           <div className="mt-5 rounded-3xl border border-border bg-clinic-mist p-4">
@@ -214,30 +259,38 @@ function EditWebhookModal({
                 <p className="mt-1 text-sm text-slate-500">Send a sample payload or pause this connection without exposing the URL in the list.</p>
               </div>
               <div className="flex shrink-0 flex-wrap gap-2">
-                <form action={testWebhookEndpoint}>
-                  <input type="hidden" name="scope" value={scope} />
-                  <input type="hidden" name="endpointId" value={endpoint.id} />
-                  <Button type="submit" variant="outline">
-                    <Send className="size-4" />
-                    Send test
-                  </Button>
-                </form>
-                <form action={toggleWebhookEndpoint}>
-                  <input type="hidden" name="scope" value={scope} />
-                  <input type="hidden" name="endpointId" value={endpoint.id} />
-                  <input type="hidden" name="nextActive" value={endpoint.isActive ? "false" : "true"} />
-                  <Button type="submit" variant="outline">
-                    <Power className="size-4" />
-                    {endpoint.isActive ? "Pause" : "Enable"}
-                  </Button>
-                </form>
+                <Button type="submit" form={formId} formAction={testWebhookConfiguration} variant="outline">
+                  <Send className="size-4" />
+                  Send URL test
+                </Button>
+                {endpoint ? (
+                  <form action={testWebhookEndpoint}>
+                    <input type="hidden" name="scope" value={scope} />
+                    <input type="hidden" name="endpointId" value={endpoint.id} />
+                    <Button type="submit" variant="outline">
+                      <Send className="size-4" />
+                      Send saved test
+                    </Button>
+                  </form>
+                ) : null}
+                {endpoint ? (
+                  <form action={toggleWebhookEndpoint}>
+                    <input type="hidden" name="scope" value={scope} />
+                    <input type="hidden" name="endpointId" value={endpoint.id} />
+                    <input type="hidden" name="nextActive" value={endpoint.isActive ? "false" : "true"} />
+                    <Button type="submit" variant="outline">
+                      <Power className="size-4" />
+                      {endpoint.isActive ? "Pause" : "Enable"}
+                    </Button>
+                  </form>
+                ) : null}
               </div>
             </div>
           </div>
 
           <div className="mt-5 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" form={`edit-webhook-${endpoint.id}`} variant="accent">Save connection</Button>
+            <Button type="submit" form={formId} variant="accent">{mode === "create" ? "Create connection" : "Save connection"}</Button>
           </div>
         </div>
       </div>
@@ -245,7 +298,33 @@ function EditWebhookModal({
   );
 }
 
-function EventCheckboxGrid({ selectedEvents }: { selectedEvents: string[] }) {
+function EditWebhookModal({
+  endpoint,
+  scope,
+  onClose
+}: {
+  endpoint: WebhookEndpointRow;
+  scope: "admin" | "partner";
+  onClose: () => void;
+}) {
+  return (
+    <WebhookConfigurationModal
+      mode="edit"
+      action={updateWebhookEndpoint}
+      endpoint={endpoint}
+      scope={scope}
+      onClose={onClose}
+    />
+  );
+}
+
+function EventCheckboxGrid({
+  selectedEvents,
+  onSelectedEventsChange
+}: {
+  selectedEvents: string[];
+  onSelectedEventsChange: (events: string[]) => void;
+}) {
   const selected = useMemo(() => new Set(selectedEvents), [selectedEvents]);
 
   return (
@@ -257,7 +336,19 @@ function EventCheckboxGrid({ selectedEvents }: { selectedEvents: string[] }) {
             key={event.value}
             className="flex min-h-16 items-start gap-3 rounded-2xl bg-white px-3 py-3 text-sm font-medium text-slate-600 shadow-line"
           >
-            <input name="events" value={event.value} type="checkbox" defaultChecked={selected.has(event.value)} className="mt-1 size-4 shrink-0" />
+            <input
+              name="events"
+              value={event.value}
+              type="checkbox"
+              checked={selected.has(event.value)}
+              onChange={(inputEvent) => {
+                const nextEvents = inputEvent.target.checked
+                  ? Array.from(new Set([...selectedEvents, event.value]))
+                  : selectedEvents.filter((selectedEvent) => selectedEvent !== event.value);
+                onSelectedEventsChange(nextEvents.length ? nextEvents : ["invoice.requested"]);
+              }}
+              className="mt-1 size-4 shrink-0"
+            />
             <span className="min-w-0">
               <span className="block text-xs font-bold uppercase tracking-[0.14em] text-clinic-navy">{event.group}</span>
               <span className="mt-1 block font-semibold text-clinic-ink">{event.label}</span>
@@ -268,4 +359,181 @@ function EventCheckboxGrid({ selectedEvents }: { selectedEvents: string[] }) {
       </div>
     </div>
   );
+}
+
+function sampleWebhookPayload(eventType: string, configuredEvents: string[]) {
+  const base = {
+    source: "america_first_clinic_crm",
+    environment: "test",
+    configuredEvents,
+    phoneE164: "14076246747",
+    customer: {
+      id: "cus_demo_1024",
+      firstName: "Mariana",
+      lastName: "Rivera",
+      email: "mariana@example.com",
+      phone: "14076246747"
+    }
+  };
+
+  const samples: Record<string, Record<string, unknown>> = {
+    "customer.created": {
+      ...base,
+      customer: {
+        ...base.customer,
+        birthDate: "1988-04-12",
+        birthSex: "Female",
+        pipelineStage: "New Sale"
+      }
+    },
+    "order.created": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048",
+        total: 397,
+        margin: 229,
+        status: "AWAITING_PAYMENT"
+      },
+      items: [
+        { name: "Methylene Blue Capsules (30 Day Supply)", quantity: 1, unitPrice: 229 },
+        { name: "Low Dose Naltrexone (LDN) - 30 Day Supply", quantity: 1, unitPrice: 149 }
+      ]
+    },
+    "invoice.requested": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048",
+        total: 397,
+        paymentStatus: "PENDING"
+      },
+      invoice: {
+        shortUrl: "https://www.americafirstclinic.com/i/af2048",
+        provider: "stripe",
+        expiresAt: "2026-06-03T14:30:00.000Z"
+      }
+    },
+    "payment.succeeded": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048",
+        total: 397,
+        paymentStatus: "CAPTURED"
+      },
+      receipt: {
+        shortUrl: "https://www.americafirstclinic.com/receipts/af2048"
+      }
+    },
+    "payment.failed": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048",
+        total: 397,
+        paymentStatus: "FAILED"
+      },
+      failure: {
+        reason: "Card declined"
+      }
+    },
+    "receipt.ready": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048",
+        total: 397
+      },
+      receipt: {
+        shortUrl: "https://www.americafirstclinic.com/receipts/af2048"
+      }
+    },
+    "receipt.resend_requested": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048"
+      },
+      receipt: {
+        shortUrl: "https://www.americafirstclinic.com/receipts/af2048"
+      }
+    },
+    "shipment.tracking_ready": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048"
+      },
+      shipment: {
+        carrier: "UPS",
+        trackingCode: "1Z999AA10123456784",
+        trackingUrl: "https://www.ups.com/track?tracknum=1Z999AA10123456784"
+      }
+    },
+    "commission.generated": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048",
+        margin: 229
+      },
+      commission: {
+        status: "PENDING",
+        consultantAmount: 28.63,
+        partnerAmount: 28.62
+      }
+    },
+    "password.reset.requested": {
+      ...base,
+      reset: {
+        requestedBy: "consultant",
+        resetUrl: "https://www.americafirstclinic.com/reset-password/demo"
+      }
+    },
+    "password.changed": {
+      ...base,
+      account: {
+        userId: "usr_demo_512",
+        changedAt: "2026-05-27T14:30:00.000Z"
+      }
+    }
+  };
+
+  const registrationPayload = {
+    ...base,
+    applicant: {
+      id: "usr_demo_512",
+      name: "Rashad Abdul Hamid",
+      email: "rashad@example.com",
+      requestedRole: eventType.includes("manager") ? "MANAGER" : eventType.includes("leader") ? "GROUP_LEADER" : "CONSULTANT",
+      partner: "American First Healthcare"
+    }
+  };
+
+  const accessDecisionPayload = {
+    ...registrationPayload,
+    decision: {
+      status: eventType.includes("rejected") ? "REJECTED" : "APPROVED",
+      decidedAt: "2026-05-27T14:30:00.000Z"
+    }
+  };
+
+  const data =
+    samples[eventType] ??
+    (eventType.includes("registration.submitted")
+      ? registrationPayload
+      : eventType.includes("approved") || eventType.includes("rejected")
+        ? accessDecisionPayload
+        : {
+            ...base,
+            message: "Sample CRM event payload."
+          });
+
+  return {
+    id: "preview_delivery_123",
+    event: eventType,
+    createdAt: "2026-05-27T14:30:00.000Z",
+    data
+  };
 }

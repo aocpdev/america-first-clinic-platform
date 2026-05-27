@@ -334,3 +334,53 @@ export async function testWebhookEndpoint(formData: FormData) {
 
   revalidatePath(scope === "partner" ? "/partner/settings" : "/admin/settings");
 }
+
+export async function testWebhookConfiguration(formData: FormData) {
+  const scope = String(formData.get("scope") || "admin");
+  const parsed = webhookSchema.parse({
+    name: formData.get("name"),
+    url: formData.get("url"),
+    events: formEvents(formData)
+  });
+
+  if (scope === "partner") {
+    await requirePartner();
+  } else {
+    await requireAdminCompanyId();
+  }
+
+  const eventType = parsed.events[0] || "webhook.test";
+  const sentAt = new Date().toISOString();
+  const body = JSON.stringify({
+    id: `test_${randomBytes(8).toString("hex")}`,
+    event: "webhook.test",
+    createdAt: sentAt,
+    data: {
+      source: "america_first_clinic_crm",
+      message: "This is a test webhook from America First Clinic CRM.",
+      endpointName: parsed.name.trim(),
+      previewEvent: eventType,
+      configuredEvents: parsed.events,
+      sentAt
+    }
+  });
+  const temporarySecret = `whsec_test_${randomBytes(16).toString("hex")}`;
+
+  try {
+    await fetch(parsed.url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-afc-event": "webhook.test",
+        "x-afc-delivery": "configuration_test",
+        "x-afc-signature": signWebhookPayload(temporarySecret, body)
+      },
+      body
+    });
+  } catch {
+    // The endpoint creation form keeps the payload visible so the user can
+    // inspect the expected JSON even when the external workflow is not ready.
+  }
+
+  revalidatePath(scope === "partner" ? "/partner/settings" : "/admin/settings");
+}
