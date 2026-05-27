@@ -62,13 +62,15 @@ export function MobileNav({ nav }: { nav: MobileNavItem[] }) {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-w-[76px] shrink-0 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-[11px] font-bold text-slate-500 transition",
+                "relative flex min-w-[76px] shrink-0 flex-col items-center justify-center gap-1 rounded-2xl px-3 py-2 text-[11px] font-bold text-slate-500 transition",
                 active
                   ? "bg-clinic-navy text-white shadow-[0_10px_24px_rgba(7,55,99,0.22)]"
                   : "hover:bg-clinic-mist hover:text-clinic-navy"
               )}
             >
+              {active ? <span className="absolute -top-1 h-1 w-8 rounded-full bg-clinic-red" /> : null}
               <Icon className="h-4 w-4" />
               <span className="max-w-[64px] truncate">{item.label}</span>
             </Link>

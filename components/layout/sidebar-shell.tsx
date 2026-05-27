@@ -1,27 +1,20 @@
-import Link from "next/link";
 import { stopImpersonation } from "@/app/(auth)/actions";
 import { ClinicLogo } from "@/components/layout/logo";
 import { MobileNav } from "@/components/layout/mobile-nav";
 import { NotificationMenu } from "@/components/layout/notification-menu";
+import { SidebarNav, type SidebarNavItem } from "@/components/layout/sidebar-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
 import { getImpersonationContext } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
 import { prisma } from "@/lib/db/prisma";
-import { cn } from "@/lib/utils";
-
-type NavItem = {
-  href: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-};
 
 export async function SidebarShell({
   nav,
   title,
   children
 }: {
-  nav: NavItem[];
+  nav: SidebarNavItem[];
   title: string;
   eyebrow: string;
   children: React.ReactNode;
@@ -50,24 +43,7 @@ export async function SidebarShell({
         <div className="flex h-20 items-center border-b border-border px-6">
           <ClinicLogo />
         </div>
-        <nav className="space-y-1 px-4 py-5">
-          {nav.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-clinic-mist hover:text-clinic-navy",
-                  item.href.endsWith("dashboard") && "bg-clinic-navy text-white hover:bg-clinic-navy hover:text-white"
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <SidebarNav nav={nav} />
       </aside>
       <main className="min-w-0 lg:pl-72">
         {isImpersonating && user && realUser ? (
