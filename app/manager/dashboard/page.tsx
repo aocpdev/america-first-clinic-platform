@@ -1,10 +1,12 @@
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { DashboardDateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireManager } from "@/lib/auth/current-user";
 import { managerNav } from "@/lib/constants/navigation";
 import { getManagerDashboardMetrics } from "@/lib/dashboard/metrics";
+import { parseDashboardDateRange } from "@/lib/dashboard/date-range";
 import { prisma } from "@/lib/db/prisma";
 import { currency } from "@/lib/utils";
 
@@ -15,8 +17,14 @@ async function getManagerProfile(userId: string) {
   });
 }
 
-export default async function ManagerDashboardPage() {
+export default async function ManagerDashboardPage({
+  searchParams
+}: {
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+}) {
   const user = await requireManager();
+  const params = await searchParams;
+  const dateRange = parseDashboardDateRange(params);
   const managerProfile = user.managerProfile ?? await getManagerProfile(user.id);
 
   if (!managerProfile || !user.companyId) {
@@ -30,10 +38,11 @@ export default async function ManagerDashboardPage() {
     );
   }
 
-  const metrics = await getManagerDashboardMetrics(user.companyId, managerProfile.id);
+  const metrics = await getManagerDashboardMetrics(user.companyId, managerProfile.id, dateRange);
 
   return (
     <SidebarShell nav={managerNav} eyebrow="Manager" title="Manager dashboard">
+      <DashboardDateRangeFilter range={dateRange} resetHref="/manager/dashboard" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Team revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders in your team`} />
         <MetricCard label="Personal revenue" value={currency(metrics.personalRevenueCents / 100)} change={`${metrics.personalOrderCount} direct sales`} />

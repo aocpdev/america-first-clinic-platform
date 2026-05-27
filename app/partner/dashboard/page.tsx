@@ -1,10 +1,12 @@
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { DashboardDateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { requirePartner } from "@/lib/auth/current-user";
 import { getGroupLeaderDashboardMetrics, getPartnerDashboardMetrics } from "@/lib/dashboard/metrics";
+import { parseDashboardDateRange } from "@/lib/dashboard/date-range";
 import { prisma } from "@/lib/db/prisma";
 import { currency } from "@/lib/utils";
 
@@ -15,8 +17,14 @@ async function getPartnerProfile(userId: string) {
   });
 }
 
-export default async function PartnerDashboardPage() {
+export default async function PartnerDashboardPage({
+  searchParams
+}: {
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+}) {
   const user = await requirePartner();
+  const params = await searchParams;
+  const dateRange = parseDashboardDateRange(params);
   const isGroupLeader = user.role === "GROUP_LEADER";
   const nav = isGroupLeader ? groupLeaderNav : partnerNav;
   const [partnerProfile, groupLeaderProfile] = await Promise.all([
@@ -39,8 +47,8 @@ export default async function PartnerDashboardPage() {
   }
 
   const metrics = partnerProfile
-    ? await getPartnerDashboardMetrics(user.companyId!, partnerProfile.id)
-    : await getGroupLeaderDashboardMetrics(user.companyId!, groupLeaderProfile!.id);
+    ? await getPartnerDashboardMetrics(user.companyId!, partnerProfile.id, dateRange)
+    : await getGroupLeaderDashboardMetrics(user.companyId!, groupLeaderProfile!.id, dateRange);
   const isLeaderDashboard = !partnerProfile && Boolean(groupLeaderProfile);
   const managerCount = "managerCount" in metrics ? metrics.managerCount : 0;
   const leaderCount = "leaderCount" in metrics ? metrics.leaderCount : 0;
@@ -50,6 +58,7 @@ export default async function PartnerDashboardPage() {
 
   return (
     <SidebarShell nav={nav} eyebrow={isLeaderDashboard ? "Group leader" : "Partner"} title={isLeaderDashboard ? "Leader performance" : "Partner performance"}>
+      <DashboardDateRangeFilter range={dateRange} resetHref="/partner/dashboard" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label={isLeaderDashboard ? "Team revenue" : "Network revenue"} value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders in scope`} />
         <MetricCard label="Personal revenue" value={currency(metrics.personalRevenueCents / 100)} change={`${metrics.personalOrderCount} direct sales`} />

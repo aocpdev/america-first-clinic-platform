@@ -1,5 +1,6 @@
 import type { CommissionParticipantRole, PaymentStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import type { DashboardDateRange } from "@/lib/dashboard/date-range";
 
 const CAPTURED: PaymentStatus = "CAPTURED";
 
@@ -28,10 +29,19 @@ function recentMonthBuckets(count = 6) {
   });
 }
 
-function paidOrderWhere(companyId: string) {
+function createdAtFilter(dateRange?: DashboardDateRange): Prisma.DateTimeFilter | undefined {
+  if (!dateRange?.from && !dateRange?.to) return undefined;
+  return {
+    ...(dateRange.from ? { gte: dateRange.from } : {}),
+    ...(dateRange.to ? { lte: dateRange.to } : {})
+  };
+}
+
+function paidOrderWhere(companyId: string, dateRange?: DashboardDateRange) {
   return {
     companyId,
-    paymentStatus: CAPTURED
+    paymentStatus: CAPTURED,
+    ...(createdAtFilter(dateRange) ? { createdAt: createdAtFilter(dateRange) } : {})
   };
 }
 
@@ -72,24 +82,25 @@ function scopedOrderWhere(input: {
   managerProfileId?: string;
   groupLeaderProfileId?: string;
   consultantProfileId?: string;
+  dateRange?: DashboardDateRange;
 }): Prisma.OrderWhereInput {
   if (input.consultantProfileId) {
-    return { ...paidOrderWhere(input.companyId), consultantProfileId: input.consultantProfileId };
+    return { ...paidOrderWhere(input.companyId, input.dateRange), consultantProfileId: input.consultantProfileId };
   }
 
   if (input.groupLeaderProfileId) {
-    return { ...paidOrderWhere(input.companyId), ...groupLeaderOrderScope(input.groupLeaderProfileId) };
+    return { ...paidOrderWhere(input.companyId, input.dateRange), ...groupLeaderOrderScope(input.groupLeaderProfileId) };
   }
 
   if (input.managerProfileId) {
-    return { ...paidOrderWhere(input.companyId), ...managerOrderScope(input.managerProfileId) };
+    return { ...paidOrderWhere(input.companyId, input.dateRange), ...managerOrderScope(input.managerProfileId) };
   }
 
   if (input.partnerProfileId) {
-    return { ...paidOrderWhere(input.companyId), ...partnerOrderScope(input.partnerProfileId) };
+    return { ...paidOrderWhere(input.companyId, input.dateRange), ...partnerOrderScope(input.partnerProfileId) };
   }
 
-  return paidOrderWhere(input.companyId);
+  return paidOrderWhere(input.companyId, input.dateRange);
 }
 
 async function revenueSeries(input: {
@@ -99,9 +110,10 @@ async function revenueSeries(input: {
   managerProfileId?: string;
   groupLeaderProfileId?: string;
   consultantProfileId?: string;
+  dateRange?: DashboardDateRange;
 }) {
   const buckets = recentMonthBuckets();
-  const oldest = startOfMonth(new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1));
+  const oldest = input.dateRange?.from ?? startOfMonth(new Date(new Date().getFullYear(), new Date().getMonth() - 5, 1));
 
   const orders = await prisma.order.findMany({
     where: {
@@ -148,6 +160,7 @@ async function splitSum(input: {
   groupLeaderProfileId?: string;
   consultantProfileId?: string;
   orderWhere?: Prisma.OrderWhereInput;
+  dateRange?: DashboardDateRange;
 }) {
   const result = await prisma.commissionSplit.aggregate({
     where: {
@@ -157,7 +170,7 @@ async function splitSum(input: {
       ...(input.managerProfileId ? { managerProfileId: input.managerProfileId } : {}),
       ...(input.groupLeaderProfileId ? { groupLeaderProfileId: input.groupLeaderProfileId } : {}),
       ...(input.consultantProfileId ? { consultantProfileId: input.consultantProfileId } : {}),
-      order: input.orderWhere ?? { paymentStatus: CAPTURED }
+      order: input.orderWhere ?? { paymentStatus: CAPTURED, ...(createdAtFilter(input.dateRange) ? { createdAt: createdAtFilter(input.dateRange) } : {}) }
     },
     _sum: { amountCents: true }
   });
@@ -173,6 +186,7 @@ async function pendingSplitSum(input: {
   groupLeaderProfileId?: string;
   consultantProfileId?: string;
   orderWhere?: Prisma.OrderWhereInput;
+  dateRange?: DashboardDateRange;
 }) {
   const result = await prisma.commissionSplit.aggregate({
     where: {
@@ -183,7 +197,7 @@ async function pendingSplitSum(input: {
       ...(input.managerProfileId ? { managerProfileId: input.managerProfileId } : {}),
       ...(input.groupLeaderProfileId ? { groupLeaderProfileId: input.groupLeaderProfileId } : {}),
       ...(input.consultantProfileId ? { consultantProfileId: input.consultantProfileId } : {}),
-      order: input.orderWhere ?? { paymentStatus: CAPTURED }
+      order: input.orderWhere ?? { paymentStatus: CAPTURED, ...(createdAtFilter(input.dateRange) ? { createdAt: createdAtFilter(input.dateRange) } : {}) }
     },
     _sum: { amountCents: true }
   });
@@ -191,16 +205,16 @@ async function pendingSplitSum(input: {
   return result._sum.amountCents ?? 0;
 }
 
-export async function getAdminDashboardMetrics(companyId: string) {
+export async function getAdminDashboardMetrics(companyId: string, dateRange?: DashboardDateRange) {
   const [orders, adminDirectOrders, splitsPending, customers, chartData] = await Promise.all([
     prisma.order.aggregate({
-      where: paidOrderWhere(companyId),
+      where: paidOrderWhere(companyId, dateRange),
       _count: { id: true },
       _sum: { totalCents: true, grossMarginCents: true }
     }),
     prisma.order.aggregate({
       where: {
-        ...paidOrderWhere(companyId),
+        ...paidOrderWhere(companyId, dateRange),
         consultantProfileId: null,
         partnerProfileId: null,
         managerProfileId: null,
@@ -213,12 +227,12 @@ export async function getAdminDashboardMetrics(companyId: string) {
       where: {
         companyId,
         status: "PENDING",
-        order: { paymentStatus: CAPTURED }
+        order: { paymentStatus: CAPTURED, ...(createdAtFilter(dateRange) ? { createdAt: createdAtFilter(dateRange) } : {}) }
       },
       _sum: { amountCents: true }
     }),
-    prisma.customer.count({ where: { companyId } }),
-    revenueSeries({ companyId })
+    prisma.customer.count({ where: { companyId, ...(createdAtFilter(dateRange) ? { createdAt: createdAtFilter(dateRange) } : {}) } }),
+    revenueSeries({ companyId, dateRange })
   ]);
 
   return {
@@ -234,9 +248,9 @@ export async function getAdminDashboardMetrics(companyId: string) {
   };
 }
 
-export async function getPartnerDashboardMetrics(companyId: string, partnerProfileId: string) {
+export async function getPartnerDashboardMetrics(companyId: string, partnerProfileId: string, dateRange?: DashboardDateRange) {
   const directPartnerOrderWhere: Prisma.OrderWhereInput = {
-    ...paidOrderWhere(companyId),
+    ...paidOrderWhere(companyId, dateRange),
     partnerProfileId,
     managerProfileId: null,
     groupLeaderProfileId: null,
@@ -245,7 +259,7 @@ export async function getPartnerDashboardMetrics(companyId: string, partnerProfi
 
   const [orders, directOrders, partnerProfitCents, directProfitCents, downlinePayoutCents, managers, leaders, consultants, chartData] = await Promise.all([
     prisma.order.aggregate({
-      where: scopedOrderWhere({ companyId, partnerProfileId }),
+      where: scopedOrderWhere({ companyId, partnerProfileId, dateRange }),
       _count: { id: true },
       _sum: { totalCents: true }
     }),
@@ -254,7 +268,7 @@ export async function getPartnerDashboardMetrics(companyId: string, partnerProfi
       _count: { id: true },
       _sum: { totalCents: true }
     }),
-    splitSum({ companyId, participantRole: "PARTNER", partnerProfileId }),
+    splitSum({ companyId, participantRole: "PARTNER", partnerProfileId, dateRange }),
     splitSum({ companyId, participantRole: "PARTNER", partnerProfileId, orderWhere: directPartnerOrderWhere }),
     prisma.commissionSplit.aggregate({
       where: {
@@ -262,14 +276,14 @@ export async function getPartnerDashboardMetrics(companyId: string, partnerProfi
         status: "PENDING",
         participantRole: { in: ["MANAGER", "GROUP_LEADER", "CONSULTANT"] },
         partnerProfileId,
-        order: { paymentStatus: CAPTURED }
+        order: { paymentStatus: CAPTURED, ...(createdAtFilter(dateRange) ? { createdAt: createdAtFilter(dateRange) } : {}) }
       },
       _sum: { amountCents: true }
     }),
     prisma.managerProfile.count({ where: { partnerProfileId } }),
     prisma.groupLeaderProfile.count({ where: { partnerProfileId } }),
     prisma.consultantProfile.count({ where: { partnerProfileId } }),
-    revenueSeries({ companyId, earningsRole: "PARTNER", partnerProfileId })
+    revenueSeries({ companyId, earningsRole: "PARTNER", partnerProfileId, dateRange })
   ]);
 
   return {
@@ -287,9 +301,9 @@ export async function getPartnerDashboardMetrics(companyId: string, partnerProfi
   };
 }
 
-export async function getManagerDashboardMetrics(companyId: string, managerProfileId: string) {
+export async function getManagerDashboardMetrics(companyId: string, managerProfileId: string, dateRange?: DashboardDateRange) {
   const directManagerOrderWhere: Prisma.OrderWhereInput = {
-    ...paidOrderWhere(companyId),
+    ...paidOrderWhere(companyId, dateRange),
     managerProfileId,
     groupLeaderProfileId: null,
     consultantProfileId: null
@@ -297,7 +311,7 @@ export async function getManagerDashboardMetrics(companyId: string, managerProfi
 
   const [orders, directOrders, managerProfitCents, directProfitCents, downlinePayoutCents, leaders, consultants, customers, chartData] = await Promise.all([
     prisma.order.aggregate({
-      where: scopedOrderWhere({ companyId, managerProfileId }),
+      where: scopedOrderWhere({ companyId, managerProfileId, dateRange }),
       _count: { id: true },
       _sum: { totalCents: true }
     }),
@@ -306,7 +320,7 @@ export async function getManagerDashboardMetrics(companyId: string, managerProfi
       _count: { id: true },
       _sum: { totalCents: true }
     }),
-    splitSum({ companyId, participantRole: "MANAGER", managerProfileId }),
+    splitSum({ companyId, participantRole: "MANAGER", managerProfileId, dateRange }),
     splitSum({ companyId, participantRole: "MANAGER", managerProfileId, orderWhere: directManagerOrderWhere }),
     prisma.commissionSplit.aggregate({
       where: {
@@ -315,6 +329,7 @@ export async function getManagerDashboardMetrics(companyId: string, managerProfi
         participantRole: { in: ["GROUP_LEADER", "CONSULTANT"] },
         order: {
           paymentStatus: CAPTURED,
+          ...(createdAtFilter(dateRange) ? { createdAt: createdAtFilter(dateRange) } : {}),
           ...managerOrderScope(managerProfileId)
         }
       },
@@ -332,6 +347,7 @@ export async function getManagerDashboardMetrics(companyId: string, managerProfi
     prisma.customer.count({
       where: {
         companyId,
+        ...(createdAtFilter(dateRange) ? { createdAt: createdAtFilter(dateRange) } : {}),
         OR: [
           { managerProfileId },
           { groupLeaderProfile: { managerProfileId } },
@@ -340,7 +356,7 @@ export async function getManagerDashboardMetrics(companyId: string, managerProfi
         ]
       }
     }),
-    revenueSeries({ companyId, earningsRole: "MANAGER", managerProfileId })
+    revenueSeries({ companyId, earningsRole: "MANAGER", managerProfileId, dateRange })
   ]);
 
   return {
@@ -358,16 +374,16 @@ export async function getManagerDashboardMetrics(companyId: string, managerProfi
   };
 }
 
-export async function getGroupLeaderDashboardMetrics(companyId: string, groupLeaderProfileId: string) {
+export async function getGroupLeaderDashboardMetrics(companyId: string, groupLeaderProfileId: string, dateRange?: DashboardDateRange) {
   const directLeaderOrderWhere: Prisma.OrderWhereInput = {
-    ...paidOrderWhere(companyId),
+    ...paidOrderWhere(companyId, dateRange),
     groupLeaderProfileId,
     consultantProfileId: null
   };
 
   const [orders, directOrders, leaderProfitCents, directProfitCents, consultantPayoutCents, consultants, chartData] = await Promise.all([
     prisma.order.aggregate({
-      where: scopedOrderWhere({ companyId, groupLeaderProfileId }),
+      where: scopedOrderWhere({ companyId, groupLeaderProfileId, dateRange }),
       _count: { id: true },
       _sum: { totalCents: true }
     }),
@@ -376,11 +392,11 @@ export async function getGroupLeaderDashboardMetrics(companyId: string, groupLea
       _count: { id: true },
       _sum: { totalCents: true }
     }),
-    splitSum({ companyId, participantRole: "GROUP_LEADER", groupLeaderProfileId }),
+    splitSum({ companyId, participantRole: "GROUP_LEADER", groupLeaderProfileId, dateRange }),
     splitSum({ companyId, participantRole: "GROUP_LEADER", groupLeaderProfileId, orderWhere: directLeaderOrderWhere }),
-    pendingSplitSum({ companyId, participantRole: "CONSULTANT", groupLeaderProfileId }),
+    pendingSplitSum({ companyId, participantRole: "CONSULTANT", groupLeaderProfileId, dateRange }),
     prisma.consultantProfile.count({ where: { groupLeaderProfileId } }),
-    revenueSeries({ companyId, earningsRole: "GROUP_LEADER", groupLeaderProfileId })
+    revenueSeries({ companyId, earningsRole: "GROUP_LEADER", groupLeaderProfileId, dateRange })
   ]);
 
   return {
@@ -396,26 +412,27 @@ export async function getGroupLeaderDashboardMetrics(companyId: string, groupLea
   };
 }
 
-export async function getConsultantDashboardMetrics(companyId: string, consultantProfileId: string) {
+export async function getConsultantDashboardMetrics(companyId: string, consultantProfileId: string, dateRange?: DashboardDateRange) {
   const [orders, commissionCents, pendingCommissionCents, customers, chartData, topItems] = await Promise.all([
     prisma.order.aggregate({
       where: {
-        ...paidOrderWhere(companyId),
+        ...paidOrderWhere(companyId, dateRange),
         consultantProfileId
       },
       _count: { id: true },
       _sum: { totalCents: true }
     }),
-    splitSum({ companyId, participantRole: "CONSULTANT", consultantProfileId }),
-    pendingSplitSum({ companyId, participantRole: "CONSULTANT", consultantProfileId }),
-    prisma.customer.count({ where: { companyId, consultantProfileId } }),
-    revenueSeries({ companyId, earningsRole: "CONSULTANT", consultantProfileId }),
+    splitSum({ companyId, participantRole: "CONSULTANT", consultantProfileId, dateRange }),
+    pendingSplitSum({ companyId, participantRole: "CONSULTANT", consultantProfileId, dateRange }),
+    prisma.customer.count({ where: { companyId, consultantProfileId, ...(createdAtFilter(dateRange) ? { createdAt: createdAtFilter(dateRange) } : {}) } }),
+    revenueSeries({ companyId, earningsRole: "CONSULTANT", consultantProfileId, dateRange }),
     prisma.orderItem.findMany({
       where: {
         order: {
           companyId,
           consultantProfileId,
-          paymentStatus: CAPTURED
+          paymentStatus: CAPTURED,
+          ...(createdAtFilter(dateRange) ? { createdAt: createdAtFilter(dateRange) } : {})
         }
       },
       include: {

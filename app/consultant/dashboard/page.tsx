@@ -1,14 +1,22 @@
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { DashboardDateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireApprovedConsultant } from "@/lib/auth/current-user";
 import { consultantNav } from "@/lib/constants/navigation";
 import { getConsultantDashboardMetrics } from "@/lib/dashboard/metrics";
+import { parseDashboardDateRange } from "@/lib/dashboard/date-range";
 import { currency } from "@/lib/utils";
 
-export default async function ConsultantDashboardPage() {
+export default async function ConsultantDashboardPage({
+  searchParams
+}: {
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+}) {
   const user = await requireApprovedConsultant();
+  const params = await searchParams;
+  const dateRange = parseDashboardDateRange(params);
 
   if (!user.companyId || !user.consultantProfile?.id) {
     return (
@@ -21,10 +29,11 @@ export default async function ConsultantDashboardPage() {
     );
   }
 
-  const metrics = await getConsultantDashboardMetrics(user.companyId, user.consultantProfile.id);
+  const metrics = await getConsultantDashboardMetrics(user.companyId, user.consultantProfile.id, dateRange);
 
   return (
     <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales performance">
+      <DashboardDateRangeFilter range={dateRange} resetHref="/consultant/dashboard" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Collected revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders`} />
         <MetricCard label="Commission earned" value={currency(metrics.commissionCents / 100)} change="Real earnings from captured payments" tone="green" />

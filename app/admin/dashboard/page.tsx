@@ -1,15 +1,23 @@
 import { MetricCard } from "@/components/dashboard/metric-card";
+import { DashboardDateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
 import { getAdminDashboardMetrics } from "@/lib/dashboard/metrics";
+import { parseDashboardDateRange } from "@/lib/dashboard/date-range";
 import { prisma } from "@/lib/db/prisma";
 import { currency } from "@/lib/utils";
 
-export default async function AdminDashboardPage() {
+export default async function AdminDashboardPage({
+  searchParams
+}: {
+  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+}) {
   const user = await requireRole("COMPANY_ADMIN");
+  const params = await searchParams;
+  const dateRange = parseDashboardDateRange(params);
 
   if (!user.companyId) {
     return (
@@ -23,9 +31,13 @@ export default async function AdminDashboardPage() {
   }
 
   const [metrics, recentOrders] = await Promise.all([
-    getAdminDashboardMetrics(user.companyId),
+    getAdminDashboardMetrics(user.companyId, dateRange),
     prisma.order.findMany({
-      where: { companyId: user.companyId, paymentStatus: "CAPTURED" },
+      where: {
+        companyId: user.companyId,
+        paymentStatus: "CAPTURED",
+        ...(dateRange.from || dateRange.to ? { createdAt: { ...(dateRange.from ? { gte: dateRange.from } : {}), ...(dateRange.to ? { lte: dateRange.to } : {}) } } : {})
+      },
       include: {
         customer: true,
         consultantProfile: { include: { user: true } }
@@ -37,6 +49,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <SidebarShell nav={adminNav} eyebrow="Company admin" title="Revenue command center">
+      <DashboardDateRangeFilter range={dateRange} resetHref="/admin/dashboard" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Collected revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders`} />
         <MetricCard label="Gross margin" value={currency(metrics.grossProfitCents / 100)} change="Total margin from captured payments" tone="green" />
