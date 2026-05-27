@@ -1,7 +1,7 @@
 import Image from "next/image";
-import { Upload } from "lucide-react";
+import { LockKeyhole, Upload } from "lucide-react";
 import type { User } from "@prisma/client";
-import { uploadAvatar, updateProfile } from "@/app/profile/actions";
+import { changePassword, uploadAvatar, updateProfile } from "@/app/profile/actions";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 
@@ -12,13 +12,17 @@ const errors: Record<string, string> = {
   missing_company_name: "Enter a company name before saving.",
   invalid_email: "Enter a valid email address before saving.",
   email_taken: "That email is already connected to another CRM account.",
-  email_update_failed: "We could not update that email. Try another email or contact support."
+  email_update_failed: "We could not update that email. Try another email or contact support.",
+  password_too_short: "Use at least 8 characters for the new password.",
+  password_mismatch: "Both password fields must match.",
+  password_update_failed: "We could not update the password. Try again or contact support."
 };
 
 const updatedMessages: Record<string, string> = {
   profile: "Profile details updated.",
   avatar: "Profile photo updated.",
-  company: "Partner company updated."
+  company: "Partner company updated.",
+  password: "Password updated."
 };
 
 function initials(user: Pick<User, "firstName" | "lastName" | "email">) {
@@ -137,6 +141,44 @@ export function ProfileSettings({
           </label>
           <div className="md:col-span-2">
             <SubmitButton>Save profile</SubmitButton>
+          </div>
+        </form>
+      </section>
+      <section className="rounded-3xl border border-border bg-white p-6 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-clinic-mist text-clinic-navy">
+            <LockKeyhole className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-clinic-ink">Password & access</h3>
+            <p className="mt-1 text-sm text-slate-500">Update the password used to sign in to the CRM.</p>
+          </div>
+        </div>
+        <form action={changePassword} className="mt-6 grid gap-4 md:grid-cols-2">
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-clinic-ink">New password</span>
+            <input
+              name="password"
+              type="password"
+              minLength={8}
+              required
+              autoComplete="new-password"
+              className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+            />
+          </label>
+          <label className="space-y-2">
+            <span className="text-sm font-semibold text-clinic-ink">Confirm password</span>
+            <input
+              name="confirmPassword"
+              type="password"
+              minLength={8}
+              required
+              autoComplete="new-password"
+              className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+            />
+          </label>
+          <div className="md:col-span-2">
+            <SubmitButton>Save password</SubmitButton>
           </div>
         </form>
       </section>

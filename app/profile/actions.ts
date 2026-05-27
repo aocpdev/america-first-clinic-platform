@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
 import { normalizePhoneToE164 } from "@/lib/phone";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 function textValue(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -69,6 +70,47 @@ export async function updateProfile(formData: FormData) {
 
   await revalidateUserProfilePaths(user.role);
   redirect(`${profilePath}?updated=profile`);
+}
+
+export async function changePassword(formData: FormData) {
+  const user = await requireUser();
+  const profilePath = profilePathForRole(user.role);
+  const password = textValue(formData, "password");
+  const confirmPassword = textValue(formData, "confirmPassword");
+
+  if (password.length < 8) {
+    redirect(`${profilePath}?error=password_too_short`);
+  }
+
+  if (password !== confirmPassword) {
+    redirect(`${profilePath}?error=password_mismatch`);
+  }
+
+  const adminClient = createSupabaseAdminClient();
+  const { error } = await adminClient.auth.admin.updateUserById(user.authUserId, {
+    password
+  });
+
+  if (error) {
+    redirect(`${profilePath}?error=password_update_failed`);
+  }
+
+  if (user.companyId) {
+    await dispatchWebhookEvent({
+      companyId: user.companyId,
+      partnerProfileId: user.partnerProfile?.id ?? user.consultantProfile?.partnerProfileId ?? user.groupLeaderProfile?.partnerProfileId ?? user.managerProfile?.partnerProfileId ?? null,
+      eventType: "password.changed",
+      payload: {
+        userId: user.id,
+        email: user.email,
+        role: user.role,
+        changedAt: new Date().toISOString()
+      }
+    });
+  }
+
+  await revalidateUserProfilePaths(user.role);
+  redirect(`${profilePath}?updated=password`);
 }
 
 export async function uploadAvatar(formData: FormData) {

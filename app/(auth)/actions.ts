@@ -18,6 +18,7 @@ import {
 } from "@/lib/commissions/margin-split";
 import { companyAdminUserIds, notifyUsers, personDisplayName } from "@/lib/notifications";
 import { normalizePhoneToE164 } from "@/lib/phone";
+import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 function formValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -39,6 +40,10 @@ function leaderPoolBpsFromPercentInput(value: string, fallbackBps = DEFAULT_GROU
 function redirectWithError(path: string, error: string): never {
   const separator = path.includes("?") ? "&" : "?";
   redirect(`${path}${separator}error=${encodeURIComponent(error)}`);
+}
+
+function appUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 }
 
 async function assertUniqueUserContact({
@@ -83,6 +88,59 @@ async function getAmericaFirstClinic() {
       logoUrl: "/america-first-clinic-logo.jpeg"
     }
   });
+}
+
+export async function requestPasswordReset(formData: FormData) {
+  const rawEmail = formValue(formData, "email").toLowerCase();
+  const email = rawEmail.includes("@") ? rawEmail : "";
+
+  if (!email) {
+    redirectWithError("/forgot-password", "invalid_email");
+  }
+
+  const company = await getAmericaFirstClinic();
+  const user = await prisma.user.findUnique({
+    where: { email },
+    include: {
+      partnerProfile: { select: { id: true } },
+      consultantProfile: { select: { partnerProfileId: true } },
+      groupLeaderProfile: { select: { partnerProfileId: true } },
+      managerProfile: { select: { partnerProfileId: true } }
+    }
+  });
+
+  if (user?.authUserId) {
+    const adminClient = createSupabaseAdminClient();
+    const { data, error } = await (adminClient.auth.admin as any).generateLink({
+      type: "recovery",
+      email,
+      options: {
+        redirectTo: `${appUrl()}/auth/callback`
+      }
+    });
+
+    if (!error) {
+      await dispatchWebhookEvent({
+        companyId: user.companyId || company.id,
+        partnerProfileId:
+          user.partnerProfile?.id ||
+          user.consultantProfile?.partnerProfileId ||
+          user.groupLeaderProfile?.partnerProfileId ||
+          user.managerProfile?.partnerProfileId ||
+          null,
+        eventType: "password.reset.requested",
+        payload: {
+          userId: user.id,
+          email: user.email,
+          name: displayNameForUser(user),
+          role: user.role,
+          resetLink: data?.properties?.action_link || null
+        }
+      });
+    }
+  }
+
+  redirect("/forgot-password?sent=1");
 }
 
 export async function registerUser(formData: FormData) {
@@ -228,6 +286,23 @@ export async function registerUser(formData: FormData) {
     }
   ]);
 
+  await dispatchWebhookEvent({
+    companyId: company.id,
+    partnerProfileId: selectedPartner.id,
+    eventType: requestedRole === "GROUP_LEADER" ? "leader.registration.submitted" : "seller.registration.submitted",
+    payload: {
+      userId: user.id,
+      email,
+      firstName,
+      lastName,
+      phone,
+      requestedRole,
+      partnerProfileId: selectedPartner.id,
+      managerProfileId: requestedManagerProfileId,
+      groupLeaderProfileId: requestedGroupLeaderProfileId
+    }
+  });
+
   redirect("/pending-approval");
 }
 
@@ -273,6 +348,30 @@ export async function logoutUser() {
 
 function displayNameForUser(user: { firstName: string | null; lastName: string | null; email: string }) {
   return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+}
+
+async function activateSupabaseLogin({
+  authUserId,
+  role,
+  companyId
+}: {
+  authUserId: string;
+  role: UserRole;
+  companyId: string;
+}) {
+  const adminClient = createSupabaseAdminClient();
+  const { error } = await adminClient.auth.admin.updateUserById(authUserId, {
+    email_confirm: true,
+    app_metadata: {
+      role,
+      company_id: companyId,
+      status: "ACTIVE"
+    }
+  });
+
+  if (error) {
+    throw new Error(`Unable to activate Supabase login: ${error.message}`);
+  }
 }
 
 async function ensureCanImpersonateTarget(targetUserId: string) {
@@ -499,12 +598,19 @@ export async function approveConsultant(formData: FormData) {
       }
     ]);
 
-    const adminClient = createSupabaseAdminClient();
-    await adminClient.auth.admin.updateUserById(user.authUserId, {
-      app_metadata: {
+    await activateSupabaseLogin({ authUserId: user.authUserId, role: "GROUP_LEADER", companyId: company.id });
+
+    await dispatchWebhookEvent({
+      companyId: company.id,
+      partnerProfileId,
+      eventType: "leader.approved",
+      payload: {
+        userId: user.id,
+        email: user.email,
+        name: displayName,
         role: "GROUP_LEADER",
-        company_id: company.id,
-        status: "ACTIVE"
+        partnerProfileId,
+        managerProfileId
       }
     });
 
@@ -631,12 +737,35 @@ export async function approveConsultant(formData: FormData) {
     }
   ]);
 
-  const adminClient = createSupabaseAdminClient();
-  await adminClient.auth.admin.updateUserById(user.authUserId, {
-    app_metadata: {
+  await activateSupabaseLogin({ authUserId: user.authUserId, role: "CONSULTANT", companyId: company.id });
+
+  await dispatchWebhookEvent({
+    companyId: company.id,
+    partnerProfileId,
+    eventType: "seller.approved",
+    payload: {
+      userId: user.id,
+      email: user.email,
+      name: consultantName,
       role: "CONSULTANT",
-      company_id: company.id,
-      status: "ACTIVE"
+      partnerProfileId,
+      managerProfileId,
+      groupLeaderProfileId
+    }
+  });
+
+  await dispatchWebhookEvent({
+    companyId: company.id,
+    partnerProfileId,
+    eventType: "consultant.approved",
+    payload: {
+      userId: user.id,
+      email: user.email,
+      name: consultantName,
+      role: "CONSULTANT",
+      partnerProfileId,
+      managerProfileId,
+      groupLeaderProfileId
     }
   });
 
@@ -646,9 +775,14 @@ export async function approveConsultant(formData: FormData) {
 
 export async function rejectConsultant(formData: FormData) {
   const approver = await requireUser();
+  const companyId = approver.companyId;
   const userId = formValue(formData, "userId");
   const reason = formValue(formData, "reason") || "Application rejected.";
   const user = await prisma.user.findUnique({ where: { id: userId } });
+
+  if (!companyId) {
+    redirect("/login?error=missing_company");
+  }
 
   if (!user || (user.requestedRole !== "CONSULTANT" && user.requestedRole !== "GROUP_LEADER")) {
     redirect("/admin/consultants?error=application_not_found");
@@ -687,7 +821,7 @@ export async function rejectConsultant(formData: FormData) {
 
   await prisma.auditLog.create({
     data: {
-      companyId: approver.companyId,
+      companyId,
       userId: approver.id,
       action: "CONSULTANT_REJECTED",
       resource: "User",
@@ -695,6 +829,40 @@ export async function rejectConsultant(formData: FormData) {
       metadata: { reason }
     }
   });
+
+  await dispatchWebhookEvent({
+    companyId,
+    partnerProfileId: user.requestedPartnerProfileId,
+    eventType: user.requestedRole === "GROUP_LEADER" ? "leader.rejected" : "seller.rejected",
+    payload: {
+      userId: user.id,
+      email: user.email,
+      name: displayNameForUser(user),
+      requestedRole: user.requestedRole,
+      partnerProfileId: user.requestedPartnerProfileId,
+      managerProfileId: user.requestedManagerProfileId,
+      groupLeaderProfileId: user.requestedGroupLeaderProfileId,
+      reason
+    }
+  });
+
+  if (user.requestedRole === "CONSULTANT") {
+    await dispatchWebhookEvent({
+      companyId,
+      partnerProfileId: user.requestedPartnerProfileId,
+      eventType: "consultant.rejected",
+      payload: {
+        userId: user.id,
+        email: user.email,
+        name: displayNameForUser(user),
+        requestedRole: user.requestedRole,
+        partnerProfileId: user.requestedPartnerProfileId,
+        managerProfileId: user.requestedManagerProfileId,
+        groupLeaderProfileId: user.requestedGroupLeaderProfileId,
+        reason
+      }
+    });
+  }
 
   revalidatePath("/admin/consultants");
   revalidatePath("/partner/consultants");

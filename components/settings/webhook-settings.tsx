@@ -24,21 +24,31 @@ type WebhookEndpointRow = {
 };
 
 const events = [
-  ["customer.created", "Customer created"],
-  ["order.created", "Order created"],
-  ["invoice.requested", "Invoice requested"],
-  ["payment.succeeded", "Payment succeeded"],
-  ["payment.failed", "Payment failed"],
-  ["receipt.ready", "Receipt ready"],
-  ["receipt.resend_requested", "Receipt resend"],
-  ["shipment.tracking_ready", "Tracking ready"],
-  ["password.reset.requested", "Password reset"],
-  ["consultant.approved", "Consultant approved"],
-  ["consultant.rejected", "Consultant rejected"],
-  ["commission.generated", "Commission generated"],
-  ["subscription.created", "Subscription created"],
-  ["subscription.payment_failed", "Subscription failed"]
-];
+  { value: "customer.created", label: "Customer created", group: "CRM", description: "A new customer profile is created." },
+  { value: "order.created", label: "Order created", group: "CRM", description: "A new order or opportunity is created." },
+  { value: "invoice.requested", label: "Invoice requested", group: "Payments", description: "A seller requests an invoice/payment link." },
+  { value: "payment.succeeded", label: "Payment succeeded", group: "Payments", description: "Stripe or another provider confirms payment." },
+  { value: "payment.failed", label: "Payment failed", group: "Payments", description: "A payment attempt fails or is declined." },
+  { value: "receipt.ready", label: "Receipt ready", group: "Payments", description: "A paid order has a receipt available." },
+  { value: "receipt.resend_requested", label: "Receipt resend requested", group: "Payments", description: "A CRM user asks to resend a receipt." },
+  { value: "shipment.tracking_ready", label: "Tracking ready", group: "Fulfillment", description: "A carrier and tracking code are saved." },
+  { value: "seller.registration.submitted", label: "Seller registration submitted", group: "Team access", description: "A seller applies under a partner or leader." },
+  { value: "leader.registration.submitted", label: "Leader registration submitted", group: "Team access", description: "A group leader applies under a partner or manager." },
+  { value: "manager.registration.submitted", label: "Manager registration submitted", group: "Team access", description: "Reserved for manager application workflows." },
+  { value: "seller.approved", label: "Seller approved", group: "Team access", description: "A seller is approved and can access the CRM." },
+  { value: "leader.approved", label: "Leader approved", group: "Team access", description: "A group leader is approved and can access the CRM." },
+  { value: "manager.approved", label: "Manager approved", group: "Team access", description: "A manager is approved and can access the CRM." },
+  { value: "seller.rejected", label: "Seller rejected", group: "Team access", description: "A seller application is rejected." },
+  { value: "leader.rejected", label: "Leader rejected", group: "Team access", description: "A group leader application is rejected." },
+  { value: "manager.rejected", label: "Manager rejected", group: "Team access", description: "A manager application is rejected." },
+  { value: "password.reset.requested", label: "Password reset requested", group: "Account", description: "A user asks for password reset communication." },
+  { value: "password.changed", label: "Password changed", group: "Account", description: "A user updates their CRM password." },
+  { value: "consultant.approved", label: "Consultant approved legacy", group: "Legacy", description: "Legacy event kept for existing workflows." },
+  { value: "consultant.rejected", label: "Consultant rejected legacy", group: "Legacy", description: "Legacy event kept for existing workflows." },
+  { value: "commission.generated", label: "Commission generated", group: "Commissions", description: "Commission or partner payout math is generated." },
+  { value: "subscription.created", label: "Subscription created", group: "Subscriptions", description: "A subscription starts." },
+  { value: "subscription.payment_failed", label: "Subscription payment failed", group: "Subscriptions", description: "A recurring payment fails." }
+] as const;
 
 export function WebhookSettings({
   endpoints,
@@ -242,13 +252,17 @@ function EventCheckboxGrid({ selectedEvents }: { selectedEvents: string[] }) {
     <div>
       <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Events</p>
       <div className="grid gap-2 sm:grid-cols-2">
-        {events.map(([value, label]) => (
+        {events.map((event) => (
           <label
-            key={value}
-            className="flex min-h-12 items-center gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-medium text-slate-600 shadow-line"
+            key={event.value}
+            className="flex min-h-16 items-start gap-3 rounded-2xl bg-white px-3 py-3 text-sm font-medium text-slate-600 shadow-line"
           >
-            <input name="events" value={value} type="checkbox" defaultChecked={selected.has(value)} className="size-4" />
-            {label}
+            <input name="events" value={event.value} type="checkbox" defaultChecked={selected.has(event.value)} className="mt-1 size-4 shrink-0" />
+            <span className="min-w-0">
+              <span className="block text-xs font-bold uppercase tracking-[0.14em] text-clinic-navy">{event.group}</span>
+              <span className="mt-1 block font-semibold text-clinic-ink">{event.label}</span>
+              <span className="mt-0.5 block text-xs leading-5 text-slate-500">{event.description}</span>
+            </span>
           </label>
         ))}
       </div>
