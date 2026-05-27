@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { ArrowUpRight, Pencil, X } from "lucide-react";
-import { promoteConsultantToLeader, updateConsultantCommercials } from "@/app/(auth)/actions";
+import { ArrowUpRight, Pencil, Trash2, X } from "lucide-react";
+import { deleteConsultantProfile, promoteConsultantToLeader, updateConsultantCommercials } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ModalPortal } from "@/components/ui/modal-portal";
@@ -191,11 +191,26 @@ export function EditConsultantModal({
                   )}
                 </section>
 
-                <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                    Cancel
-                  </Button>
-                  <SubmitButton variant="accent" pendingText="Saving consultant...">Save consultant</SubmitButton>
+                <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+                  <button
+                    type="submit"
+                    formAction={deleteConsultantProfile}
+                    onClick={(event) => {
+                      if (!window.confirm("Delete this consultant? Their historical customers and orders will stay in the partner hierarchy without an assigned consultant.")) {
+                        event.preventDefault();
+                      }
+                    }}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 text-sm font-bold text-red-700 transition hover:bg-red-100"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete consultant
+                  </button>
+                  <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                      Cancel
+                    </Button>
+                    <SubmitButton variant="accent" pendingText="Saving consultant...">Save consultant</SubmitButton>
+                  </div>
                 </div>
               </form>
 

@@ -42,15 +42,25 @@ export default async function PartnerDashboardPage() {
     ? await getPartnerDashboardMetrics(user.companyId!, partnerProfile.id)
     : await getGroupLeaderDashboardMetrics(user.companyId!, groupLeaderProfile!.id);
   const isLeaderDashboard = !partnerProfile && Boolean(groupLeaderProfile);
+  const managerCount = "managerCount" in metrics ? metrics.managerCount : 0;
   const leaderCount = "leaderCount" in metrics ? metrics.leaderCount : 0;
+  const pendingDownlinePayoutCents = "pendingDownlinePayoutCents" in metrics
+    ? metrics.pendingDownlinePayoutCents
+    : metrics.pendingConsultantPayoutCents;
 
   return (
     <SidebarShell nav={nav} eyebrow={isLeaderDashboard ? "Group leader" : "Partner"} title={isLeaderDashboard ? "Leader performance" : "Partner performance"}>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Collected revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders in your network`} />
-        <MetricCard label={isLeaderDashboard ? "Leader profit" : "Partner profit"} value={currency(metrics.profitCents / 100)} change="Real earnings from captured payments" tone="green" />
-        <MetricCard label="Pending seller payouts" value={currency(metrics.pendingConsultantPayoutCents / 100)} change="Consultant commissions awaiting payout" tone="red" />
-        <MetricCard label="Assigned consultants" value={`${metrics.consultantCount}`} change={isLeaderDashboard ? "Direct team members" : `${leaderCount} leaders in network`} />
+        <MetricCard label={isLeaderDashboard ? "Team revenue" : "Network revenue"} value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders in scope`} />
+        <MetricCard label="Personal revenue" value={currency(metrics.personalRevenueCents / 100)} change={`${metrics.personalOrderCount} direct sales`} />
+        <MetricCard label={isLeaderDashboard ? "Leader earnings" : "Partner earnings"} value={currency(metrics.profitCents / 100)} change="Personal earnings plus approved overrides" tone="green" />
+        <MetricCard label="Pending downline payouts" value={currency(pendingDownlinePayoutCents / 100)} change="Commissions still pending approval" tone="red" />
+      </div>
+      <div className="mt-4 grid gap-4 md:grid-cols-3">
+        {!isLeaderDashboard ? <MetricCard label="Managers" value={`${managerCount}`} change="Manager layer in your network" /> : null}
+        <MetricCard label="Leaders" value={`${leaderCount}`} change={isLeaderDashboard ? "Current leader scope" : "Group leaders in network"} />
+        <MetricCard label="Consultants" value={`${metrics.consultantCount}`} change={isLeaderDashboard ? "Direct sellers under you" : "Sellers across the partner network"} />
+        <MetricCard label="Personal earnings" value={currency(metrics.personalProfitCents / 100)} change="Only sales personally created by this account" tone="green" />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_1fr]">
         <Card>

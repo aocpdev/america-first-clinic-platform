@@ -10,6 +10,7 @@ const IMPERSONATION_COOKIE = "afc_impersonate_user_id";
 const userInclude = {
   consultantProfile: true,
   partnerProfile: true,
+  managerProfile: true,
   groupLeaderProfile: true,
   company: true
 } as const;
@@ -39,7 +40,7 @@ async function canImpersonate(realUser: NonNullable<Awaited<ReturnType<typeof ge
         where: {
           id: targetUserId,
           companyId: realUser.companyId,
-          role: { in: ["PARTNER", "GROUP_LEADER", "CONSULTANT"] },
+          role: { in: ["PARTNER", "MANAGER", "GROUP_LEADER", "CONSULTANT"] },
           status: "ACTIVE",
           isActive: true
         },
@@ -55,10 +56,11 @@ async function canImpersonate(realUser: NonNullable<Awaited<ReturnType<typeof ge
         where: {
           id: targetUserId,
           companyId: realUser.companyId,
-          role: { in: ["GROUP_LEADER", "CONSULTANT"] },
+          role: { in: ["MANAGER", "GROUP_LEADER", "CONSULTANT"] },
           status: "ACTIVE",
           isActive: true,
           OR: [
+            { managerProfile: { partnerProfileId } },
             { groupLeaderProfile: { partnerProfileId } },
             { consultantProfile: { partnerProfileId } }
           ]
@@ -130,7 +132,15 @@ export async function requireApprovedConsultant() {
 
 export async function requirePartner() {
   const user = await requireUser();
-  if (user.role !== "PARTNER" && user.role !== "GROUP_LEADER" && user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN") {
+  if (user.role !== "PARTNER" && user.role !== "MANAGER" && user.role !== "GROUP_LEADER" && user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN") {
+    redirect("/login?error=access_denied");
+  }
+  return user;
+}
+
+export async function requireManager() {
+  const user = await requireUser();
+  if (user.role !== "MANAGER" && user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN") {
     redirect("/login?error=access_denied");
   }
   return user;

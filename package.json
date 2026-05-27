@@ -19,6 +19,7 @@
     "products:import": "tsx scripts/import-afc-products.ts"
   },
   "dependencies": {
+    "@jridgewell/trace-mapping": "^0.3.30",
     "@prisma/client": "^5.22.0",
     "@stripe/stripe-js": "^9.6.0",
     "@supabase/ssr": "^0.5.2",
@@ -33,7 +34,7 @@
     "react-dom": "^19.0.0",
     "recharts": "^2.13.3",
     "resend": "^4.0.1",
-    "stripe": "^22.1.1",
+    "stripe": "^18.5.0",
     "tailwind-merge": "^2.5.5",
     "zod": "^3.23.8"
   },

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, Plus, X } from "lucide-react";
-import { createManager, updateManagerProfile } from "@/app/(auth)/actions";
+import { Pencil, Plus, Trash2, X } from "lucide-react";
+import { createManager, deleteManagerProfile, updateManagerProfile } from "@/app/(auth)/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -228,11 +228,26 @@ export function EditManagerModal({ manager, returnTo }: { manager: Manager; retu
                 </div>
               </section>
 
-              <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <SubmitButton variant="accent" pendingText="Saving manager...">Save manager</SubmitButton>
+              <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="submit"
+                  formAction={deleteManagerProfile}
+                  onClick={(event) => {
+                    if (!window.confirm("Delete this manager? Leaders and sellers under this manager will move directly under the partner.")) {
+                      event.preventDefault();
+                    }
+                  }}
+                  className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 text-sm font-bold text-red-700 transition hover:bg-red-100"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete manager
+                </button>
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                    Cancel
+                  </Button>
+                  <SubmitButton variant="accent" pendingText="Saving manager...">Save manager</SubmitButton>
+                </div>
               </div>
             </form>
             </div>

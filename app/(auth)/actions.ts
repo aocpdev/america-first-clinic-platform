@@ -1626,6 +1626,330 @@ export async function updateConsultantCommercials(formData: FormData) {
   redirect(destination);
 }
 
+function consultantAdminReturnPath(partnerProfileId: string, section: string, updated: string, returnTo: string) {
+  if (returnTo.startsWith("/admin/consultants") || returnTo.startsWith("/partner/consultants")) {
+    const separator = returnTo.includes("?") ? "&" : "?";
+    return `${returnTo}${separator}updated=${updated}`;
+  }
+
+  return `/admin/consultants?partnerId=${partnerProfileId}&section=${section}&updated=${updated}`;
+}
+
+async function assertCanManagePartnerNetwork(actorId: string, actorRole: UserRole, partnerProfileId: string) {
+  if (actorRole === "PARTNER") {
+    const partnerProfile = await prisma.partnerProfile.findUnique({
+      where: { userId: actorId },
+      select: { id: true }
+    });
+
+    if (!partnerProfile || partnerProfile.id !== partnerProfileId) {
+      redirect("/partner/consultants?error=access_denied");
+    }
+  } else if (actorRole !== "COMPANY_ADMIN" && actorRole !== "SUPER_ADMIN") {
+    redirect("/login?error=access_denied");
+  }
+}
+
+async function deleteSupabaseUserSafely(authUserId: string | null) {
+  if (!authUserId) {
+    return;
+  }
+
+  try {
+    const adminClient = createSupabaseAdminClient();
+    await adminClient.auth.admin.deleteUser(authUserId);
+  } catch {
+    // The database record is the source of truth for CRM access. Supabase cleanup can be retried manually.
+  }
+}
+
+export async function deleteManagerProfile(formData: FormData) {
+  const actor = await requireUser();
+  const managerProfileId = formValue(formData, "managerProfileId");
+  const returnTo = formValue(formData, "returnTo");
+
+  const manager = await prisma.managerProfile.findUnique({
+    where: { id: managerProfileId },
+    include: { user: true }
+  });
+
+  if (!manager) {
+    redirect(actor.role === "PARTNER" ? "/partner/consultants?error=invalid_manager" : "/admin/consultants?error=invalid_manager");
+  }
+
+  await assertCanManagePartnerNetwork(actor.id, actor.role, manager.partnerProfileId);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.groupLeaderProfile.updateMany({
+      where: { managerProfileId: manager.id },
+      data: { managerProfileId: null }
+    });
+
+    await tx.consultantProfile.updateMany({
+      where: { managerProfileId: manager.id },
+      data: { managerProfileId: null }
+    });
+
+    await tx.customer.updateMany({
+      where: { managerProfileId: manager.id },
+      data: {
+        managerProfileId: null,
+        partnerProfileId: manager.partnerProfileId
+      }
+    });
+
+    await tx.order.updateMany({
+      where: { managerProfileId: manager.id },
+      data: {
+        managerProfileId: null,
+        partnerProfileId: manager.partnerProfileId
+      }
+    });
+
+    await tx.commissionSplit.updateMany({
+      where: { managerProfileId: manager.id },
+      data: {
+        managerProfileId: null,
+        partnerProfileId: manager.partnerProfileId
+      }
+    });
+
+    await tx.activityLog.updateMany({
+      where: { userId: manager.userId },
+      data: { userId: null }
+    });
+
+    await tx.auditLog.updateMany({
+      where: { userId: manager.userId },
+      data: { userId: null }
+    });
+
+    await tx.user.delete({
+      where: { id: manager.userId }
+    });
+
+    await tx.auditLog.create({
+      data: {
+        companyId: manager.companyId,
+        userId: actor.id,
+        action: "MANAGER_DELETED",
+        resource: "ManagerProfile",
+        resourceId: manager.id,
+        metadata: {
+          displayName: manager.displayName,
+          partnerProfileId: manager.partnerProfileId,
+          reassignedTo: "PARTNER"
+        }
+      }
+    });
+  });
+
+  await deleteSupabaseUserSafely(manager.user.authUserId);
+
+  revalidatePath("/admin/consultants");
+  revalidatePath("/partner/consultants");
+  redirect(actor.role === "PARTNER"
+    ? consultantAdminReturnPath(manager.partnerProfileId, "managers", "manager_deleted", returnTo || "/partner/consultants")
+    : consultantAdminReturnPath(manager.partnerProfileId, "managers", "manager_deleted", returnTo));
+}
+
+export async function deleteGroupLeaderProfile(formData: FormData) {
+  const actor = await requireUser();
+  const groupLeaderProfileId = formValue(formData, "groupLeaderProfileId");
+  const returnTo = formValue(formData, "returnTo");
+
+  const leader = await prisma.groupLeaderProfile.findUnique({
+    where: { id: groupLeaderProfileId },
+    include: { user: true }
+  });
+
+  if (!leader) {
+    redirect(actor.role === "PARTNER" ? "/partner/consultants?error=invalid_group_leader" : "/admin/consultants?error=invalid_group_leader");
+  }
+
+  await assertCanManagePartnerNetwork(actor.id, actor.role, leader.partnerProfileId);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.consultantProfile.updateMany({
+      where: { groupLeaderProfileId: leader.id },
+      data: {
+        groupLeaderProfileId: null,
+        managerProfileId: leader.managerProfileId
+      }
+    });
+
+    await tx.customer.updateMany({
+      where: { groupLeaderProfileId: leader.id },
+      data: {
+        groupLeaderProfileId: null,
+        managerProfileId: leader.managerProfileId,
+        partnerProfileId: leader.partnerProfileId
+      }
+    });
+
+    await tx.order.updateMany({
+      where: { groupLeaderProfileId: leader.id },
+      data: {
+        groupLeaderProfileId: null,
+        managerProfileId: leader.managerProfileId,
+        partnerProfileId: leader.partnerProfileId
+      }
+    });
+
+    await tx.commissionSplit.updateMany({
+      where: { groupLeaderProfileId: leader.id },
+      data: {
+        groupLeaderProfileId: null,
+        managerProfileId: leader.managerProfileId,
+        partnerProfileId: leader.partnerProfileId
+      }
+    });
+
+    await tx.activityLog.updateMany({
+      where: { userId: leader.userId },
+      data: { userId: null }
+    });
+
+    await tx.auditLog.updateMany({
+      where: { userId: leader.userId },
+      data: { userId: null }
+    });
+
+    await tx.user.delete({
+      where: { id: leader.userId }
+    });
+
+    await tx.auditLog.create({
+      data: {
+        companyId: leader.companyId,
+        userId: actor.id,
+        action: "GROUP_LEADER_DELETED",
+        resource: "GroupLeaderProfile",
+        resourceId: leader.id,
+        metadata: {
+          displayName: leader.displayName,
+          partnerProfileId: leader.partnerProfileId,
+          managerProfileId: leader.managerProfileId,
+          reassignedTo: leader.managerProfileId ? "MANAGER" : "PARTNER"
+        }
+      }
+    });
+  });
+
+  await deleteSupabaseUserSafely(leader.user.authUserId);
+
+  revalidatePath("/admin/consultants");
+  revalidatePath("/partner/consultants");
+  redirect(actor.role === "PARTNER"
+    ? consultantAdminReturnPath(leader.partnerProfileId, "leaders", "leader_deleted", returnTo || "/partner/consultants")
+    : consultantAdminReturnPath(leader.partnerProfileId, "leaders", "leader_deleted", returnTo));
+}
+
+export async function deleteConsultantProfile(formData: FormData) {
+  const actor = await requireUser();
+  const consultantProfileId = formValue(formData, "consultantProfileId");
+  const returnTo = formValue(formData, "returnTo");
+
+  const consultant = await prisma.consultantProfile.findUnique({
+    where: { id: consultantProfileId },
+    include: { user: true }
+  });
+
+  if (!consultant || !consultant.partnerProfileId) {
+    redirect(actor.role === "PARTNER" ? "/partner/consultants?error=consultant_not_found" : "/admin/consultants?error=consultant_not_found");
+  }
+
+  await assertCanManagePartnerNetwork(actor.id, actor.role, consultant.partnerProfileId);
+
+  await prisma.$transaction(async (tx) => {
+    await tx.customer.updateMany({
+      where: { consultantProfileId: consultant.id },
+      data: {
+        consultantProfileId: null,
+        partnerProfileId: consultant.partnerProfileId,
+        managerProfileId: consultant.managerProfileId,
+        groupLeaderProfileId: consultant.groupLeaderProfileId
+      }
+    });
+
+    await tx.order.updateMany({
+      where: { consultantProfileId: consultant.id },
+      data: {
+        consultantProfileId: null,
+        partnerProfileId: consultant.partnerProfileId,
+        managerProfileId: consultant.managerProfileId,
+        groupLeaderProfileId: consultant.groupLeaderProfileId
+      }
+    });
+
+    await tx.commissionSplit.updateMany({
+      where: { consultantProfileId: consultant.id },
+      data: {
+        consultantProfileId: null,
+        partnerProfileId: consultant.partnerProfileId,
+        managerProfileId: consultant.managerProfileId,
+        groupLeaderProfileId: consultant.groupLeaderProfileId
+      }
+    });
+
+    await tx.lead.updateMany({
+      where: { consultantProfileId: consultant.id },
+      data: { consultantProfileId: null }
+    });
+
+    await tx.teamMember.updateMany({
+      where: { consultantProfileId: consultant.id },
+      data: { consultantProfileId: null }
+    });
+
+    await tx.referralLink.deleteMany({
+      where: { consultantProfileId: consultant.id }
+    });
+
+    await tx.commission.deleteMany({
+      where: { consultantProfileId: consultant.id }
+    });
+
+    await tx.activityLog.updateMany({
+      where: { userId: consultant.userId },
+      data: { userId: null }
+    });
+
+    await tx.auditLog.updateMany({
+      where: { userId: consultant.userId },
+      data: { userId: null }
+    });
+
+    await tx.user.delete({
+      where: { id: consultant.userId }
+    });
+
+    await tx.auditLog.create({
+      data: {
+        companyId: consultant.companyId,
+        userId: actor.id,
+        action: "CONSULTANT_DELETED",
+        resource: "ConsultantProfile",
+        resourceId: consultant.id,
+        metadata: {
+          email: consultant.user.email,
+          partnerProfileId: consultant.partnerProfileId,
+          managerProfileId: consultant.managerProfileId,
+          groupLeaderProfileId: consultant.groupLeaderProfileId
+        }
+      }
+    });
+  });
+
+  await deleteSupabaseUserSafely(consultant.user.authUserId);
+
+  revalidatePath("/admin/consultants");
+  revalidatePath("/partner/consultants");
+  redirect(actor.role === "PARTNER"
+    ? consultantAdminReturnPath(consultant.partnerProfileId, "network", "consultant_deleted", returnTo || "/partner/consultants")
+    : consultantAdminReturnPath(consultant.partnerProfileId, "network", "consultant_deleted", returnTo));
+}
+
 export async function assignConsultantToLeader(formData: FormData) {
   const actor = await requireUser();
   const consultantProfileId = formValue(formData, "consultantProfileId");

@@ -59,7 +59,22 @@ export const partnerNav = [
   { href: "/partner/settings", label: "Settings", icon: Settings }
 ];
 
+export const managerNav = [
+  { href: "/manager/dashboard", label: "Dashboard", icon: Gauge },
+  { href: "/partner/sales", label: "Sales", icon: ClipboardList },
+  { href: "/partner/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/partner/pipeline", label: "Pipeline", icon: Columns3 },
+  { href: "/partner/customers", label: "Customers", icon: Users },
+  { href: "/manager/team", label: "Team", icon: Users },
+  { href: "/partner/products", label: "Products", icon: Boxes },
+  { href: "/partner/commissions", label: "Commissions", icon: HandCoins },
+  { href: "/partner/rewards", label: "Rewards", icon: Gift },
+  { href: "/manager/reports", label: "Reports", icon: BarChart3 },
+  { href: "/manager/profile", label: "Profile", icon: Settings }
+];
+
 export const groupLeaderNav = [
+  { href: "/partner/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/partner/consultants", label: "Team", icon: Users },
   { href: "/partner/sales", label: "Sales", icon: ClipboardList },
   { href: "/partner/orders", label: "Orders", icon: ShoppingBag },

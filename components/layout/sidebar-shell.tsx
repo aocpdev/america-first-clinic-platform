@@ -133,6 +133,7 @@ async function prismaUserImpersonationTargets(realUser: NonNullable<Awaited<Retu
     lastName: true,
     role: true,
     partnerProfile: { select: { companyName: true, displayName: true } },
+    managerProfile: { select: { displayName: true } },
     groupLeaderProfile: { select: { displayName: true } }
   } as const;
 
@@ -142,7 +143,7 @@ async function prismaUserImpersonationTargets(realUser: NonNullable<Awaited<Retu
           where: {
             id: { not: realUser.id },
             companyId: realUser.companyId,
-            role: { in: ["PARTNER", "GROUP_LEADER", "CONSULTANT"] },
+            role: { in: ["PARTNER", "MANAGER", "GROUP_LEADER", "CONSULTANT"] },
             status: "ACTIVE",
             isActive: true
           },
@@ -154,10 +155,11 @@ async function prismaUserImpersonationTargets(realUser: NonNullable<Awaited<Retu
             where: {
               id: { not: realUser.id },
               companyId: realUser.companyId,
-              role: { in: ["GROUP_LEADER", "CONSULTANT"] },
+              role: { in: ["MANAGER", "GROUP_LEADER", "CONSULTANT"] },
               status: "ACTIVE",
               isActive: true,
               OR: [
+                { managerProfile: { partnerProfileId: realUser.partnerProfile.id } },
                 { groupLeaderProfile: { partnerProfileId: realUser.partnerProfile.id } },
                 { consultantProfile: { partnerProfileId: realUser.partnerProfile.id } }
               ]
@@ -169,7 +171,7 @@ async function prismaUserImpersonationTargets(realUser: NonNullable<Awaited<Retu
 
   return users.map((target) => {
     const personName = [target.firstName, target.lastName].filter(Boolean).join(" ").trim();
-    const label = target.partnerProfile?.companyName || target.partnerProfile?.displayName || target.groupLeaderProfile?.displayName || personName || target.email;
+    const label = target.partnerProfile?.companyName || target.partnerProfile?.displayName || target.managerProfile?.displayName || target.groupLeaderProfile?.displayName || personName || target.email;
 
     return {
       id: target.id,

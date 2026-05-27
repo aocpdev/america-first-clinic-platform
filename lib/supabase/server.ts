@@ -3,6 +3,18 @@ import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import type { CookieOptions } from "@supabase/ssr";
 
+type SupabaseClientInstance = ReturnType<typeof createClient>;
+
+type SupabaseAdminClient = SupabaseClientInstance & {
+  auth: SupabaseClientInstance["auth"] & {
+    admin: {
+      createUser: (...args: any[]) => any;
+      updateUserById: (...args: any[]) => any;
+      deleteUser: (...args: any[]) => any;
+    };
+  };
+};
+
 function requireEnv(name: string) {
   const value = process.env[name];
   if (!value) {
@@ -48,7 +60,7 @@ export async function createSupabaseServerClient() {
   );
 }
 
-export function createSupabaseAdminClient() {
+export function createSupabaseAdminClient(): SupabaseAdminClient {
   return createClient(
     requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
     requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
@@ -58,5 +70,5 @@ export function createSupabaseAdminClient() {
         persistSession: false
       }
     }
-  );
+  ) as SupabaseAdminClient;
 }

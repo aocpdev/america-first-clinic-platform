@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowDownRight, Pencil, Plus, X } from "lucide-react";
-import { convertLeaderToConsultant, createGroupLeader, updateGroupLeaderProfile } from "@/app/(auth)/actions";
+import { ArrowDownRight, Pencil, Plus, Trash2, X } from "lucide-react";
+import { convertLeaderToConsultant, createGroupLeader, deleteGroupLeaderProfile, updateGroupLeaderProfile } from "@/app/(auth)/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -225,6 +225,7 @@ export function EditLeaderModal({
             <div className="max-h-[calc(92vh-120px)] overflow-y-auto px-5 py-6 sm:px-6">
               <form action={updateGroupLeaderProfile} className="grid gap-5">
                 <input type="hidden" name="groupLeaderProfileId" value={leader.id} />
+                {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
 
                 <section className="rounded-3xl border border-border bg-clinic-mist/50 p-5">
                   <div className="mb-5 flex items-center gap-3">
@@ -302,11 +303,26 @@ export function EditLeaderModal({
                   )}
                 </section>
 
-                <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                    Cancel
-                  </Button>
-                  <SubmitButton variant="accent" pendingText="Saving leader...">Save leader</SubmitButton>
+                <div className="flex flex-col gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+                  <button
+                    type="submit"
+                    formAction={deleteGroupLeaderProfile}
+                    onClick={(event) => {
+                      if (!window.confirm("Delete this leader? Sellers under this leader will move to the assigned manager, or directly to the partner if there is no manager.")) {
+                        event.preventDefault();
+                      }
+                    }}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 text-sm font-bold text-red-700 transition hover:bg-red-100"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Delete leader
+                  </button>
+                  <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                      Cancel
+                    </Button>
+                    <SubmitButton variant="accent" pendingText="Saving leader...">Save leader</SubmitButton>
+                  </div>
                 </div>
               </form>
 
