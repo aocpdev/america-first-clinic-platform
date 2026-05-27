@@ -57,6 +57,10 @@ const campaignSchema = z
     path: ["rollingWindowDays"]
   });
 
+const deleteCampaignSchema = z.object({
+  campaignId: z.string().uuid()
+});
+
 export async function updateRewardLevel(formData: FormData) {
   const user = await requireRole("COMPANY_ADMIN");
   if (!user.companyId) return;
@@ -263,6 +267,26 @@ export async function saveRewardCampaign(formData: FormData) {
       }
     });
   }
+
+  revalidatePath("/admin/rewards");
+  revalidatePath("/consultant/rewards");
+  revalidatePath("/partner/rewards");
+}
+
+export async function deleteRewardCampaign(formData: FormData) {
+  const user = await requireRole("COMPANY_ADMIN");
+  if (!user.companyId) return;
+
+  const parsed = deleteCampaignSchema.parse({
+    campaignId: formData.get("campaignId")
+  });
+
+  await prisma.rewardCampaign.deleteMany({
+    where: {
+      id: parsed.campaignId,
+      companyId: user.companyId
+    }
+  });
 
   revalidatePath("/admin/rewards");
   revalidatePath("/consultant/rewards");

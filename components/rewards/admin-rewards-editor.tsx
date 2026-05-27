@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { AlertTriangle, CalendarDays, CheckCircle2, DollarSign, Gift, Pencil, Plus, Send, Settings2, Target, Trophy } from "lucide-react";
-import { fulfillRewardClaim, markRewardPayoutApplied, saveRewardCampaign, saveRewardLevelBundle } from "@/app/admin/rewards/actions";
+import { type MouseEvent, useMemo, useState } from "react";
+import { AlertTriangle, CalendarDays, CheckCircle2, DollarSign, Gift, Pencil, Plus, Send, Settings2, Target, Trash2, Trophy } from "lucide-react";
+import { deleteRewardCampaign, fulfillRewardClaim, markRewardPayoutApplied, saveRewardCampaign, saveRewardLevelBundle } from "@/app/admin/rewards/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -141,6 +141,12 @@ function campaignTimingLabel(campaign: Pick<RewardCampaign, "startsAt" | "endsAt
 
 function rangesOverlap(startA: Date, endA: Date, startB: Date | string, endB: Date | string) {
   return startA <= new Date(endB) && endA >= new Date(startB);
+}
+
+function confirmDeleteCampaign(event: MouseEvent<HTMLButtonElement>) {
+  if (!window.confirm("Delete this reward campaign? This removes its progress and reward claims from the rewards workspace.")) {
+    event.preventDefault();
+  }
 }
 
 function campaignTargetLabel(campaign: RewardCampaign) {
@@ -606,7 +612,21 @@ function CampaignModal({
             </label>
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:items-center sm:justify-between">
+            {campaign ? (
+              <Button
+                type="submit"
+                variant="outline"
+                formAction={deleteRewardCampaign}
+                onClick={confirmDeleteCampaign}
+                className="border-red-200 text-clinic-red hover:bg-red-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete campaign
+              </Button>
+            ) : (
+              <span />
+            )}
             <Button type="submit" variant="accent">{campaign ? "Save campaign" : "Create campaign"}</Button>
           </div>
         </form>
@@ -817,11 +837,9 @@ export function AdminRewardsEditor({
             campaigns.map((campaign) => {
               const netCents = campaign.projectedMarginCents - campaign.rewardValueCents;
               return (
-                <button
-                  type="button"
+                <div
                   key={campaign.id}
-                  onClick={() => setEditingCampaign(campaign)}
-                  className="rounded-[1.75rem] border border-border bg-white p-5 text-left shadow-line transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(7,55,99,0.10)]"
+                  className="rounded-[1.75rem] border border-border bg-white p-5 shadow-line transition hover:-translate-y-0.5 hover:shadow-[0_20px_50px_rgba(7,55,99,0.10)]"
                 >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -854,11 +872,36 @@ export function AdminRewardsEditor({
                     <p className={`mt-1 font-semibold ${netCents < 0 ? "text-clinic-red" : "text-clinic-navy"}`}>{money(netCents)}</p>
                   </div>
                 </div>
-                <div className="mt-4 flex items-center gap-2 border-t border-border pt-4 text-sm font-semibold text-clinic-navy">
-                  <Gift className="h-4 w-4 text-clinic-red" />
-                  {campaign.rewardTitle}
+                <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-clinic-navy">
+                    <Gift className="h-4 w-4 shrink-0 text-clinic-red" />
+                    <span className="truncate">{campaign.rewardTitle}</span>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setEditingCampaign(campaign)}
+                      className="h-11 rounded-2xl"
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit
+                    </Button>
+                    <form action={deleteRewardCampaign}>
+                      <input type="hidden" name="campaignId" value={campaign.id} />
+                      <Button
+                        type="submit"
+                        variant="outline"
+                        onClick={confirmDeleteCampaign}
+                        className="h-11 rounded-2xl border-red-200 text-clinic-red hover:bg-red-50"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </Button>
+                    </form>
+                  </div>
                 </div>
-              </button>
+              </div>
               );
             })
           ) : (
