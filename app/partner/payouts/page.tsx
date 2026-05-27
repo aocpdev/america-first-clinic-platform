@@ -4,6 +4,7 @@ import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requirePartner } from "@/lib/auth/current-user";
 import { getPartnerCommissionLedger, type CommissionLedgerScope } from "@/lib/commissions/queries";
 import { groupLeaderNav, managerNav, partnerNav } from "@/lib/constants/navigation";
+import { getPartnerCashRewardPayouts } from "@/lib/rewards/reward-engine";
 
 function navigationForRole(role: string) {
   if (role === "MANAGER") return managerNav;
@@ -26,12 +27,17 @@ function eyebrowForRole(role: string) {
 export default async function PartnerPayoutsPage({ searchParams }: { searchParams: Promise<RecordFiltersState> }) {
   const filters = await searchParams;
   const user = await requirePartner();
-  const entries = await getPartnerCommissionLedger(user);
+  const [entries, rewardPayouts] = await Promise.all([
+    getPartnerCommissionLedger(user),
+    user.role === "PARTNER" && user.companyId && user.partnerProfile?.id
+      ? getPartnerCashRewardPayouts({ companyId: user.companyId, partnerProfileId: user.partnerProfile.id })
+      : Promise.resolve([])
+  ]);
   const scope = scopeForRole(user.role);
 
   return (
     <SidebarShell nav={navigationForRole(user.role)} eyebrow={eyebrowForRole(user.role)} title="Payouts">
-      <PayoutCenter entries={entries} scope={scope} filters={filters} />
+      <PayoutCenter entries={entries} scope={scope} filters={filters} rewardPayouts={rewardPayouts} />
     </SidebarShell>
   );
 }

@@ -4,6 +4,7 @@ import { ArrowUpRight, BadgeCheck, Banknote, CheckCircle2, Clock3, Landmark, Loc
 
 import { markCommissionSplitPaid } from "@/app/payouts/actions";
 import type { CommissionLedgerEntry, CommissionLedgerScope } from "@/lib/commissions/queries";
+import type { PartnerCashRewardPayoutItem } from "@/lib/rewards/reward-engine";
 import { cn, currency } from "@/lib/utils";
 import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type RecordFiltersState } from "@/components/filters/record-filters";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ type PayoutCenterProps = {
   entries: CommissionLedgerEntry[];
   scope: CommissionLedgerScope;
   filters?: RecordFiltersState;
+  rewardPayouts?: PartnerCashRewardPayoutItem[];
 };
 
 const statusCopy: Record<CommissionStatus, string> = {
@@ -35,6 +37,22 @@ const roleCopy: Record<CommissionParticipantRole, string> = {
   GROUP_LEADER: "Leader",
   CONSULTANT: "Seller"
 };
+
+const rewardRoleCopy = {
+  MANAGER: "Manager",
+  GROUP_LEADER: "Leader",
+  CONSULTANT: "Seller"
+} as const;
+
+const rewardStatusCopy = {
+  PAYOUT_PENDING: "Waiting company funding",
+  PAYOUT_APPLIED: "Funded to partner"
+} as const;
+
+const rewardStatusClassName = {
+  PAYOUT_PENDING: "border-amber-200 bg-amber-50 text-amber-700",
+  PAYOUT_APPLIED: "border-emerald-200 bg-emerald-50 text-emerald-700"
+} as const;
 
 function dollars(cents: number) {
   return currency(cents / 100);
@@ -104,6 +122,44 @@ function applyPayoutFilters(entries: CommissionLedgerEntry[], filters?: RecordFi
     ]) &&
     matchesSelect(entry.status, normalized.status) &&
     matchesSelect(entry.participantRole, normalized.role)
+  ));
+}
+
+function personName(person?: { firstName?: string | null; lastName?: string | null; email?: string | null } | null) {
+  const name = [person?.firstName, person?.lastName].filter(Boolean).join(" ").trim();
+  return name || person?.email || "Unassigned";
+}
+
+function rewardParticipantName(claim: PartnerCashRewardPayoutItem) {
+  if (claim.participantRole === "MANAGER") {
+    return claim.managerProfile?.displayName || personName(claim.user);
+  }
+
+  if (claim.participantRole === "GROUP_LEADER") {
+    return claim.groupLeaderProfile?.displayName || personName(claim.user);
+  }
+
+  return personName(claim.consultantProfile?.user ?? claim.user);
+}
+
+function rewardParticipantEmail(claim: PartnerCashRewardPayoutItem) {
+  if (claim.participantRole === "MANAGER") return claim.managerProfile?.user.email || claim.user.email;
+  if (claim.participantRole === "GROUP_LEADER") return claim.groupLeaderProfile?.user.email || claim.user.email;
+  return claim.consultantProfile?.user.email || claim.user.email;
+}
+
+function applyRewardPayoutFilters(items: PartnerCashRewardPayoutItem[], filters?: RecordFiltersState) {
+  const normalized = normalizeFilters(filters);
+
+  return items.filter((item) => (
+    matchesSearch(normalized.q, [
+      rewardParticipantName(item),
+      rewardParticipantEmail(item),
+      rewardRoleCopy[item.participantRole],
+      item.campaign.title,
+      item.campaign.rewardTitle,
+      rewardStatusCopy[item.status as keyof typeof rewardStatusCopy] ?? item.status
+    ])
   ));
 }
 
@@ -317,9 +373,44 @@ function EmptyPayouts({ message }: { message: string }) {
   );
 }
 
-export function PayoutCenter({ entries, scope, filters }: PayoutCenterProps) {
+function RewardPayoutRow({ claim }: { claim: PartnerCashRewardPayoutItem }) {
+  const name = rewardParticipantName(claim);
+  const email = rewardParticipantEmail(claim);
+  const status = claim.status as keyof typeof rewardStatusCopy;
+
+  return (
+    <div className="grid gap-4 border-t border-border px-5 py-5 lg:grid-cols-[1.1fr_1.2fr_0.65fr_0.75fr] lg:items-center">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="font-semibold text-clinic-ink">{name}</p>
+          <Badge className="border-blue-200 bg-blue-50 text-clinic-navy">{rewardRoleCopy[claim.participantRole]}</Badge>
+        </div>
+        <p className="mt-1 break-all text-sm text-slate-500">{email || "No email on file"}</p>
+      </div>
+
+      <div className="min-w-0 rounded-2xl bg-clinic-mist p-4">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Reward campaign</p>
+        <p className="mt-1 truncate font-semibold text-clinic-ink">{claim.campaign.title}</p>
+        <p className="mt-1 truncate text-sm text-slate-600">{claim.campaign.rewardTitle}</p>
+      </div>
+
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Cash reward</p>
+        <p className="mt-1 text-2xl font-semibold text-clinic-navy">{dollars(claim.rewardValueCents)}</p>
+      </div>
+
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Funding status</p>
+        <Badge className={cn("mt-2 px-3 py-1.5", rewardStatusClassName[status])}>{rewardStatusCopy[status]}</Badge>
+      </div>
+    </div>
+  );
+}
+
+export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: PayoutCenterProps) {
   const visibleRows = visiblePayoutEntries(scope, entries);
   const rows = applyPayoutFilters(visibleRows, filters);
+  const visibleRewardPayouts = scope === "partner" ? applyRewardPayoutFilters(rewardPayouts, filters) : [];
   const copy = copyForScope(scope);
   const pending = sum(rows, (entry) => entry.status === "PENDING");
   const approved = sum(rows, (entry) => entry.status === "APPROVED");
@@ -332,6 +423,9 @@ export function PayoutCenter({ entries, scope, filters }: PayoutCenterProps) {
   const readyRows = rows.filter((entry) => entry.status === "APPROVED");
   const historyRows = rows.filter((entry) => entry.status === "PAID" || entry.status === "REJECTED").slice(0, 12);
   const companyPayments = scope === "partner" ? applyPayoutFilters(partnerCompanyPayments(entries), filters) : [];
+  const pendingRewardPayouts = visibleRewardPayouts.filter((claim) => claim.status === "PAYOUT_PENDING");
+  const fundedRewardPayouts = visibleRewardPayouts.filter((claim) => claim.status === "PAYOUT_APPLIED");
+  const rewardPayoutTotal = visibleRewardPayouts.reduce((total, claim) => total + claim.rewardValueCents, 0);
   const statusOptions = [
     { label: "All statuses", value: "ALL" },
     { label: "Pending", value: "PENDING" },
@@ -466,6 +560,54 @@ export function PayoutCenter({ entries, scope, filters }: PayoutCenterProps) {
               );
             })}
           </div>
+        </Card>
+      ) : null}
+
+      {scope === "partner" ? (
+        <Card className="overflow-hidden rounded-[28px] border-emerald-100 bg-emerald-50/30">
+          <div className="border-b border-emerald-100 p-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Cash reward distribution</p>
+                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Rewards paid through partner payout</h3>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                  Cash rewards are funded to the partner, then the partner pays the manager, leader, or seller who earned the reward. Non-cash rewards stay in the admin fulfillment workflow.
+                </p>
+              </div>
+              <div className="rounded-[24px] bg-white px-5 py-4 shadow-line">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Cash rewards tracked</p>
+                <p className="mt-1 text-2xl font-semibold text-emerald-700">{dollars(rewardPayoutTotal)}</p>
+              </div>
+            </div>
+          </div>
+
+          {visibleRewardPayouts.length ? (
+            <div>
+              {pendingRewardPayouts.length ? (
+                <div>
+                  <div className="bg-amber-50 px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Waiting company funding</div>
+                  {pendingRewardPayouts.map((claim) => <RewardPayoutRow key={claim.id} claim={claim} />)}
+                </div>
+              ) : null}
+
+              {fundedRewardPayouts.length ? (
+                <div>
+                  <div className="bg-emerald-50 px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Funded to partner</div>
+                  {fundedRewardPayouts.map((claim) => <RewardPayoutRow key={claim.id} claim={claim} />)}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="p-8 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-[24px] bg-white text-emerald-700 shadow-line">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <h3 className="mt-4 text-xl font-semibold text-clinic-ink">No cash reward payouts yet</h3>
+              <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                When someone in your network earns a cash reward, it will appear here so you can identify the downstream payment.
+              </p>
+            </div>
+          )}
         </Card>
       ) : null}
 

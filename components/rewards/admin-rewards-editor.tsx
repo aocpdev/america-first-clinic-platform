@@ -645,7 +645,7 @@ function RewardClaimQueue({ claims }: { claims: RewardClaim[] }) {
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Reward operations</p>
             <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Reward payout and redemption</h2>
             <p className="mt-1 text-sm leading-6 text-slate-500">
-              Cash rewards can be applied to payouts. Non-cash rewards move through redemption and fulfillment.
+              Cash rewards are funded through the partner payout. Non-cash rewards move through redemption and fulfillment.
             </p>
           </div>
         </div>
@@ -679,7 +679,7 @@ function RewardClaimQueue({ claims }: { claims: RewardClaim[] }) {
                     <input type="hidden" name="claimId" value={claim.id} />
                     <Button type="submit" className="w-full lg:w-auto">
                       <CheckCircle2 className="mr-2 h-4 w-4" />
-                      Apply to payout
+                      Mark funded to partner
                     </Button>
                   </form>
                 ) : null}

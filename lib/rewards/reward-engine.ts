@@ -669,3 +669,32 @@ export async function getRewardClaimQueue(companyId: string) {
 }
 
 export type RewardCampaignClaimQueueItem = Awaited<ReturnType<typeof getRewardClaimQueue>>[number];
+
+export async function getPartnerCashRewardPayouts(input: {
+  companyId: string;
+  partnerProfileId: string;
+}) {
+  return prisma.rewardCampaignClaim.findMany({
+    where: {
+      companyId: input.companyId,
+      rewardValueType: "CASH",
+      status: { in: ["PAYOUT_PENDING", "PAYOUT_APPLIED"] },
+      OR: [
+        { managerProfile: { partnerProfileId: input.partnerProfileId } },
+        { groupLeaderProfile: { partnerProfileId: input.partnerProfileId } },
+        { consultantProfile: { partnerProfileId: input.partnerProfileId } }
+      ]
+    },
+    include: {
+      user: { select: { firstName: true, lastName: true, email: true, avatarUrl: true } },
+      campaign: { select: { id: true, title: true, rewardTitle: true, rewardImageUrl: true } },
+      managerProfile: { select: { displayName: true, user: { select: { email: true } } } },
+      groupLeaderProfile: { select: { displayName: true, user: { select: { email: true } } } },
+      consultantProfile: { select: { user: { select: { firstName: true, lastName: true, email: true } } } }
+    },
+    orderBy: [{ status: "asc" }, { completedAt: "desc" }],
+    take: 250
+  });
+}
+
+export type PartnerCashRewardPayoutItem = Awaited<ReturnType<typeof getPartnerCashRewardPayouts>>[number];

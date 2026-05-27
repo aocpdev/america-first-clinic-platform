@@ -129,7 +129,7 @@ function campaignStatusText(campaign: CampaignProgress) {
     return `${campaign.remainingQuantity} more to unlock`;
   }
   if (campaign.rewardValueType === "CASH") {
-    return campaign.claimStatus === "PAYOUT_APPLIED" ? "Applied to payout" : "Queued for payout";
+    return campaign.claimStatus === "PAYOUT_APPLIED" ? "Funded to partner payout" : "Queued for partner payout";
   }
   if (campaign.claimStatus === "REDEEM_REQUESTED") return "Redemption requested";
   if (campaign.claimStatus === "FULFILLED") return "Fulfilled";
