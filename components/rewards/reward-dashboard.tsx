@@ -146,7 +146,7 @@ export function RewardDashboard({
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white/70">Your reward status</p>
+                  <p className="text-sm font-semibold text-white/70">Your personal reward status</p>
                   <h2 className="mt-1 text-3xl font-semibold">{sellerName}</h2>
                   <p className="mt-2 text-sm font-semibold text-white/80">
                     {currentLevel ? `Level ${currentLevel.level}: ${currentLevel.name}` : "Start with your first captured sale"}
@@ -216,7 +216,7 @@ export function RewardDashboard({
             <Sparkles className="h-5 w-5 text-clinic-red" />
             <div>
               <p className="text-xs font-bold uppercase text-slate-500">Level path</p>
-              <h2 className="mt-1 text-2xl font-semibold text-clinic-ink">Your seller journey</h2>
+              <h2 className="mt-1 text-2xl font-semibold text-clinic-ink">Your personal achievement path</h2>
             </div>
           </div>
         </div>
@@ -325,7 +325,7 @@ export function RewardDashboard({
               ))
             ) : (
               <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500">
-                No reward campaigns are active right now. Keep closing sales to move up your level path.
+                No reward campaigns are active right now. Keep closing personal sales to move up your level path.
               </div>
             )}
           </div>
@@ -360,7 +360,7 @@ export function RewardDashboard({
               ))
             ) : (
               <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500">
-                Captured sales will build the leaderboard.
+                Personal captured sales will build the leaderboard.
               </div>
             )}
           </div>

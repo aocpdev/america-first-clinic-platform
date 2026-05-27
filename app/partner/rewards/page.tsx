@@ -130,11 +130,11 @@ export default async function PartnerRewardsPage() {
               <p className="text-sm font-semibold text-white/70">Partner rewards command center</p>
               <h2 className="mt-2 max-w-3xl text-3xl font-semibold">Track reward progress across your seller network.</h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-white/75">
-                Partners do not compete for seller rewards. This page shows how group leaders and consultants are progressing toward active levels and timed campaigns.
+                Partners do not compete for rewards. This page shows each manager, group leader, and consultant as an individual competitor. Team overrides do not count toward reward progress.
               </p>
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-3xl border border-white/15 bg-white/10 p-4">
-                  <p className="text-xs font-bold uppercase text-white/60">Eligible sellers</p>
+                  <p className="text-xs font-bold uppercase text-white/60">Eligible people</p>
                   <p className="mt-2 text-3xl font-semibold">{networkRows.length}</p>
                 </div>
                 <div className="rounded-3xl border border-white/15 bg-white/10 p-4">
@@ -170,7 +170,7 @@ export default async function PartnerRewardsPage() {
                   <p className="mt-2 text-3xl font-semibold text-clinic-navy">{levels.length}</p>
                 </div>
                 <div className="rounded-[1.5rem] border border-border bg-white p-4 shadow-line">
-                  <p className="text-xs font-bold uppercase text-slate-500">Active sellers</p>
+                  <p className="text-xs font-bold uppercase text-slate-500">People with sales</p>
                   <p className="mt-2 text-3xl font-semibold text-clinic-navy">{networkRows.filter((row) => row.salesCount > 0).length}</p>
                 </div>
               </div>
@@ -224,7 +224,7 @@ export default async function PartnerRewardsPage() {
                 })
               ) : (
                 <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500">
-                  Eligible group leaders and consultants will appear here after they are active.
+                  Eligible managers, group leaders, and consultants will appear here after they are active.
                 </div>
               )}
             </div>
