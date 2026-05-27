@@ -1,4 +1,5 @@
 import { CommissionLedger } from "@/components/commissions/commission-ledger";
+import type { RecordFiltersState } from "@/components/filters/record-filters";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requirePartner } from "@/lib/auth/current-user";
 import { getPartnerCommissionLedger, type CommissionLedgerScope } from "@/lib/commissions/queries";
@@ -40,7 +41,8 @@ function copyForScope(scope: CommissionLedgerScope) {
   };
 }
 
-export default async function PartnerCommissionsPage() {
+export default async function PartnerCommissionsPage({ searchParams }: { searchParams: Promise<RecordFiltersState> }) {
+  const filters = await searchParams;
   const user = await requirePartner();
   const scope = scopeForRole(user.role);
   const copy = copyForScope(scope);
@@ -48,7 +50,7 @@ export default async function PartnerCommissionsPage() {
 
   return (
     <SidebarShell nav={navigationForRole(user.role)} eyebrow={copy.eyebrow} title="Commissions">
-      <CommissionLedger entries={entries} scope={scope} title={copy.title} description={copy.description} />
+      <CommissionLedger entries={entries} scope={scope} title={copy.title} description={copy.description} filters={filters} />
     </SidebarShell>
   );
 }

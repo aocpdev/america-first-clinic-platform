@@ -1,4 +1,5 @@
 import { PayoutCenter } from "@/components/payouts/payout-center";
+import type { RecordFiltersState } from "@/components/filters/record-filters";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requirePartner } from "@/lib/auth/current-user";
 import { getPartnerCommissionLedger, type CommissionLedgerScope } from "@/lib/commissions/queries";
@@ -22,14 +23,15 @@ function eyebrowForRole(role: string) {
   return "Partner";
 }
 
-export default async function PartnerPayoutsPage() {
+export default async function PartnerPayoutsPage({ searchParams }: { searchParams: Promise<RecordFiltersState> }) {
+  const filters = await searchParams;
   const user = await requirePartner();
   const entries = await getPartnerCommissionLedger(user);
   const scope = scopeForRole(user.role);
 
   return (
     <SidebarShell nav={navigationForRole(user.role)} eyebrow={eyebrowForRole(user.role)} title="Payouts">
-      <PayoutCenter entries={entries} scope={scope} />
+      <PayoutCenter entries={entries} scope={scope} filters={filters} />
     </SidebarShell>
   );
 }

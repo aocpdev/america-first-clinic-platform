@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { CreateCustomerButton } from "@/components/customers/customer-crud";
+import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type RecordFiltersState } from "@/components/filters/record-filters";
 import { formatPhoneForDisplay } from "@/lib/phone";
 import { currency } from "@/lib/utils";
 
@@ -30,23 +31,48 @@ function basePathForMode(mode: "admin" | "partner" | "consultant") {
   return "/partner";
 }
 
+function uniqueOptions(values: string[], fallback: string) {
+  const unique = Array.from(new Set(values.filter(Boolean)));
+  return [{ label: fallback, value: "ALL" }, ...unique.map((value) => ({ label: value.replaceAll("_", " "), value }))];
+}
+
+function applyCustomerFilters(customers: CustomerRow[], filters?: RecordFiltersState) {
+  const normalized = normalizeFilters(filters);
+
+  return customers.filter((customer) => (
+    matchesSearch(normalized.q, [
+      customer.name,
+      customer.email,
+      customer.phone,
+      customer.pipelineStage,
+      customer.consultantName,
+      customer.leaderName,
+      customer.partnerName
+    ]) &&
+    matchesSelect(customer.pipelineStage, normalized.stage)
+  ));
+}
+
 export function CustomerList({
   customers,
-  mode
+  mode,
+  filters
 }: {
   customers: CustomerRow[];
   mode: "admin" | "partner" | "consultant";
+  filters?: RecordFiltersState;
 }) {
   const basePath = basePathForMode(mode);
-  const totalRevenueCents = customers.reduce((sum, customer) => sum + customer.revenueCents, 0);
-  const activeCustomers = customers.filter((customer) => customer.ordersCount > 0).length;
+  const rows = applyCustomerFilters(customers, filters);
+  const totalRevenueCents = rows.reduce((sum, customer) => sum + customer.revenueCents, 0);
+  const activeCustomers = rows.filter((customer) => customer.ordersCount > 0).length;
 
   return (
     <div className="space-y-6">
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="p-5">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Customers</p>
-          <p className="mt-3 text-3xl font-semibold text-clinic-navy">{customers.length}</p>
+          <p className="mt-3 text-3xl font-semibold text-clinic-navy">{rows.length}</p>
         </Card>
         <Card className="p-5">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Active buyers</p>
@@ -57,6 +83,17 @@ export function CustomerList({
           <p className="mt-3 text-3xl font-semibold text-clinic-red">{currency(totalRevenueCents / 100)}</p>
         </Card>
       </div>
+
+      <RecordFilters
+        title="Customer filters"
+        description="Search by name, email, phone, seller, partner, or pipeline state."
+        searchPlaceholder="Search customers, emails, phones..."
+        filters={filters ?? {}}
+        resetHref={`${basePath}/customers`}
+        selects={[
+          { name: "stage", label: "Pipeline", options: uniqueOptions(customers.map((customer) => customer.pipelineStage), "All pipeline stages") }
+        ]}
+      />
 
       <Card className="overflow-hidden rounded-3xl">
         <div className="flex flex-col gap-5 border-b border-border bg-white p-6 lg:flex-row lg:items-center lg:justify-between">
@@ -83,7 +120,7 @@ export function CustomerList({
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-white">
-              {customers.map((customer) => (
+              {rows.map((customer) => (
                 <tr key={customer.id} className="transition hover:bg-clinic-mist/60">
                   <td className="px-6 py-5">
                     <Link href={`${basePath}/customers/${customer.id}`} className="font-semibold text-clinic-navy transition hover:text-clinic-red">
@@ -103,9 +140,9 @@ export function CustomerList({
                   <td className="px-6 py-5 text-slate-600">{dateLabel(customer.lastOrderAt)}</td>
                 </tr>
               ))}
-              {customers.length === 0 ? (
+              {rows.length === 0 ? (
                 <tr>
-                  <td className="px-6 py-12 text-center text-slate-500" colSpan={6}>No customer records yet.</td>
+                  <td className="px-6 py-12 text-center text-slate-500" colSpan={6}>No customer records match these filters.</td>
                 </tr>
               ) : null}
             </tbody>

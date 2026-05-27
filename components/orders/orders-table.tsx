@@ -1,6 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import Link from "next/link";
+import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type RecordFiltersState } from "@/components/filters/record-filters";
 import { orderPipelineLabel } from "@/lib/sales/pipeline";
 import { currency } from "@/lib/utils";
 
@@ -36,13 +37,50 @@ function shortId(id: string) {
   return id.slice(0, 8).toUpperCase();
 }
 
+function resetPath(mode: OrdersTableMode) {
+  if (mode === "admin") return "/admin/orders";
+  if (mode === "consultant") return "/consultant/orders";
+  return "/partner/orders";
+}
+
+function uniqueOptions(values: string[], fallback: string) {
+  const unique = Array.from(new Set(values.filter(Boolean)));
+  return [{ label: fallback, value: "ALL" }, ...unique.map((value) => ({ label: value.replaceAll("_", " "), value }))];
+}
+
+function applyOrderFilters(orders: OrderRow[], filters?: RecordFiltersState) {
+  const normalized = normalizeFilters(filters);
+
+  return orders.filter((order) => (
+    matchesSearch(normalized.q, [
+      order.id,
+      shortId(order.id),
+      order.customerName,
+      order.customerEmail,
+      order.consultantName,
+      order.leaderName,
+      order.partnerName,
+      order.products,
+      order.paymentStatus,
+      order.commissionStatus,
+      orderPipelineLabel(order.orderPipelineStage)
+    ]) &&
+    matchesSelect(order.paymentStatus, normalized.payment) &&
+    matchesSelect(order.orderPipelineStage, normalized.stage) &&
+    matchesSelect(order.commissionStatus, normalized.status)
+  ));
+}
+
 export function OrdersTable({
   orders,
-  mode
+  mode,
+  filters
 }: {
   orders: OrderRow[];
   mode: OrdersTableMode;
+  filters?: RecordFiltersState;
 }) {
+  const rows = applyOrderFilters(orders, filters);
   const showAdminFinancials = mode === "admin";
   const showPartnerFinancials = mode === "partner";
   const showLeaderFinancials = mode === "group_leader";
@@ -50,8 +88,22 @@ export function OrdersTable({
   const basePath = mode === "admin" ? "/admin" : mode === "consultant" ? "/consultant" : "/partner";
 
   return (
-    <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
+    <div className="space-y-6">
+      <RecordFilters
+        title="Order filters"
+        description="Search by customer, order, product, seller, payment state, or pipeline step."
+        searchPlaceholder="Search orders, customers, products..."
+        filters={filters ?? {}}
+        resetHref={resetPath(mode)}
+        selects={[
+          { name: "payment", label: "Payment", options: uniqueOptions(orders.map((order) => order.paymentStatus), "All payments") },
+          { name: "stage", label: "Stage", options: uniqueOptions(orders.map((order) => order.orderPipelineStage), "All stages") },
+          { name: "status", label: "Commission", options: uniqueOptions(orders.map((order) => order.commissionStatus), "All commissions") }
+        ]}
+      />
+
+      <Card className="overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full min-w-[1100px] text-left text-sm">
           <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
             <tr>
@@ -74,7 +126,7 @@ export function OrdersTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-border bg-white">
-            {orders.map((order) => (
+            {rows.map((order) => (
               <tr key={order.id}>
                 <td className="px-5 py-4">
                   <Link href={`${basePath}/orders/${order.id}`} className="font-semibold text-clinic-navy transition hover:text-clinic-red">
@@ -105,14 +157,15 @@ export function OrdersTable({
                 <td className="px-5 py-4 text-slate-600">{order.createdAt}</td>
               </tr>
             ))}
-            {orders.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
                 <td className="px-5 py-10 text-center text-slate-500" colSpan={16}>No orders found for this workspace yet.</td>
               </tr>
             ) : null}
           </tbody>
         </table>
-      </div>
-    </Card>
+        </div>
+      </Card>
+    </div>
   );
 }

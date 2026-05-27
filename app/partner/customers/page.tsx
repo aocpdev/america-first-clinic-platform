@@ -1,11 +1,13 @@
 import { CustomerList } from "@/components/customers/customer-list";
+import type { RecordFiltersState } from "@/components/filters/record-filters";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requirePartner } from "@/lib/auth/current-user";
 import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { customerListInclude, mapCustomerRows } from "@/lib/customers/queries";
 import { prisma } from "@/lib/db/prisma";
 
-export default async function PartnerCustomersPage() {
+export default async function PartnerCustomersPage({ searchParams }: { searchParams: Promise<RecordFiltersState> }) {
+  const filters = await searchParams;
   const user = await requirePartner();
   const isGroupLeader = user.role === "GROUP_LEADER";
   const [partnerProfile, groupLeaderProfile] = await Promise.all([
@@ -39,7 +41,7 @@ export default async function PartnerCustomersPage() {
 
   return (
     <SidebarShell nav={isGroupLeader ? groupLeaderNav : partnerNav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Customers">
-      <CustomerList customers={mapCustomerRows(customers)} mode="partner" />
+      <CustomerList customers={mapCustomerRows(customers)} mode="partner" filters={filters} />
     </SidebarShell>
   );
 }

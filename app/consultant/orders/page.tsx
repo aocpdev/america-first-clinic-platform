@@ -1,5 +1,6 @@
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { OrdersTable } from "@/components/orders/orders-table";
+import type { RecordFiltersState } from "@/components/filters/record-filters";
 import { Card } from "@/components/ui/card";
 import { requireApprovedConsultant } from "@/lib/auth/current-user";
 import { consultantNav } from "@/lib/constants/navigation";
@@ -7,7 +8,8 @@ import { prisma } from "@/lib/db/prisma";
 import { mapOrderRows, orderListInclude } from "@/lib/orders/queries";
 import { currency } from "@/lib/utils";
 
-export default async function ConsultantOrdersPage() {
+export default async function ConsultantOrdersPage({ searchParams }: { searchParams: Promise<RecordFiltersState> }) {
+  const filters = await searchParams;
   const user = await requireApprovedConsultant();
   const consultantProfile = user.consultantProfile;
   const orders = consultantProfile
@@ -41,7 +43,7 @@ export default async function ConsultantOrdersPage() {
             <p className="mt-3 text-3xl font-semibold text-clinic-red">{currency(commissionCents / 100)}</p>
           </Card>
         </div>
-        <OrdersTable orders={rows} mode="consultant" />
+        <OrdersTable orders={rows} mode="consultant" filters={filters} />
       </div>
     </SidebarShell>
   );

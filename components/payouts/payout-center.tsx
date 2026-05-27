@@ -5,12 +5,14 @@ import { ArrowUpRight, BadgeCheck, Banknote, CheckCircle2, Clock3, Landmark, Loc
 import { markCommissionSplitPaid } from "@/app/payouts/actions";
 import type { CommissionLedgerEntry, CommissionLedgerScope } from "@/lib/commissions/queries";
 import { cn, currency } from "@/lib/utils";
+import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type RecordFiltersState } from "@/components/filters/record-filters";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
 type PayoutCenterProps = {
   entries: CommissionLedgerEntry[];
   scope: CommissionLedgerScope;
+  filters?: RecordFiltersState;
 };
 
 const statusCopy: Record<CommissionStatus, string> = {
@@ -61,6 +63,12 @@ function returnPath(scope: CommissionLedgerScope) {
   return scope === "admin" ? "/admin/payouts" : "/partner/payouts";
 }
 
+function resetPath(scope: CommissionLedgerScope) {
+  if (scope === "admin") return "/admin/payouts";
+  if (scope === "consultant") return "/consultant/payouts";
+  return "/partner/payouts";
+}
+
 function visiblePayoutEntries(scope: CommissionLedgerScope, entries: CommissionLedgerEntry[]) {
   if (scope === "admin") {
     return entries.filter((entry) => entry.payoutResponsibility === "COMPANY" && entry.participantRole === "PARTNER");
@@ -79,6 +87,36 @@ function visiblePayoutEntries(scope: CommissionLedgerScope, entries: CommissionL
   }
 
   return entries.filter((entry) => entry.participantRole === "CONSULTANT");
+}
+
+function applyPayoutFilters(entries: CommissionLedgerEntry[], filters?: RecordFiltersState) {
+  const normalized = normalizeFilters(filters);
+
+  return entries.filter((entry) => (
+    matchesSearch(normalized.q, [
+      entry.orderNumber,
+      entry.customerName,
+      entry.customerEmail,
+      entry.participantName,
+      entry.participantEmail,
+      roleCopy[entry.participantRole],
+      statusCopy[entry.status]
+    ]) &&
+    matchesSelect(entry.status, normalized.status) &&
+    matchesSelect(entry.participantRole, normalized.role)
+  ));
+}
+
+function relatedPartnerObligations(entry: CommissionLedgerEntry, entries: CommissionLedgerEntry[]) {
+  return entries.filter((item) => (
+    item.orderId === entry.orderId &&
+    item.payoutResponsibility === "PARTNER" &&
+    item.participantRole !== "PARTNER"
+  ));
+}
+
+function partnerCompanyPayments(entries: CommissionLedgerEntry[]) {
+  return entries.filter((entry) => entry.payoutResponsibility === "COMPANY" && entry.participantRole === "PARTNER");
 }
 
 function copyForScope(scope: CommissionLedgerScope) {
@@ -183,11 +221,15 @@ function PayoutMetric({
 function PayoutRow({
   entry,
   scope,
-  canMarkPaid
+  canMarkPaid,
+  relatedEntries = [],
+  sourceCompanyPayment
 }: {
   entry: CommissionLedgerEntry;
   scope: CommissionLedgerScope;
   canMarkPaid: boolean;
+  relatedEntries?: CommissionLedgerEntry[];
+  sourceCompanyPayment?: CommissionLedgerEntry;
 }) {
   return (
     <div className="grid gap-4 border-t border-border px-5 py-5 lg:grid-cols-[1.15fr_1fr_0.75fr_0.7fr_auto] lg:items-center">
@@ -231,6 +273,34 @@ function PayoutRow({
           </form>
         ) : null}
       </div>
+
+      {sourceCompanyPayment ? (
+        <div className="rounded-[24px] border border-blue-100 bg-blue-50/70 p-4 lg:col-span-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Funded by company partner payout</p>
+          <p className="mt-2 text-sm leading-6 text-slate-600">
+            Company payout for this order: <span className="font-semibold text-clinic-navy">{dollars(sourceCompanyPayment.amountCents)}</span>{" "}
+            ({statusCopy[sourceCompanyPayment.status]}). Use this packet to reconcile what the partner received against what the team is owed.
+          </p>
+        </div>
+      ) : null}
+
+      {relatedEntries.length ? (
+        <div className="rounded-[24px] border border-emerald-100 bg-emerald-50/70 p-4 lg:col-span-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Downline obligations funded by this partner payout</p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {relatedEntries.map((item) => (
+              <div key={item.id} className="rounded-2xl bg-white p-3 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{roleCopy[item.participantRole]}</p>
+                  <Badge className={cn("px-2 py-1 text-[11px]", statusClassName[item.status])}>{statusCopy[item.status]}</Badge>
+                </div>
+                <p className="mt-2 truncate font-semibold text-clinic-ink">{item.participantName}</p>
+                <p className="mt-1 font-semibold text-emerald-700">{dollars(item.amountCents)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -247,8 +317,9 @@ function EmptyPayouts({ message }: { message: string }) {
   );
 }
 
-export function PayoutCenter({ entries, scope }: PayoutCenterProps) {
-  const rows = visiblePayoutEntries(scope, entries);
+export function PayoutCenter({ entries, scope, filters }: PayoutCenterProps) {
+  const visibleRows = visiblePayoutEntries(scope, entries);
+  const rows = applyPayoutFilters(visibleRows, filters);
   const copy = copyForScope(scope);
   const pending = sum(rows, (entry) => entry.status === "PENDING");
   const approved = sum(rows, (entry) => entry.status === "APPROVED");
@@ -260,6 +331,21 @@ export function PayoutCenter({ entries, scope }: PayoutCenterProps) {
   const pendingRows = rows.filter((entry) => entry.status === "PENDING");
   const readyRows = rows.filter((entry) => entry.status === "APPROVED");
   const historyRows = rows.filter((entry) => entry.status === "PAID" || entry.status === "REJECTED").slice(0, 12);
+  const companyPayments = scope === "partner" ? applyPayoutFilters(partnerCompanyPayments(entries), filters) : [];
+  const statusOptions = [
+    { label: "All statuses", value: "ALL" },
+    { label: "Pending", value: "PENDING" },
+    { label: "Ready", value: "APPROVED" },
+    { label: "Paid", value: "PAID" },
+    { label: "Deferred", value: "REJECTED" }
+  ];
+  const roleOptions = [
+    { label: "All roles", value: "ALL" },
+    { label: "Partners", value: "PARTNER" },
+    { label: "Managers", value: "MANAGER" },
+    { label: "Leaders", value: "GROUP_LEADER" },
+    { label: "Sellers", value: "CONSULTANT" }
+  ];
 
   return (
     <div className="space-y-6">
@@ -331,6 +417,58 @@ export function PayoutCenter({ entries, scope }: PayoutCenterProps) {
         </div>
       ) : null}
 
+      <RecordFilters
+        title="Payout filters"
+        description="Search by partner, team member, customer, order, status, or role."
+        searchPlaceholder="Search payouts, customers, orders..."
+        filters={filters ?? {}}
+        resetHref={resetPath(scope)}
+        selects={[
+          { name: "status", label: "Status", options: statusOptions },
+          { name: "role", label: "Role", options: roleOptions }
+        ]}
+      />
+
+      {scope === "partner" && companyPayments.length ? (
+        <Card className="overflow-hidden rounded-[28px] border-blue-100 bg-blue-50/40">
+          <div className="border-b border-blue-100 p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">Company payments received</p>
+            <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Partner payout packets</h3>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+              These are the partner commissions paid or owed by the company. Each packet maps to the team obligations below so you can identify who to pay and how much.
+            </p>
+          </div>
+          <div className="grid gap-3 p-4 lg:grid-cols-2">
+            {companyPayments.map((entry) => {
+              const obligations = relatedPartnerObligations(entry, entries);
+              return (
+                <div key={entry.id} className="rounded-[24px] border border-border bg-white p-4 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <Link href={orderHref(scope, entry.orderId)} className="inline-flex items-center gap-2 font-semibold text-clinic-navy">
+                        {entry.orderNumber} <ArrowUpRight className="h-4 w-4" />
+                      </Link>
+                      <p className="mt-1 text-sm text-slate-600">{entry.customerName}</p>
+                    </div>
+                    <Badge className={cn("px-3 py-1.5", statusClassName[entry.status])}>{statusCopy[entry.status]}</Badge>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl bg-clinic-mist p-3">
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Received</p>
+                      <p className="mt-1 text-xl font-semibold text-clinic-navy">{dollars(entry.amountCents)}</p>
+                    </div>
+                    <div className="rounded-2xl bg-emerald-50 p-3">
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Team owed</p>
+                      <p className="mt-1 text-xl font-semibold text-emerald-700">{dollars(sum(obligations))}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      ) : null}
+
       <Card className="overflow-hidden">
         <div className="border-b border-border p-6">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -350,7 +488,14 @@ export function PayoutCenter({ entries, scope }: PayoutCenterProps) {
               <div>
                 <div className="bg-emerald-50 px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Ready to pay</div>
                 {readyRows.map((entry) => (
-                  <PayoutRow key={entry.id} entry={entry} scope={scope} canMarkPaid={copy.showActions} />
+                  <PayoutRow
+                    key={entry.id}
+                    entry={entry}
+                    scope={scope}
+                    canMarkPaid={copy.showActions}
+                    relatedEntries={scope === "admin" ? relatedPartnerObligations(entry, entries) : []}
+                    sourceCompanyPayment={scope === "partner" ? partnerCompanyPayments(entries).find((item) => item.orderId === entry.orderId) : undefined}
+                  />
                 ))}
               </div>
             ) : null}
@@ -359,7 +504,14 @@ export function PayoutCenter({ entries, scope }: PayoutCenterProps) {
               <div>
                 <div className="bg-amber-50 px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Pending approval</div>
                 {pendingRows.map((entry) => (
-                  <PayoutRow key={entry.id} entry={entry} scope={scope} canMarkPaid={false} />
+                  <PayoutRow
+                    key={entry.id}
+                    entry={entry}
+                    scope={scope}
+                    canMarkPaid={false}
+                    relatedEntries={scope === "admin" ? relatedPartnerObligations(entry, entries) : []}
+                    sourceCompanyPayment={scope === "partner" ? partnerCompanyPayments(entries).find((item) => item.orderId === entry.orderId) : undefined}
+                  />
                 ))}
               </div>
             ) : null}
@@ -368,7 +520,14 @@ export function PayoutCenter({ entries, scope }: PayoutCenterProps) {
               <div>
                 <div className="bg-clinic-mist px-5 py-3 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Recent history</div>
                 {historyRows.map((entry) => (
-                  <PayoutRow key={entry.id} entry={entry} scope={scope} canMarkPaid={false} />
+                  <PayoutRow
+                    key={entry.id}
+                    entry={entry}
+                    scope={scope}
+                    canMarkPaid={false}
+                    relatedEntries={scope === "admin" ? relatedPartnerObligations(entry, entries) : []}
+                    sourceCompanyPayment={scope === "partner" ? partnerCompanyPayments(entries).find((item) => item.orderId === entry.orderId) : undefined}
+                  />
                 ))}
               </div>
             ) : null}

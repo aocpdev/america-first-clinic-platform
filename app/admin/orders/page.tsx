@@ -1,12 +1,14 @@
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { OrdersTable } from "@/components/orders/orders-table";
+import type { RecordFiltersState } from "@/components/filters/record-filters";
 import { Card } from "@/components/ui/card";
 import { adminNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { mapOrderRows, orderListInclude } from "@/lib/orders/queries";
 import { currency } from "@/lib/utils";
 
-export default async function AdminOrdersPage() {
+export default async function AdminOrdersPage({ searchParams }: { searchParams: Promise<RecordFiltersState> }) {
+  const filters = await searchParams;
   const orders = await prisma.order.findMany({
     include: orderListInclude,
     orderBy: { createdAt: "desc" },
@@ -34,7 +36,7 @@ export default async function AdminOrdersPage() {
             <p className="mt-3 text-3xl font-semibold text-clinic-red">{currency(poolCents / 100)}</p>
           </Card>
         </div>
-        <OrdersTable orders={rows} mode="admin" />
+        <OrdersTable orders={rows} mode="admin" filters={filters} />
       </div>
     </SidebarShell>
   );

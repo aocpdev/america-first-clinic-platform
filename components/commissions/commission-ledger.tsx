@@ -4,6 +4,7 @@ import { ArrowUpRight, CheckCircle2, Clock3, DollarSign, FileText, WalletCards }
 
 import type { CommissionLedgerEntry, CommissionLedgerScope } from "@/lib/commissions/queries";
 import { cn, currency } from "@/lib/utils";
+import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type RecordFiltersState } from "@/components/filters/record-filters";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 
@@ -12,6 +13,7 @@ type CommissionLedgerProps = {
   scope: CommissionLedgerScope;
   title: string;
   description: string;
+  filters?: RecordFiltersState;
 };
 
 const statusCopy: Record<CommissionStatus, string> = {
@@ -136,6 +138,30 @@ function visibleEntries(scope: CommissionLedgerScope, entries: CommissionLedgerE
   return entries;
 }
 
+function resetPath(scope: CommissionLedgerScope) {
+  if (scope === "admin") return "/admin/commissions";
+  if (scope === "consultant") return "/consultant/commissions";
+  return "/partner/commissions";
+}
+
+function applyCommissionFilters(entries: CommissionLedgerEntry[], filters?: RecordFiltersState) {
+  const normalized = normalizeFilters(filters);
+
+  return entries.filter((entry) => (
+    matchesSearch(normalized.q, [
+      entry.orderNumber,
+      entry.customerName,
+      entry.customerEmail,
+      entry.participantName,
+      entry.participantEmail,
+      roleCopy[entry.participantRole],
+      statusCopy[entry.status]
+    ]) &&
+    matchesSelect(entry.status, normalized.status) &&
+    matchesSelect(entry.participantRole, normalized.role)
+  ));
+}
+
 function helperCopy(scope: CommissionLedgerScope) {
   if (scope === "admin") {
     return "Company-wide ledger across partner pools, manager and leader overrides, seller commissions, approvals, deferrals, and paid payouts.";
@@ -172,9 +198,10 @@ function EmptyLedger({ scope }: { scope: CommissionLedgerScope }) {
   );
 }
 
-export function CommissionLedger({ entries, scope, title, description }: CommissionLedgerProps) {
-  const metrics = metricsFor(scope, entries);
-  const rows = visibleEntries(scope, entries);
+export function CommissionLedger({ entries, scope, title, description, filters }: CommissionLedgerProps) {
+  const scopedRows = visibleEntries(scope, entries);
+  const rows = applyCommissionFilters(scopedRows, filters);
+  const metrics = metricsFor(scope, rows);
   const showInternalColumns = scope === "admin" || scope === "partner";
   const showTeamColumns = scope !== "consultant";
 
@@ -210,6 +237,38 @@ export function CommissionLedger({ entries, scope, title, description }: Commiss
           })}
         </div>
       </Card>
+
+      <RecordFilters
+        title="Commission filters"
+        description="Filter commission activity by customer, order, participant, status, or role."
+        searchPlaceholder="Search commissions, customers, orders..."
+        filters={filters ?? {}}
+        resetHref={resetPath(scope)}
+        selects={[
+          {
+            name: "status",
+            label: "Status",
+            options: [
+              { label: "All statuses", value: "ALL" },
+              { label: "Pending", value: "PENDING" },
+              { label: "Approved", value: "APPROVED" },
+              { label: "Paid", value: "PAID" },
+              { label: "Deferred", value: "REJECTED" }
+            ]
+          },
+          {
+            name: "role",
+            label: "Role",
+            options: [
+              { label: "All roles", value: "ALL" },
+              { label: "Partners", value: "PARTNER" },
+              { label: "Managers", value: "MANAGER" },
+              { label: "Leaders", value: "GROUP_LEADER" },
+              { label: "Sellers", value: "CONSULTANT" }
+            ]
+          }
+        ]}
+      />
 
       <Card className="overflow-hidden">
         <div className="border-b border-border p-6">

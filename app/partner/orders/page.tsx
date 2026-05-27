@@ -1,5 +1,6 @@
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { OrdersTable } from "@/components/orders/orders-table";
+import type { RecordFiltersState } from "@/components/filters/record-filters";
 import { Card } from "@/components/ui/card";
 import { requirePartner } from "@/lib/auth/current-user";
 import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
@@ -7,7 +8,8 @@ import { prisma } from "@/lib/db/prisma";
 import { mapOrderRows, orderListInclude } from "@/lib/orders/queries";
 import { currency } from "@/lib/utils";
 
-export default async function PartnerOrdersPage() {
+export default async function PartnerOrdersPage({ searchParams }: { searchParams: Promise<RecordFiltersState> }) {
+  const filters = await searchParams;
   const user = await requirePartner();
   const isGroupLeader = user.role === "GROUP_LEADER";
   const nav = isGroupLeader ? groupLeaderNav : partnerNav;
@@ -64,7 +66,7 @@ export default async function PartnerOrdersPage() {
             <p className="mt-3 text-3xl font-semibold text-clinic-red">{currency(consultantCommissionCents / 100)}</p>
           </Card>
         </div>
-        <OrdersTable orders={rows} mode={isGroupLeader ? "group_leader" : "partner"} />
+        <OrdersTable orders={rows} mode={isGroupLeader ? "group_leader" : "partner"} filters={filters} />
       </div>
     </SidebarShell>
   );
