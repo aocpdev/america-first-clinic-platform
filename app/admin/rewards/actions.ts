@@ -42,6 +42,9 @@ const campaignSchema = z
     goalMode: z.enum(["TOTAL_UNITS", "PRODUCT_BUNDLE"]).default("TOTAL_UNITS"),
     windowMode: z.enum(["CAMPAIGN_RANGE", "ROLLING_DAYS"]).default("CAMPAIGN_RANGE"),
     rollingWindowDays: z.coerce.number().int().min(1).max(365).optional(),
+    targetQuantity: z.coerce.number().int().min(1).max(999).default(1),
+    maxWinsPerParticipant: z.coerce.number().int().min(1).max(999).default(1),
+    maxTotalClaims: z.coerce.number().int().min(1).max(9999).optional(),
     rewardTitle: z.string().min(2),
     rewardDescription: z.string().optional(),
     rewardImageUrl: z.string().url().optional().or(z.literal("")),
@@ -196,6 +199,9 @@ export async function saveRewardCampaign(formData: FormData) {
     goalMode: formData.get("goalMode") || "TOTAL_UNITS",
     windowMode: formData.get("windowMode") || "CAMPAIGN_RANGE",
     rollingWindowDays: formData.get("rollingWindowDays") || undefined,
+    targetQuantity: formData.get("targetQuantity") || 1,
+    maxWinsPerParticipant: formData.get("maxWinsPerParticipant") || 1,
+    maxTotalClaims: formData.get("maxTotalClaims") || undefined,
     rewardTitle: formData.get("rewardTitle"),
     rewardDescription: formData.get("rewardDescription") || "",
     rewardImageUrl: formData.get("rewardImageUrl") || "",
@@ -218,12 +224,20 @@ export async function saveRewardCampaign(formData: FormData) {
     .filter((productId) => allowedProductIds.has(productId))
     .map((productId) => ({
       productId,
-      targetQuantity: Math.max(Number(formData.get(`targetQuantity:${productId}`) || 1), 1)
+      targetQuantity:
+        parsed.goalMode === "PRODUCT_BUNDLE"
+          ? Math.max(Number(formData.get(`targetQuantity:${productId}`) || 1), 1)
+          : 1
     }));
 
   if (campaignProducts.length === 0) {
     throw new Error("Selected products are not available for this company.");
   }
+
+  const totalTargetQuantity =
+    parsed.goalMode === "PRODUCT_BUNDLE"
+      ? campaignProducts.reduce((sum, item) => sum + item.targetQuantity, 0)
+      : parsed.targetQuantity;
 
   const data = {
     companyId: user.companyId,
@@ -235,6 +249,9 @@ export async function saveRewardCampaign(formData: FormData) {
     goalMode: parsed.goalMode,
     windowMode: parsed.windowMode,
     rollingWindowDays: parsed.windowMode === "ROLLING_DAYS" ? parsed.rollingWindowDays ?? 1 : null,
+    targetQuantity: totalTargetQuantity,
+    maxWinsPerParticipant: parsed.maxWinsPerParticipant,
+    maxTotalClaims: parsed.maxTotalClaims ?? null,
     rewardTitle: parsed.rewardTitle,
     rewardDescription: parsed.rewardDescription,
     rewardImageUrl: parsed.rewardImageUrl,

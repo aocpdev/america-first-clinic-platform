@@ -53,6 +53,11 @@ type RewardCampaign = {
   projectedRevenueCents: number;
   projectedMarginCents: number;
   totalTargetQuantity: number;
+  targetQuantity: number;
+  maxWinsPerParticipant: number;
+  maxTotalClaims: number | null;
+  claimCount: number;
+  remainingClaimInventory: number | null;
   products: Array<{
     productId: string;
     targetQuantity: number;
@@ -156,7 +161,7 @@ function campaignTargetLabel(campaign: RewardCampaign) {
       .join(" + ")}`;
   }
 
-  return `${campaign.totalTargetQuantity} total target units across ${campaign.products.length} product${
+  return `${campaign.targetQuantity} total units from any of ${campaign.products.length} selected product${
     campaign.products.length === 1 ? "" : "s"
   }`;
 }
@@ -260,9 +265,13 @@ function CampaignModal({
       ) as Record<string, string>,
     [campaign]
   );
+  const [goalMode, setGoalMode] = useState<RewardCampaign["goalMode"]>(campaign?.goalMode ?? "TOTAL_UNITS");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>(initialSelectedProductIds);
   const [targetQuantities, setTargetQuantities] = useState<Record<string, string>>(initialQuantities);
+  const [totalTargetQuantity, setTotalTargetQuantity] = useState(String(campaign?.targetQuantity ?? campaign?.totalTargetQuantity ?? 1));
   const [rewardValueDollars, setRewardValueDollars] = useState(campaign ? String(campaign.rewardValueCents / 100) : "0");
+  const [maxWinsPerParticipant, setMaxWinsPerParticipant] = useState(String(campaign?.maxWinsPerParticipant ?? 1));
+  const [maxTotalClaims, setMaxTotalClaims] = useState(campaign?.maxTotalClaims ? String(campaign.maxTotalClaims) : "");
   const [startsAtValue, setStartsAtValue] = useState(campaign ? dateInputValue(campaign.startsAt) : defaultCampaignStart());
   const [endsAtValue, setEndsAtValue] = useState(campaign ? dateInputValue(campaign.endsAt) : defaultCampaignEnd());
   const [windowMode, setWindowMode] = useState<RewardCampaign["windowMode"]>(campaign?.windowMode ?? "CAMPAIGN_RANGE");
@@ -272,10 +281,29 @@ function CampaignModal({
   const rewardValueCents = Math.max(Math.round((Number(rewardValueDollars) || 0) * 100), 0);
   const selectedProductIdSet = useMemo(() => new Set(selectedProductIds), [selectedProductIds]);
   const projection = useMemo(() => {
-    return products.reduce(
-      (total, product) => {
-        if (!selectedProductIdSet.has(product.id)) return total;
+    const selectedProducts = products.filter((product) => selectedProductIdSet.has(product.id));
 
+    if (goalMode === "TOTAL_UNITS") {
+      const targetUnits = Math.max(Number(totalTargetQuantity) || 1, 1);
+      const averageRevenueCents = selectedProducts.length
+        ? Math.round(selectedProducts.reduce((sum, product) => sum + product.priceCents, 0) / selectedProducts.length)
+        : 0;
+      const averageMarginCents = selectedProducts.length
+        ? Math.round(
+            selectedProducts.reduce((sum, product) => sum + Math.max(product.priceCents - product.internalCostCents, 0), 0) /
+              selectedProducts.length
+          )
+        : 0;
+
+      return {
+        units: targetUnits,
+        revenueCents: averageRevenueCents * targetUnits,
+        marginCents: averageMarginCents * targetUnits
+      };
+    }
+
+    return selectedProducts.reduce(
+      (total, product) => {
         const quantity = Math.max(Number(targetQuantities[product.id] || 1), 1);
         const productMarginCents = Math.max(product.priceCents - product.internalCostCents, 0);
 
@@ -287,8 +315,12 @@ function CampaignModal({
       },
       { units: 0, revenueCents: 0, marginCents: 0 }
     );
-  }, [products, selectedProductIdSet, targetQuantities]);
+  }, [goalMode, products, selectedProductIdSet, targetQuantities, totalTargetQuantity]);
+  const possibleWins = Math.max(Number(maxTotalClaims || maxWinsPerParticipant || 1), 1);
   const projectedNetCents = projection.marginCents - rewardValueCents;
+  const projectedMarginExposureCents = projection.marginCents * possibleWins;
+  const projectedRewardExposureCents = rewardValueCents * possibleWins;
+  const projectedNetExposureCents = projectedMarginExposureCents - projectedRewardExposureCents;
   const isProjectedLoss = projectedNetCents < 0;
   const overlapSummary = useMemo(() => {
     const startsAt = new Date(startsAtValue);
@@ -302,15 +334,15 @@ function CampaignModal({
       if (item.status === "COMPLETED") return false;
       return rangesOverlap(startsAt, endsAt, item.startsAt, item.endsAt);
     });
-    const rewardExposureCents = rewardValueCents + overlapping.reduce((sum, item) => sum + item.rewardValueCents, 0);
-    const marginExposureCents = projection.marginCents + overlapping.reduce((sum, item) => sum + item.projectedMarginCents, 0);
+    const rewardExposureCents = projectedRewardExposureCents + overlapping.reduce((sum, item) => sum + item.rewardValueCents, 0);
+    const marginExposureCents = projectedMarginExposureCents + overlapping.reduce((sum, item) => sum + item.projectedMarginCents, 0);
     return {
       overlapping,
       rewardExposureCents,
       marginExposureCents,
       netExposureCents: marginExposureCents - rewardExposureCents
     };
-  }, [campaign?.id, campaigns, endsAtValue, projectedNetCents, projection.marginCents, rewardValueCents, startsAtValue]);
+  }, [campaign?.id, campaigns, endsAtValue, projectedMarginExposureCents, projectedNetCents, projectedRewardExposureCents, rewardValueCents, startsAtValue]);
 
   function toggleProduct(productId: string, checked: boolean) {
     setSelectedProductIds((current) => {
@@ -336,6 +368,7 @@ function CampaignModal({
 
         <form action={saveRewardCampaign} className="space-y-5 p-6">
           {campaign ? <input type="hidden" name="campaignId" value={campaign.id} /> : null}
+          <input type="hidden" name="targetQuantity" value={Math.max(Number(totalTargetQuantity) || 1, 1)} />
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Campaign name</span>
@@ -428,7 +461,8 @@ function CampaignModal({
                     type="radio"
                     name="goalMode"
                     value="TOTAL_UNITS"
-                    defaultChecked={(campaign?.goalMode ?? "TOTAL_UNITS") === "TOTAL_UNITS"}
+                    checked={goalMode === "TOTAL_UNITS"}
+                    onChange={() => setGoalMode("TOTAL_UNITS")}
                     className="mt-1 size-5"
                   />
                   <div>
@@ -445,7 +479,8 @@ function CampaignModal({
                     type="radio"
                     name="goalMode"
                     value="PRODUCT_BUNDLE"
-                    defaultChecked={campaign?.goalMode === "PRODUCT_BUNDLE"}
+                    checked={goalMode === "PRODUCT_BUNDLE"}
+                    onChange={() => setGoalMode("PRODUCT_BUNDLE")}
                     className="mt-1 size-5"
                   />
                   <div>
@@ -457,6 +492,28 @@ function CampaignModal({
                 </div>
               </label>
             </div>
+            {goalMode === "TOTAL_UNITS" ? (
+              <div className="mt-4 rounded-[1.5rem] border border-blue-100 bg-blue-50 p-4">
+                <div className="grid gap-4 md:grid-cols-[1fr_180px] md:items-end">
+                  <div>
+                    <p className="text-sm font-semibold text-clinic-ink">Any selected product target</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      Sellers can sell any combination of the selected products. The reward unlocks when the total reaches this quantity.
+                    </p>
+                  </div>
+                  <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Total units required</span>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={999}
+                      value={totalTargetQuantity}
+                      onChange={(event) => setTotalTargetQuantity(event.target.value)}
+                    />
+                  </label>
+                </div>
+              </div>
+            ) : null}
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {products.map((product) => {
                 const marginCents = Math.max(product.priceCents - product.internalCostCents, 0);
@@ -480,16 +537,22 @@ function CampaignModal({
                       </div>
                     </div>
                     <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
-                      <Input
-                        name={`targetQuantity:${product.id}`}
-                        type="number"
-                        min={1}
-                        value={campaignQuantity(product.id)}
-                        onChange={(event) => setTargetQuantities((current) => ({ ...current, [product.id]: event.target.value }))}
-                        placeholder="Target units"
-                      />
+                      {goalMode === "PRODUCT_BUNDLE" ? (
+                        <Input
+                          name={`targetQuantity:${product.id}`}
+                          type="number"
+                          min={1}
+                          value={campaignQuantity(product.id)}
+                          onChange={(event) => setTargetQuantities((current) => ({ ...current, [product.id]: event.target.value }))}
+                          placeholder="Target units"
+                        />
+                      ) : (
+                        <input type="hidden" name={`targetQuantity:${product.id}`} value={campaignQuantity(product.id)} />
+                      )}
                       <div className="rounded-2xl bg-clinic-mist px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-clinic-navy">
-                        {money(marginCents * Math.max(Number(campaignQuantity(product.id) || 1), 1))} margin
+                        {goalMode === "PRODUCT_BUNDLE"
+                          ? `${money(marginCents * Math.max(Number(campaignQuantity(product.id) || 1), 1))} margin`
+                          : "Counts toward total"}
                       </div>
                     </div>
                   </label>
@@ -530,6 +593,24 @@ function CampaignModal({
                 </p>
                 <p className={`mt-1 text-2xl font-semibold ${isProjectedLoss ? "text-clinic-red" : "text-clinic-navy"}`}>
                   {money(projectedNetCents)}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl bg-white p-4 shadow-line">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Possible wins modeled</p>
+                <p className="mt-1 text-xl font-semibold text-clinic-navy">{possibleWins}</p>
+              </div>
+              <div className="rounded-2xl bg-white p-4 shadow-line">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Reward exposure</p>
+                <p className="mt-1 text-xl font-semibold text-clinic-navy">{money(projectedRewardExposureCents)}</p>
+              </div>
+              <div className={`rounded-2xl p-4 ${projectedNetExposureCents < 0 ? "bg-red-50" : "bg-emerald-50"}`}>
+                <p className={`text-[11px] font-bold uppercase tracking-[0.12em] ${projectedNetExposureCents < 0 ? "text-clinic-red" : "text-emerald-700"}`}>
+                  Net exposure
+                </p>
+                <p className={`mt-1 text-xl font-semibold ${projectedNetExposureCents < 0 ? "text-clinic-red" : "text-emerald-800"}`}>
+                  {money(projectedNetExposureCents)}
                 </p>
               </div>
             </div>
@@ -603,9 +684,38 @@ function CampaignModal({
               />
             </label>
             <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Wins per seller</span>
+              <Input
+                name="maxWinsPerParticipant"
+                type="number"
+                min={1}
+                max={999}
+                value={maxWinsPerParticipant}
+                onChange={(event) => setMaxWinsPerParticipant(event.target.value)}
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Total campaign cap</span>
+              <Input
+                name="maxTotalClaims"
+                type="number"
+                min={1}
+                max={9999}
+                value={maxTotalClaims}
+                onChange={(event) => setMaxTotalClaims(event.target.value)}
+                placeholder="Optional"
+              />
+            </label>
+            <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Image URL</span>
               <Input name="rewardImageUrl" defaultValue={campaign?.rewardImageUrl ?? ""} placeholder="Optional image URL" />
             </label>
+            <div className="rounded-[1.5rem] border border-border bg-clinic-mist p-4 md:col-span-2">
+              <p className="text-sm font-semibold text-clinic-ink">Limit behavior</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">
+                Participants can win this campaign up to the seller limit. If the total campaign cap is reached, the campaign stops issuing new rewards while keeping all history visible.
+              </p>
+            </div>
             <label className="space-y-2 md:col-span-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Reward details</span>
               <textarea name="rewardDescription" defaultValue={campaign?.rewardDescription ?? ""} className="min-h-20 w-full rounded-2xl border border-input bg-white px-4 py-3 text-sm text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring" />
@@ -870,6 +980,22 @@ export function AdminRewardsEditor({
                   <div className={`rounded-2xl p-4 ${netCents < 0 ? "bg-red-50" : "bg-white shadow-line"}`}>
                     <p className={`text-[11px] font-bold uppercase tracking-[0.12em] ${netCents < 0 ? "text-clinic-red" : "text-slate-500"}`}>Net</p>
                     <p className={`mt-1 font-semibold ${netCents < 0 ? "text-clinic-red" : "text-clinic-navy"}`}>{money(netCents)}</p>
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl bg-clinic-mist p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Wins per seller</p>
+                    <p className="mt-1 font-semibold text-clinic-navy">{campaign.maxWinsPerParticipant}</p>
+                  </div>
+                  <div className="rounded-2xl bg-clinic-mist p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Claims issued</p>
+                    <p className="mt-1 font-semibold text-clinic-navy">{campaign.claimCount}</p>
+                  </div>
+                  <div className="rounded-2xl bg-clinic-mist p-4">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Campaign cap</p>
+                    <p className="mt-1 font-semibold text-clinic-navy">
+                      {campaign.maxTotalClaims ? `${campaign.remainingClaimInventory ?? 0} left` : "No global cap"}
+                    </p>
                   </div>
                 </div>
                 <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">

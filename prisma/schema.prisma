@@ -764,6 +764,9 @@ model RewardCampaign {
   goalMode          RewardCampaignGoalMode   @default(TOTAL_UNITS)
   windowMode        RewardCampaignWindowMode @default(CAMPAIGN_RANGE)
   rollingWindowDays Int?
+  targetQuantity    Int                      @default(1)
+  maxWinsPerParticipant Int                   @default(1)
+  maxTotalClaims    Int?
   rewardTitle       String
   rewardDescription String?
   rewardImageUrl    String?
@@ -806,9 +809,12 @@ model RewardCampaignClaim {
   groupLeaderProfileId String?               @db.Uuid
   groupLeaderProfile   GroupLeaderProfile?   @relation(fields: [groupLeaderProfileId], references: [id])
   participantRole      RewardParticipantRole
+  sequence             Int                   @default(1)
   status               RewardClaimStatus     @default(EARNED)
   rewardValueType      RewardValueType
   rewardValueCents     Int                   @default(0)
+  progressWindowStartsAt DateTime?
+  progressWindowEndsAt DateTime?
   completedAt          DateTime              @default(now())
   redeemedAt           DateTime?
   fulfilledAt          DateTime?
@@ -816,9 +822,10 @@ model RewardCampaignClaim {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 
-  @@unique([campaignId, userId])
+  @@unique([campaignId, userId, sequence])
   @@index([companyId, status])
   @@index([campaignId, status])
+  @@index([campaignId, userId])
   @@index([userId, status])
   @@index([consultantProfileId, status])
   @@index([managerProfileId, status])

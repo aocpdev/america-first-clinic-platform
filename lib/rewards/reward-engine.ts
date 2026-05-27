@@ -1,4 +1,4 @@
-import type { RewardParticipantRole, RewardValueType, User } from "@prisma/client";
+import type { RewardClaimStatus, RewardParticipantRole, RewardValueType, User } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
 const DAY_MS = 86_400_000;
@@ -433,27 +433,42 @@ export async function getRewardCampaigns(companyId: string) {
           }
         },
         orderBy: { createdAt: "asc" }
-      }
+      },
+      _count: { select: { claims: true } }
     },
     orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }]
   });
 
   return campaigns.map((campaign) => {
-    const projectedRevenueCents = campaign.products.reduce(
-      (sum, item) => sum + item.product.priceCents * item.targetQuantity,
-      0
-    );
-    const projectedMarginCents = campaign.products.reduce(
+    const bundleRevenueCents = campaign.products.reduce((sum, item) => sum + item.product.priceCents * item.targetQuantity, 0);
+    const bundleMarginCents = campaign.products.reduce(
       (sum, item) => sum + Math.max(item.product.priceCents - item.product.internalCostCents, 0) * item.targetQuantity,
       0
     );
+    const averageRevenueCents = campaign.products.length
+      ? Math.round(campaign.products.reduce((sum, item) => sum + item.product.priceCents, 0) / campaign.products.length)
+      : 0;
+    const averageMarginCents = campaign.products.length
+      ? Math.round(
+          campaign.products.reduce((sum, item) => sum + Math.max(item.product.priceCents - item.product.internalCostCents, 0), 0) /
+            campaign.products.length
+        )
+      : 0;
+    const totalTargetQuantity =
+      campaign.goalMode === "TOTAL_UNITS"
+        ? Math.max(campaign.targetQuantity, 1)
+        : Math.max(campaign.products.reduce((sum, item) => sum + item.targetQuantity, 0), 1);
+    const projectedRevenueCents = campaign.goalMode === "TOTAL_UNITS" ? averageRevenueCents * totalTargetQuantity : bundleRevenueCents;
+    const projectedMarginCents = campaign.goalMode === "TOTAL_UNITS" ? averageMarginCents * totalTargetQuantity : bundleMarginCents;
 
     return {
       ...campaign,
       isLive: campaign.status === "ACTIVE" && campaign.startsAt <= now && campaign.endsAt >= now,
       projectedRevenueCents,
       projectedMarginCents,
-      totalTargetQuantity: campaign.products.reduce((sum, item) => sum + item.targetQuantity, 0)
+      totalTargetQuantity,
+      claimCount: campaign._count.claims,
+      remainingClaimInventory: campaign.maxTotalClaims == null ? null : Math.max(campaign.maxTotalClaims - campaign._count.claims, 0)
     };
   });
 }
@@ -485,7 +500,8 @@ export async function getActiveRewardCampaignProgress(input: {
             }
           }
         }
-      }
+      },
+      _count: { select: { claims: true } }
     },
     orderBy: { endsAt: "asc" }
   });
@@ -495,7 +511,10 @@ export async function getActiveRewardCampaignProgress(input: {
   return Promise.all(
     campaigns.map(async (campaign) => {
       const productIds = campaign.products.map((item) => item.productId);
-      const targetQuantity = Math.max(campaign.products.reduce((sum, item) => sum + item.targetQuantity, 0), 1);
+      const targetQuantity =
+        campaign.goalMode === "TOTAL_UNITS"
+          ? Math.max(campaign.targetQuantity, 1)
+          : Math.max(campaign.products.reduce((sum, item) => sum + item.targetQuantity, 0), 1);
       const orderItems = await prisma.orderItem.findMany({
         where: {
           productId: { in: productIds },
@@ -525,13 +544,14 @@ export async function getActiveRewardCampaignProgress(input: {
         }
         const productProgress = campaign.products.map((item) => {
           const soldQuantity = soldQuantityByProduct.get(item.productId) ?? 0;
+          const itemTargetQuantity = campaign.goalMode === "TOTAL_UNITS" ? 1 : item.targetQuantity;
           return {
             productId: item.productId,
             title: item.product.title,
-            targetQuantity: item.targetQuantity,
+            targetQuantity: itemTargetQuantity,
             soldQuantity,
-            remainingQuantity: Math.max(item.targetQuantity - soldQuantity, 0),
-            isCompleted: soldQuantity >= item.targetQuantity
+            remainingQuantity: Math.max(itemTargetQuantity - soldQuantity, 0),
+            isCompleted: soldQuantity >= itemTargetQuantity
           };
         });
         const rawSoldQuantity = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -539,17 +559,20 @@ export async function getActiveRewardCampaignProgress(input: {
           campaign.goalMode === "PRODUCT_BUNDLE"
             ? productProgress.reduce((sum, item) => sum + Math.min(item.soldQuantity, item.targetQuantity), 0)
             : rawSoldQuantity;
+        const completionCount =
+          campaign.goalMode === "PRODUCT_BUNDLE"
+            ? productProgress.length
+              ? Math.min(...productProgress.map((item) => Math.floor(item.soldQuantity / Math.max(item.targetQuantity, 1))))
+              : 0
+            : Math.floor(rawSoldQuantity / targetQuantity);
         const revenueCents = selectedItems.reduce((sum, item) => sum + item.totalCents, 0);
         const marginCents = selectedItems.reduce(
           (sum, item) => sum + Math.max(item.product.priceCents - item.product.internalCostCents, 0) * item.quantity,
           0
         );
-        const isCompleted =
-          campaign.goalMode === "PRODUCT_BUNDLE"
-            ? productProgress.length > 0 && productProgress.every((item) => item.isCompleted)
-            : rawSoldQuantity >= targetQuantity;
+        const isCompleted = completionCount > 0;
 
-        return { productProgress, rawSoldQuantity, qualifiedSoldQuantity, revenueCents, marginCents, isCompleted };
+        return { productProgress, rawSoldQuantity, qualifiedSoldQuantity, completionCount, revenueCents, marginCents, isCompleted };
       }
 
       const rollingWindowDays = Math.max(campaign.rollingWindowDays ?? 1, 1);
@@ -571,8 +594,9 @@ export async function getActiveRewardCampaignProgress(input: {
       const selectedProgress = bestRollingWindow ?? fixedProgress;
       const activeWindowStartsAt = bestRollingWindow?.startsAt ?? null;
       const activeWindowEndsAt = bestRollingWindow?.endsAt ?? null;
+      const claimInventoryRemaining = campaign.maxTotalClaims == null ? null : Math.max(campaign.maxTotalClaims - campaign._count.claims, 0);
       const claim = selectedProgress.isCompleted && input.userId && participant
-        ? await ensureCampaignClaim({
+        ? await ensureCampaignClaims({
             campaignId: campaign.id,
             companyId: input.companyId,
             userId: input.userId,
@@ -581,14 +605,28 @@ export async function getActiveRewardCampaignProgress(input: {
             managerProfileId: input.managerProfileId ?? null,
             groupLeaderProfileId: input.groupLeaderProfileId ?? null,
             rewardValueType: campaign.rewardValueType,
-            rewardValueCents: campaign.rewardValueCents
+            rewardValueCents: campaign.rewardValueCents,
+            completionCount: selectedProgress.completionCount,
+            maxWinsPerParticipant: campaign.maxWinsPerParticipant,
+            claimInventoryRemaining,
+            progressWindowStartsAt: activeWindowStartsAt,
+            progressWindowEndsAt: activeWindowEndsAt
           })
         : input.userId
-          ? await prisma.rewardCampaignClaim.findUnique({
-              where: { campaignId_userId: { campaignId: campaign.id, userId: input.userId } },
+          ? await prisma.rewardCampaignClaim.findFirst({
+              where: { campaignId: campaign.id, userId: input.userId },
+              orderBy: { sequence: "desc" },
               select: { id: true, status: true, rewardValueType: true, rewardValueCents: true }
             })
           : null;
+
+      const [earnedCount, globalClaimCount] = await Promise.all([
+        input.userId ? prisma.rewardCampaignClaim.count({ where: { campaignId: campaign.id, userId: input.userId } }) : Promise.resolve(0),
+        prisma.rewardCampaignClaim.count({ where: { campaignId: campaign.id } })
+      ]);
+      const maxWinsPerParticipant = Math.max(campaign.maxWinsPerParticipant, 1);
+      const remainingWins = Math.max(maxWinsPerParticipant - earnedCount, 0);
+      const remainingClaimInventory = campaign.maxTotalClaims == null ? null : Math.max(campaign.maxTotalClaims - globalClaimCount, 0);
 
       return {
         ...campaign,
@@ -601,6 +639,13 @@ export async function getActiveRewardCampaignProgress(input: {
         isCompleted: selectedProgress.isCompleted,
         activeWindowStartsAt,
         activeWindowEndsAt,
+        earnedCount,
+        maxWinsPerParticipant,
+        remainingWins,
+        isLimitReached: remainingWins === 0 || remainingClaimInventory === 0,
+        maxTotalClaims: campaign.maxTotalClaims,
+        claimCount: globalClaimCount,
+        remainingClaimInventory,
         claimId: claim?.id ?? null,
         claimStatus: claim?.status ?? null,
         claimRewardValueType: claim?.rewardValueType ?? null,
@@ -623,7 +668,7 @@ function resolveRewardParticipant(input: {
   return null;
 }
 
-async function ensureCampaignClaim(input: {
+async function ensureCampaignClaims(input: {
   companyId: string;
   campaignId: string;
   userId: string;
@@ -633,27 +678,68 @@ async function ensureCampaignClaim(input: {
   groupLeaderProfileId?: string | null;
   rewardValueType: RewardValueType;
   rewardValueCents: number;
+  completionCount: number;
+  maxWinsPerParticipant: number;
+  claimInventoryRemaining: number | null;
+  progressWindowStartsAt?: Date | null;
+  progressWindowEndsAt?: Date | null;
 }) {
-  const existing = await prisma.rewardCampaignClaim.findUnique({
-    where: { campaignId_userId: { campaignId: input.campaignId, userId: input.userId } },
-    select: { id: true, status: true, rewardValueType: true, rewardValueCents: true }
+  const existing = await prisma.rewardCampaignClaim.findMany({
+    where: { campaignId: input.campaignId, userId: input.userId },
+    orderBy: { sequence: "desc" },
+    select: { id: true, sequence: true, status: true, rewardValueType: true, rewardValueCents: true }
   });
-  if (existing) return existing;
+  const latest = existing[0] ?? null;
+  const existingCount = existing.length;
+  const participantRemaining = Math.max(input.maxWinsPerParticipant - existingCount, 0);
+  const globalRemaining = input.claimInventoryRemaining ?? Number.POSITIVE_INFINITY;
+  const creatableCount = Math.max(Math.min(input.completionCount - existingCount, participantRemaining, globalRemaining), 0);
 
-  return prisma.rewardCampaignClaim.create({
-    data: {
-      companyId: input.companyId,
-      campaignId: input.campaignId,
-      userId: input.userId,
-      participantRole: input.participantRole,
-      consultantProfileId: input.consultantProfileId,
-      managerProfileId: input.managerProfileId,
-      groupLeaderProfileId: input.groupLeaderProfileId,
-      rewardValueType: input.rewardValueType,
-      rewardValueCents: input.rewardValueCents,
-      status: input.rewardValueType === "CASH" ? "PAYOUT_PENDING" : "EARNED"
+  if (creatableCount <= 0) return latest;
+
+  let created: { id: string; status: RewardClaimStatus; rewardValueType: RewardValueType; rewardValueCents: number } | null = null;
+  for (let index = 1; index <= creatableCount; index += 1) {
+    created = await prisma.rewardCampaignClaim.create({
+      data: {
+        companyId: input.companyId,
+        campaignId: input.campaignId,
+        userId: input.userId,
+        participantRole: input.participantRole,
+        consultantProfileId: input.consultantProfileId,
+        managerProfileId: input.managerProfileId,
+        groupLeaderProfileId: input.groupLeaderProfileId,
+        sequence: existingCount + index,
+        rewardValueType: input.rewardValueType,
+        rewardValueCents: input.rewardValueCents,
+        progressWindowStartsAt: input.progressWindowStartsAt,
+        progressWindowEndsAt: input.progressWindowEndsAt,
+        status: input.rewardValueType === "CASH" ? "PAYOUT_PENDING" : "EARNED"
+      },
+      select: { id: true, status: true, rewardValueType: true, rewardValueCents: true }
+    });
+  }
+
+  return created ?? latest;
+}
+
+export async function getRewardClaimHistory(input: {
+  companyId: string;
+  userId: string;
+}) {
+  return prisma.rewardCampaignClaim.findMany({
+    where: { companyId: input.companyId, userId: input.userId },
+    include: {
+      campaign: {
+        select: {
+          title: true,
+          rewardTitle: true,
+          rewardImageUrl: true,
+          rewardValueType: true
+        }
+      }
     },
-    select: { id: true, status: true, rewardValueType: true, rewardValueCents: true }
+    orderBy: [{ completedAt: "desc" }, { sequence: "desc" }],
+    take: 100
   });
 }
 

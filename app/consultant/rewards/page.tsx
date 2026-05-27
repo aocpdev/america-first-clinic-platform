@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requireApprovedConsultant } from "@/lib/auth/current-user";
 import { consultantNav } from "@/lib/constants/navigation";
-import { getActiveRewardCampaignProgress, getCompanyRewardLeaderboard, getRewardProgress } from "@/lib/rewards/reward-engine";
+import { getActiveRewardCampaignProgress, getCompanyRewardLeaderboard, getRewardClaimHistory, getRewardProgress } from "@/lib/rewards/reward-engine";
 
 export default async function ConsultantRewardsPage() {
   const user = await requireApprovedConsultant();
@@ -20,7 +20,7 @@ export default async function ConsultantRewardsPage() {
   }
 
   const sellerName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
-  const [progress, leaderboard, campaignProgress] = await Promise.all([
+  const [progress, leaderboard, campaignProgress, claimHistory] = await Promise.all([
     getRewardProgress({
       companyId: user.companyId,
       sellerName,
@@ -32,12 +32,13 @@ export default async function ConsultantRewardsPage() {
       companyId: user.companyId,
       userId: user.id,
       consultantProfileId: user.consultantProfile.id
-    })
+    }),
+    getRewardClaimHistory({ companyId: user.companyId, userId: user.id })
   ]);
 
   return (
     <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Rewards">
-      <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} />
+      <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} claimHistory={claimHistory} />
     </SidebarShell>
   );
 }

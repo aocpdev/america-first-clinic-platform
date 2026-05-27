@@ -54,6 +54,13 @@ type CampaignProgress = {
   claimStatus: "EARNED" | "PAYOUT_PENDING" | "PAYOUT_APPLIED" | "REDEEM_REQUESTED" | "FULFILLED" | null;
   claimRewardValueType: "CASH" | "NON_CASH" | null;
   claimRewardValueCents: number | null;
+  earnedCount: number;
+  maxWinsPerParticipant: number;
+  remainingWins: number;
+  isLimitReached: boolean;
+  maxTotalClaims: number | null;
+  claimCount: number;
+  remainingClaimInventory: number | null;
   progressPercent: number;
   remainingQuantity: number;
   products: Array<{ product: { title: string } }>;
@@ -65,6 +72,24 @@ type CampaignProgress = {
     remainingQuantity: number;
     isCompleted: boolean;
   }>;
+};
+
+type RewardClaimHistory = {
+  id: string;
+  sequence: number;
+  status: "EARNED" | "PAYOUT_PENDING" | "PAYOUT_APPLIED" | "REDEEM_REQUESTED" | "FULFILLED";
+  rewardValueType: "CASH" | "NON_CASH";
+  rewardValueCents: number;
+  completedAt: Date | string;
+  payoutAppliedAt: Date | string | null;
+  redeemedAt: Date | string | null;
+  fulfilledAt: Date | string | null;
+  campaign: {
+    title: string;
+    rewardTitle: string;
+    rewardImageUrl: string | null;
+    rewardValueType: "CASH" | "NON_CASH";
+  };
 };
 
 function money(cents: number) {
@@ -125,6 +150,8 @@ function productBundleLabel(campaign: CampaignProgress) {
 
 function campaignStatusText(campaign: CampaignProgress) {
   if (!campaign.isCompleted) {
+    if (campaign.remainingClaimInventory === 0) return "Campaign reward cap reached";
+    if (campaign.isLimitReached) return "Reward limit reached";
     if (campaign.goalMode === "PRODUCT_BUNDLE") return `${campaign.remainingQuantity} required units remaining`;
     return `${campaign.remainingQuantity} more to unlock`;
   }
@@ -147,6 +174,7 @@ export function RewardDashboard({
   salesToNextLevel,
   earnedRewards,
   campaignProgress = [],
+  claimHistory = [],
   leaderboard = []
 }: {
   sellerName: string;
@@ -159,6 +187,7 @@ export function RewardDashboard({
   salesToNextLevel: number;
   earnedRewards: Array<{ level: RewardLevel; reward: RewardLevel["rewards"][number] }>;
   campaignProgress?: CampaignProgress[];
+  claimHistory?: RewardClaimHistory[];
   leaderboard?: LeaderboardRow[];
 }) {
   const currentReward = currentLevel?.rewards[0] ?? null;
@@ -332,10 +361,18 @@ export function RewardDashboard({
                         <span className="rounded-full bg-clinic-mist px-4 py-2 text-sm font-bold text-clinic-navy">
                           {campaign.soldQuantity}/{campaign.targetQuantity}
                         </span>
+                        <span className="rounded-full bg-white px-4 py-2 text-sm font-bold text-clinic-navy shadow-line">
+                          Earned {campaign.earnedCount}/{campaign.maxWinsPerParticipant}
+                        </span>
                       </div>
                       <div className="mt-4 h-4 rounded-full bg-clinic-mist p-1">
                         <div className="h-2 rounded-full bg-clinic-red transition-all" style={{ width: `${campaign.progressPercent}%` }} />
                       </div>
+                      {campaign.maxTotalClaims ? (
+                        <p className="mt-3 text-xs font-semibold text-slate-500">
+                          {campaign.remainingClaimInventory ?? 0} of {campaign.maxTotalClaims} campaign rewards left.
+                        </p>
+                      ) : null}
                       {campaign.goalMode === "PRODUCT_BUNDLE" && campaign.productProgress.length ? (
                         <div className="mt-4 grid gap-2 sm:grid-cols-2">
                           {campaign.productProgress.map((item) => (
@@ -365,9 +402,9 @@ export function RewardDashboard({
                         <div>
                           <p className="text-xs font-bold uppercase text-emerald-700">Reward</p>
                           <p className="mt-1 font-semibold text-emerald-900">
-                            {campaign.rewardTitle}
-                            {campaign.rewardValueCents > 0 ? ` · ${money(campaign.rewardValueCents)}` : ""}
-                          </p>
+                          {campaign.rewardTitle}
+                          {campaign.rewardValueCents > 0 ? ` · ${money(campaign.rewardValueCents)}` : ""}
+                        </p>
                           <p className="mt-1 text-xs font-semibold text-emerald-700">
                             {money(campaign.revenueCents)} revenue · {money(campaign.marginCents)} margin
                           </p>
@@ -429,6 +466,55 @@ export function RewardDashboard({
           </div>
         </Card>
       </div>
+
+      <Card className="overflow-hidden rounded-[2rem]">
+        <div className="border-b border-border p-6">
+          <div className="flex items-center gap-3">
+            <Medal className="h-5 w-5 text-clinic-red" />
+            <div>
+              <p className="text-xs font-bold uppercase text-slate-500">Reward history</p>
+              <h2 className="mt-1 text-2xl font-semibold text-clinic-ink">Campaign wins and redemptions</h2>
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-3 p-5">
+          {claimHistory.length ? (
+            claimHistory.map((claim) => (
+              <div key={claim.id} className="flex flex-col gap-4 rounded-[1.5rem] border border-border bg-white p-4 shadow-line sm:flex-row sm:items-center">
+                <div className="grid size-16 shrink-0 place-items-center overflow-hidden rounded-2xl bg-clinic-mist">
+                  {claim.campaign.rewardImageUrl ? (
+                    <img src={claim.campaign.rewardImageUrl} alt={claim.campaign.rewardTitle} className="h-full w-full object-cover" />
+                  ) : (
+                    <Award className="h-6 w-6 text-clinic-navy" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-base font-semibold text-clinic-ink">{claim.campaign.rewardTitle}</p>
+                    <span className="rounded-full bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">Win #{claim.sequence}</span>
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                      {claim.status.replaceAll("_", " ").toLowerCase()}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {claim.campaign.title} · {formatShortDate(claim.completedAt)}
+                  </p>
+                </div>
+                <div className="rounded-2xl bg-clinic-mist px-4 py-3 text-left sm:w-40">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                    {claim.rewardValueType === "CASH" ? "Cash reward" : "Reward value"}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold text-clinic-navy">{money(claim.rewardValueCents)}</p>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500">
+              Campaign reward history will appear here after you complete a timed challenge.
+            </div>
+          )}
+        </div>
+      </Card>
 
       <Card className="overflow-hidden rounded-[2rem]">
         <div className="border-b border-border p-6">

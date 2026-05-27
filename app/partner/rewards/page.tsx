@@ -8,6 +8,7 @@ import {
   getActiveRewardCampaignProgress,
   getCompanyRewardLeaderboard,
   getRewardCampaigns,
+  getRewardClaimHistory,
   getRewardLevels,
   getRewardProgress,
   getScopedRewardLeaderboard
@@ -59,6 +60,7 @@ function campaignTimingLabel(campaign: {
 
 function campaignTargetLabel(campaign: {
   goalMode: "TOTAL_UNITS" | "PRODUCT_BUNDLE";
+  targetQuantity: number;
   totalTargetQuantity: number;
   products: Array<{ targetQuantity: number; product: { title: string } }>;
 }) {
@@ -70,7 +72,7 @@ function campaignTargetLabel(campaign: {
   const productLabel =
     names.length <= 2 ? names.join(" or ") : `${names.slice(0, 2).join(" or ")} + ${names.length - 2} more`;
 
-  return `${campaign.totalTargetQuantity} total units${productLabel ? ` from ${productLabel}` : ""}`;
+  return `${campaign.targetQuantity} total units${productLabel ? ` from ${productLabel}` : ""}`;
 }
 
 export default async function PartnerRewardsPage() {
@@ -92,7 +94,7 @@ export default async function PartnerRewardsPage() {
 
   if (isManager && user.managerProfile?.id) {
     const sellerName = user.managerProfile.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
-    const [progress, leaderboard, campaignProgress] = await Promise.all([
+    const [progress, leaderboard, campaignProgress, claimHistory] = await Promise.all([
       getRewardProgress({
         companyId: user.companyId,
         sellerName,
@@ -104,19 +106,20 @@ export default async function PartnerRewardsPage() {
         companyId: user.companyId,
         userId: user.id,
         managerProfileId: user.managerProfile.id
-      })
+      }),
+      getRewardClaimHistory({ companyId: user.companyId, userId: user.id })
     ]);
 
     return (
       <SidebarShell nav={nav} eyebrow="Manager" title="Rewards">
-        <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} />
+        <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} claimHistory={claimHistory} />
       </SidebarShell>
     );
   }
 
   if (isGroupLeader && user.groupLeaderProfile?.id) {
     const sellerName = user.groupLeaderProfile.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
-    const [progress, leaderboard, campaignProgress] = await Promise.all([
+    const [progress, leaderboard, campaignProgress, claimHistory] = await Promise.all([
       getRewardProgress({
         companyId: user.companyId,
         sellerName,
@@ -128,12 +131,13 @@ export default async function PartnerRewardsPage() {
         companyId: user.companyId,
         userId: user.id,
         groupLeaderProfileId: user.groupLeaderProfile.id
-      })
+      }),
+      getRewardClaimHistory({ companyId: user.companyId, userId: user.id })
     ]);
 
     return (
       <SidebarShell nav={nav} eyebrow="Group leader" title="Rewards">
-        <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} />
+        <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} claimHistory={claimHistory} />
       </SidebarShell>
     );
   }
