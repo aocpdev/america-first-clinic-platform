@@ -43,6 +43,20 @@ function durationLabel(startsAt: Date | string, endsAt: Date | string) {
   return `${days}-day campaign`;
 }
 
+function campaignTimingLabel(campaign: {
+  startsAt: Date | string;
+  endsAt: Date | string;
+  windowMode: "CAMPAIGN_RANGE" | "ROLLING_DAYS";
+  rollingWindowDays: number | null;
+}) {
+  if (campaign.windowMode === "ROLLING_DAYS") {
+    const days = Math.max(campaign.rollingWindowDays ?? 1, 1);
+    return `${days}-day rolling sprint · ${formatDateRange(campaign.startsAt, campaign.endsAt)}`;
+  }
+
+  return `${durationLabel(campaign.startsAt, campaign.endsAt)} · ${formatDateRange(campaign.startsAt, campaign.endsAt)}`;
+}
+
 function campaignTargetLabel(campaign: {
   goalMode: "TOTAL_UNITS" | "PRODUCT_BUNDLE";
   totalTargetQuantity: number;
@@ -265,7 +279,7 @@ export default async function PartnerRewardsPage() {
                         <p className="truncate font-semibold text-clinic-ink">{campaign.title}</p>
                         <p className="mt-1 line-clamp-2 text-sm text-slate-500">{campaignTargetLabel(campaign)}</p>
                         <p className="mt-1 text-sm font-semibold text-clinic-navy">
-                          {durationLabel(campaign.startsAt, campaign.endsAt)} · {formatDateRange(campaign.startsAt, campaign.endsAt)}
+                          {campaignTimingLabel(campaign)}
                         </p>
                       </div>
                       <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">Live</span>

@@ -40,6 +40,8 @@ const campaignSchema = z
     endsAt: z.coerce.date(),
     status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED"]),
     goalMode: z.enum(["TOTAL_UNITS", "PRODUCT_BUNDLE"]).default("TOTAL_UNITS"),
+    windowMode: z.enum(["CAMPAIGN_RANGE", "ROLLING_DAYS"]).default("CAMPAIGN_RANGE"),
+    rollingWindowDays: z.coerce.number().int().min(1).max(365).optional(),
     rewardTitle: z.string().min(2),
     rewardDescription: z.string().optional(),
     rewardImageUrl: z.string().url().optional().or(z.literal("")),
@@ -49,6 +51,10 @@ const campaignSchema = z
   .refine((data) => data.endsAt > data.startsAt, {
     message: "The campaign end date must be after the start date.",
     path: ["endsAt"]
+  })
+  .refine((data) => data.windowMode === "CAMPAIGN_RANGE" || Boolean(data.rollingWindowDays), {
+    message: "Rolling day campaigns need a day window.",
+    path: ["rollingWindowDays"]
   });
 
 export async function updateRewardLevel(formData: FormData) {
@@ -184,6 +190,8 @@ export async function saveRewardCampaign(formData: FormData) {
     endsAt: formData.get("endsAt"),
     status: formData.get("status") || "ACTIVE",
     goalMode: formData.get("goalMode") || "TOTAL_UNITS",
+    windowMode: formData.get("windowMode") || "CAMPAIGN_RANGE",
+    rollingWindowDays: formData.get("rollingWindowDays") || undefined,
     rewardTitle: formData.get("rewardTitle"),
     rewardDescription: formData.get("rewardDescription") || "",
     rewardImageUrl: formData.get("rewardImageUrl") || "",
@@ -221,6 +229,8 @@ export async function saveRewardCampaign(formData: FormData) {
     endsAt: parsed.endsAt,
     status: parsed.status,
     goalMode: parsed.goalMode,
+    windowMode: parsed.windowMode,
+    rollingWindowDays: parsed.windowMode === "ROLLING_DAYS" ? parsed.rollingWindowDays ?? 1 : null,
     rewardTitle: parsed.rewardTitle,
     rewardDescription: parsed.rewardDescription,
     rewardImageUrl: parsed.rewardImageUrl,

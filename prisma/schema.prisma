@@ -95,6 +95,11 @@ enum RewardCampaignGoalMode {
   PRODUCT_BUNDLE
 }
 
+enum RewardCampaignWindowMode {
+  CAMPAIGN_RANGE
+  ROLLING_DAYS
+}
+
 enum RewardClaimStatus {
   EARNED
   PAYOUT_PENDING
@@ -757,6 +762,8 @@ model RewardCampaign {
   endsAt            DateTime
   status            RewardCampaignStatus    @default(ACTIVE)
   goalMode          RewardCampaignGoalMode   @default(TOTAL_UNITS)
+  windowMode        RewardCampaignWindowMode @default(CAMPAIGN_RANGE)
+  rollingWindowDays Int?
   rewardTitle       String
   rewardDescription String?
   rewardImageUrl    String?

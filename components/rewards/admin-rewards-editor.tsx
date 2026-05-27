@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, CheckCircle2, DollarSign, Gift, Pencil, Plus, Send, Settings2, Target, Trophy } from "lucide-react";
+import { AlertTriangle, CalendarDays, CheckCircle2, DollarSign, Gift, Pencil, Plus, Send, Settings2, Target, Trophy } from "lucide-react";
 import { fulfillRewardClaim, markRewardPayoutApplied, saveRewardCampaign, saveRewardLevelBundle } from "@/app/admin/rewards/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -43,6 +43,8 @@ type RewardCampaign = {
   endsAt: Date | string;
   status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED";
   goalMode: "TOTAL_UNITS" | "PRODUCT_BUNDLE";
+  windowMode: "CAMPAIGN_RANGE" | "ROLLING_DAYS";
+  rollingWindowDays: number | null;
   rewardTitle: string;
   rewardDescription: string | null;
   rewardImageUrl: string | null;
@@ -126,6 +128,19 @@ function durationLabel(startsAt: Date | string, endsAt: Date | string) {
   if (days <= 8) return "Weekly sprint";
   if (days <= 35) return "Monthly campaign";
   return `${days}-day campaign`;
+}
+
+function campaignTimingLabel(campaign: Pick<RewardCampaign, "startsAt" | "endsAt" | "windowMode" | "rollingWindowDays">) {
+  if (campaign.windowMode === "ROLLING_DAYS") {
+    const days = Math.max(campaign.rollingWindowDays ?? 1, 1);
+    return `${days}-day rolling sprint · ${formatDateRange(campaign.startsAt, campaign.endsAt)}`;
+  }
+
+  return `${durationLabel(campaign.startsAt, campaign.endsAt)} · ${formatDateRange(campaign.startsAt, campaign.endsAt)}`;
+}
+
+function rangesOverlap(startA: Date, endA: Date, startB: Date | string, endB: Date | string) {
+  return startA <= new Date(endB) && endA >= new Date(startB);
 }
 
 function campaignTargetLabel(campaign: RewardCampaign) {
@@ -223,10 +238,12 @@ function LevelModal({ level, onClose }: { level: RewardLevel; onClose: () => voi
 function CampaignModal({
   campaign,
   products,
+  campaigns,
   onClose
 }: {
   campaign?: RewardCampaign;
   products: RewardProduct[];
+  campaigns: RewardCampaign[];
   onClose: () => void;
 }) {
   const initialSelectedProductIds = useMemo(() => campaign?.products.map((item) => item.productId) ?? [], [campaign]);
@@ -240,6 +257,10 @@ function CampaignModal({
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>(initialSelectedProductIds);
   const [targetQuantities, setTargetQuantities] = useState<Record<string, string>>(initialQuantities);
   const [rewardValueDollars, setRewardValueDollars] = useState(campaign ? String(campaign.rewardValueCents / 100) : "0");
+  const [startsAtValue, setStartsAtValue] = useState(campaign ? dateInputValue(campaign.startsAt) : defaultCampaignStart());
+  const [endsAtValue, setEndsAtValue] = useState(campaign ? dateInputValue(campaign.endsAt) : defaultCampaignEnd());
+  const [windowMode, setWindowMode] = useState<RewardCampaign["windowMode"]>(campaign?.windowMode ?? "CAMPAIGN_RANGE");
+  const [rollingWindowDays, setRollingWindowDays] = useState(String(campaign?.rollingWindowDays ?? 5));
 
   const campaignQuantity = (productId: string) => targetQuantities[productId] ?? "1";
   const rewardValueCents = Math.max(Math.round((Number(rewardValueDollars) || 0) * 100), 0);
@@ -263,6 +284,27 @@ function CampaignModal({
   }, [products, selectedProductIdSet, targetQuantities]);
   const projectedNetCents = projection.marginCents - rewardValueCents;
   const isProjectedLoss = projectedNetCents < 0;
+  const overlapSummary = useMemo(() => {
+    const startsAt = new Date(startsAtValue);
+    const endsAt = new Date(endsAtValue);
+    if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
+      return { overlapping: [] as RewardCampaign[], rewardExposureCents: rewardValueCents, marginExposureCents: projection.marginCents, netExposureCents: projectedNetCents };
+    }
+
+    const overlapping = campaigns.filter((item) => {
+      if (item.id === campaign?.id) return false;
+      if (item.status === "COMPLETED") return false;
+      return rangesOverlap(startsAt, endsAt, item.startsAt, item.endsAt);
+    });
+    const rewardExposureCents = rewardValueCents + overlapping.reduce((sum, item) => sum + item.rewardValueCents, 0);
+    const marginExposureCents = projection.marginCents + overlapping.reduce((sum, item) => sum + item.projectedMarginCents, 0);
+    return {
+      overlapping,
+      rewardExposureCents,
+      marginExposureCents,
+      netExposureCents: marginExposureCents - rewardExposureCents
+    };
+  }, [campaign?.id, campaigns, endsAtValue, projectedNetCents, projection.marginCents, rewardValueCents, startsAtValue]);
 
   function toggleProduct(productId: string, checked: boolean) {
     setSelectedProductIds((current) => {
@@ -304,16 +346,68 @@ function CampaignModal({
             </label>
             <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Starts</span>
-              <Input name="startsAt" type="datetime-local" defaultValue={campaign ? dateInputValue(campaign.startsAt) : defaultCampaignStart()} />
+              <Input name="startsAt" type="datetime-local" value={startsAtValue} onChange={(event) => setStartsAtValue(event.target.value)} />
             </label>
             <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Ends</span>
-              <Input name="endsAt" type="datetime-local" defaultValue={campaign ? dateInputValue(campaign.endsAt) : defaultCampaignEnd()} />
+              <Input name="endsAt" type="datetime-local" value={endsAtValue} onChange={(event) => setEndsAtValue(event.target.value)} />
             </label>
             <label className="space-y-2 md:col-span-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Description</span>
               <textarea name="description" defaultValue={campaign?.description ?? ""} className="min-h-20 w-full rounded-2xl border border-input bg-white px-4 py-3 text-sm text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring" />
             </label>
+          </div>
+
+          <div className="rounded-3xl border border-border bg-white p-5 shadow-line">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-4 w-4 text-clinic-red" />
+              <p className="text-sm font-semibold text-clinic-ink">Campaign timing</p>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="cursor-pointer rounded-[1.5rem] border border-border bg-clinic-mist p-4 transition has-[:checked]:border-clinic-navy has-[:checked]:bg-blue-50">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="windowMode"
+                    value="CAMPAIGN_RANGE"
+                    checked={windowMode === "CAMPAIGN_RANGE"}
+                    onChange={() => setWindowMode("CAMPAIGN_RANGE")}
+                    className="mt-1 size-5"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-clinic-ink">Campaign date range</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">Every qualifying sale between the start and end dates counts.</p>
+                  </div>
+                </div>
+              </label>
+              <label className="cursor-pointer rounded-[1.5rem] border border-border bg-clinic-mist p-4 transition has-[:checked]:border-clinic-navy has-[:checked]:bg-blue-50">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="windowMode"
+                    value="ROLLING_DAYS"
+                    checked={windowMode === "ROLLING_DAYS"}
+                    onChange={() => setWindowMode("ROLLING_DAYS")}
+                    className="mt-1 size-5"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-clinic-ink">Rolling day sprint</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">The seller must hit the target inside any rolling X-day window during this campaign.</p>
+                    {windowMode === "ROLLING_DAYS" ? (
+                      <Input
+                        name="rollingWindowDays"
+                        type="number"
+                        min={1}
+                        max={365}
+                        value={rollingWindowDays}
+                        onChange={(event) => setRollingWindowDays(event.target.value)}
+                        className="mt-3"
+                      />
+                    ) : null}
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div className="rounded-3xl border border-border bg-clinic-mist p-4">
@@ -430,6 +524,50 @@ function CampaignModal({
                 </p>
                 <p className={`mt-1 text-2xl font-semibold ${isProjectedLoss ? "text-clinic-red" : "text-clinic-navy"}`}>
                   {money(projectedNetCents)}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`rounded-[1.75rem] border p-5 ${overlapSummary.overlapping.length ? "border-amber-200 bg-amber-50" : "border-border bg-white shadow-line"}`}>
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className={`mt-1 h-5 w-5 ${overlapSummary.overlapping.length ? "text-amber-700" : "text-clinic-navy"}`} />
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Campaign overlap advisory</p>
+                  <h4 className="mt-1 text-xl font-semibold text-clinic-ink">
+                    {overlapSummary.overlapping.length ? `${overlapSummary.overlapping.length} campaign overlap detected` : "No campaign overlap detected"}
+                  </h4>
+                  <p className="mt-1 text-sm leading-6 text-slate-600">
+                    This estimates company net if sellers qualify for this reward and the overlapping campaigns in the same period.
+                  </p>
+                </div>
+              </div>
+              {overlapSummary.overlapping.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {overlapSummary.overlapping.slice(0, 3).map((item) => (
+                    <span key={item.id} className="rounded-full bg-white px-3 py-1 text-xs font-bold text-clinic-navy shadow-line">
+                      {item.title}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="rounded-2xl bg-white p-4 shadow-line">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Margin exposure</p>
+                <p className="mt-1 text-xl font-semibold text-clinic-navy">{money(overlapSummary.marginExposureCents)}</p>
+              </div>
+              <div className="rounded-2xl bg-white p-4 shadow-line">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Reward exposure</p>
+                <p className="mt-1 text-xl font-semibold text-clinic-navy">{money(overlapSummary.rewardExposureCents)}</p>
+              </div>
+              <div className={`rounded-2xl p-4 ${overlapSummary.netExposureCents < 0 ? "bg-red-50" : "bg-emerald-50"}`}>
+                <p className={`text-[11px] font-bold uppercase tracking-[0.12em] ${overlapSummary.netExposureCents < 0 ? "text-clinic-red" : "text-emerald-700"}`}>
+                  Net after rewards
+                </p>
+                <p className={`mt-1 text-xl font-semibold ${overlapSummary.netExposureCents < 0 ? "text-clinic-red" : "text-emerald-800"}`}>
+                  {money(overlapSummary.netExposureCents)}
                 </p>
               </div>
             </div>
@@ -691,7 +829,7 @@ export function AdminRewardsEditor({
                     <h3 className="mt-1 truncate text-xl font-semibold text-clinic-ink">{campaign.title}</h3>
                     <p className="mt-1 line-clamp-2 text-sm text-slate-500">{campaignTargetLabel(campaign)}</p>
                     <p className="mt-2 text-sm font-semibold text-clinic-navy">
-                      {durationLabel(campaign.startsAt, campaign.endsAt)} · {formatDateRange(campaign.startsAt, campaign.endsAt)}
+                      {campaignTimingLabel(campaign)}
                     </p>
                   </div>
                   <span className="rounded-full bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">
@@ -736,6 +874,7 @@ export function AdminRewardsEditor({
         <CampaignModal
           campaign={editingCampaign === "new" ? undefined : editingCampaign}
           products={products}
+          campaigns={campaigns}
           onClose={() => setEditingCampaign(null)}
         />
       ) : null}

@@ -1,6 +1,8 @@
 import type { RewardParticipantRole, RewardValueType, User } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 
+const DAY_MS = 86_400_000;
+
 export const defaultRewardLevels = [
   {
     level: 1,
@@ -161,6 +163,24 @@ export async function getRewardProducts(companyId: string) {
 
 function displayName(user: Pick<User, "firstName" | "lastName" | "email">) {
   return [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+}
+
+function startOfDay(date: Date) {
+  const copy = new Date(date);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
+
+function endOfDay(date: Date) {
+  const copy = new Date(date);
+  copy.setHours(23, 59, 59, 999);
+  return copy;
+}
+
+function clampDate(date: Date, min: Date, max: Date) {
+  if (date < min) return min;
+  if (date > max) return max;
+  return date;
 }
 
 export async function getSellerSalesCount(input: {
@@ -492,39 +512,66 @@ export async function getActiveRewardCampaignProgress(input: {
             createdAt: { gte: campaign.startsAt, lte: campaign.endsAt }
           }
         },
-        include: { product: { select: { priceCents: true, internalCostCents: true } } }
+        include: {
+          order: { select: { createdAt: true } },
+          product: { select: { priceCents: true, internalCostCents: true } }
+        }
       });
 
-      const soldQuantityByProduct = new Map<string, number>();
-      for (const item of orderItems) {
-        soldQuantityByProduct.set(item.productId, (soldQuantityByProduct.get(item.productId) ?? 0) + item.quantity);
+      function buildProgress(selectedItems: typeof orderItems) {
+        const soldQuantityByProduct = new Map<string, number>();
+        for (const item of selectedItems) {
+          soldQuantityByProduct.set(item.productId, (soldQuantityByProduct.get(item.productId) ?? 0) + item.quantity);
+        }
+        const productProgress = campaign.products.map((item) => {
+          const soldQuantity = soldQuantityByProduct.get(item.productId) ?? 0;
+          return {
+            productId: item.productId,
+            title: item.product.title,
+            targetQuantity: item.targetQuantity,
+            soldQuantity,
+            remainingQuantity: Math.max(item.targetQuantity - soldQuantity, 0),
+            isCompleted: soldQuantity >= item.targetQuantity
+          };
+        });
+        const rawSoldQuantity = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+        const qualifiedSoldQuantity =
+          campaign.goalMode === "PRODUCT_BUNDLE"
+            ? productProgress.reduce((sum, item) => sum + Math.min(item.soldQuantity, item.targetQuantity), 0)
+            : rawSoldQuantity;
+        const revenueCents = selectedItems.reduce((sum, item) => sum + item.totalCents, 0);
+        const marginCents = selectedItems.reduce(
+          (sum, item) => sum + Math.max(item.product.priceCents - item.product.internalCostCents, 0) * item.quantity,
+          0
+        );
+        const isCompleted =
+          campaign.goalMode === "PRODUCT_BUNDLE"
+            ? productProgress.length > 0 && productProgress.every((item) => item.isCompleted)
+            : rawSoldQuantity >= targetQuantity;
+
+        return { productProgress, rawSoldQuantity, qualifiedSoldQuantity, revenueCents, marginCents, isCompleted };
       }
-      const productProgress = campaign.products.map((item) => {
-        const soldQuantity = soldQuantityByProduct.get(item.productId) ?? 0;
-        return {
-          productId: item.productId,
-          title: item.product.title,
-          targetQuantity: item.targetQuantity,
-          soldQuantity,
-          remainingQuantity: Math.max(item.targetQuantity - soldQuantity, 0),
-          isCompleted: soldQuantity >= item.targetQuantity
-        };
-      });
-      const rawSoldQuantity = orderItems.reduce((sum, item) => sum + item.quantity, 0);
-      const qualifiedSoldQuantity =
-        campaign.goalMode === "PRODUCT_BUNDLE"
-          ? productProgress.reduce((sum, item) => sum + Math.min(item.soldQuantity, item.targetQuantity), 0)
-          : rawSoldQuantity;
-      const revenueCents = orderItems.reduce((sum, item) => sum + item.totalCents, 0);
-      const marginCents = orderItems.reduce(
-        (sum, item) => sum + Math.max(item.product.priceCents - item.product.internalCostCents, 0) * item.quantity,
-        0
-      );
-      const isCompleted =
-        campaign.goalMode === "PRODUCT_BUNDLE"
-          ? productProgress.length > 0 && productProgress.every((item) => item.isCompleted)
-          : rawSoldQuantity >= targetQuantity;
-      const claim = isCompleted && input.userId && participant
+
+      const rollingWindowDays = Math.max(campaign.rollingWindowDays ?? 1, 1);
+      const rollingWindows =
+        campaign.windowMode === "ROLLING_DAYS" && orderItems.length
+          ? [...new Set(orderItems.map((item) => item.order.createdAt.toISOString()))].map((value) => {
+              const end = clampDate(endOfDay(new Date(value)), campaign.startsAt, campaign.endsAt);
+              const start = clampDate(startOfDay(new Date(end.getTime() - (rollingWindowDays - 1) * DAY_MS)), campaign.startsAt, campaign.endsAt);
+              const selectedItems = orderItems.filter((item) => item.order.createdAt >= start && item.order.createdAt <= end);
+              return { startsAt: start, endsAt: end, ...buildProgress(selectedItems) };
+            })
+          : [];
+      const fixedProgress = buildProgress(orderItems);
+      const bestRollingWindow = rollingWindows.sort((a, b) => {
+        if (Number(b.isCompleted) !== Number(a.isCompleted)) return Number(b.isCompleted) - Number(a.isCompleted);
+        if (b.qualifiedSoldQuantity !== a.qualifiedSoldQuantity) return b.qualifiedSoldQuantity - a.qualifiedSoldQuantity;
+        return b.marginCents - a.marginCents;
+      })[0];
+      const selectedProgress = bestRollingWindow ?? fixedProgress;
+      const activeWindowStartsAt = bestRollingWindow?.startsAt ?? null;
+      const activeWindowEndsAt = bestRollingWindow?.endsAt ?? null;
+      const claim = selectedProgress.isCompleted && input.userId && participant
         ? await ensureCampaignClaim({
             campaignId: campaign.id,
             companyId: input.companyId,
@@ -545,19 +592,21 @@ export async function getActiveRewardCampaignProgress(input: {
 
       return {
         ...campaign,
-        soldQuantity: qualifiedSoldQuantity,
-        rawSoldQuantity,
+        soldQuantity: selectedProgress.qualifiedSoldQuantity,
+        rawSoldQuantity: selectedProgress.rawSoldQuantity,
         targetQuantity,
-        productProgress,
-        revenueCents,
-        marginCents,
-        isCompleted,
+        productProgress: selectedProgress.productProgress,
+        revenueCents: selectedProgress.revenueCents,
+        marginCents: selectedProgress.marginCents,
+        isCompleted: selectedProgress.isCompleted,
+        activeWindowStartsAt,
+        activeWindowEndsAt,
         claimId: claim?.id ?? null,
         claimStatus: claim?.status ?? null,
         claimRewardValueType: claim?.rewardValueType ?? null,
         claimRewardValueCents: claim?.rewardValueCents ?? null,
-        progressPercent: Math.min(Math.round((qualifiedSoldQuantity / targetQuantity) * 100), 100),
-        remainingQuantity: Math.max(targetQuantity - qualifiedSoldQuantity, 0)
+        progressPercent: Math.min(Math.round((selectedProgress.qualifiedSoldQuantity / targetQuantity) * 100), 100),
+        remainingQuantity: Math.max(targetQuantity - selectedProgress.qualifiedSoldQuantity, 0)
       };
     })
   );

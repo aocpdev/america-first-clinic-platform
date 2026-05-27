@@ -40,12 +40,16 @@ type CampaignProgress = {
   rewardValueType: "CASH" | "NON_CASH";
   rewardValueCents: number;
   goalMode: "TOTAL_UNITS" | "PRODUCT_BUNDLE";
+  windowMode: "CAMPAIGN_RANGE" | "ROLLING_DAYS";
+  rollingWindowDays: number | null;
   soldQuantity: number;
   rawSoldQuantity: number;
   targetQuantity: number;
   revenueCents: number;
   marginCents: number;
   isCompleted: boolean;
+  activeWindowStartsAt: Date | string | null;
+  activeWindowEndsAt: Date | string | null;
   claimId: string | null;
   claimStatus: "EARNED" | "PAYOUT_PENDING" | "PAYOUT_APPLIED" | "REDEEM_REQUESTED" | "FULFILLED" | null;
   claimRewardValueType: "CASH" | "NON_CASH" | null;
@@ -89,6 +93,19 @@ function durationLabel(startsAt: Date | string, endsAt: Date | string) {
   if (days <= 8) return "Weekly sprint";
   if (days <= 35) return "Monthly goal";
   return `${days}-day challenge`;
+}
+
+function campaignWindowLabel(campaign: CampaignProgress) {
+  if (campaign.windowMode === "ROLLING_DAYS") {
+    const days = Math.max(campaign.rollingWindowDays ?? 1, 1);
+    const bestWindow =
+      campaign.activeWindowStartsAt && campaign.activeWindowEndsAt
+        ? ` · best window ${formatShortDate(campaign.activeWindowStartsAt)} to ${formatShortDate(campaign.activeWindowEndsAt)}`
+        : "";
+    return `${days}-day rolling sprint${bestWindow}`;
+  }
+
+  return `${durationLabel(campaign.startsAt, campaign.endsAt)} · ${formatShortDate(campaign.startsAt)} to ${formatShortDate(campaign.endsAt)}`;
 }
 
 function productBundleLabel(campaign: CampaignProgress) {
@@ -308,7 +325,7 @@ export function RewardDashboard({
                         <div>
                           <h3 className="text-lg font-semibold text-clinic-ink">{campaign.title}</h3>
                           <p className="mt-1 text-sm text-slate-500">
-                            {durationLabel(campaign.startsAt, campaign.endsAt)} · {formatShortDate(campaign.startsAt)} to {formatShortDate(campaign.endsAt)}
+                            {campaignWindowLabel(campaign)}
                           </p>
                           <p className="mt-1 text-xs font-semibold text-clinic-navy">{productBundleLabel(campaign)}</p>
                         </div>
