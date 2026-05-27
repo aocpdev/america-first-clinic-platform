@@ -2,13 +2,47 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  BarChart3,
+  Boxes,
+  BriefcaseBusiness,
+  CircleDollarSign,
+  Columns3,
+  ClipboardList,
+  CreditCard,
+  Gauge,
+  Gift,
+  HandCoins,
+  LineChart,
+  Settings,
+  ShoppingBag,
+  Users
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type SidebarNavItem = {
   href: string;
   label: string;
-  icon: React.ComponentType<{ className?: string }>;
 };
+
+const iconByLabel = {
+  Dashboard: Gauge,
+  Sales: ShoppingBag,
+  Pipeline: Columns3,
+  Orders: ClipboardList,
+  Products: Boxes,
+  Customers: Users,
+  Consultants: BriefcaseBusiness,
+  Commissions: HandCoins,
+  Payouts: CircleDollarSign,
+  Rewards: Gift,
+  Reports: BarChart3,
+  Settings,
+  Performance: LineChart,
+  Referrals: CreditCard,
+  Profile: Settings,
+  Team: Users
+} as const;
 
 function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
@@ -20,7 +54,7 @@ export function SidebarNav({ nav }: { nav: SidebarNavItem[] }) {
   return (
     <nav className="space-y-1 px-4 py-5">
       {nav.map((item) => {
-        const Icon = item.icon;
+        const Icon = iconByLabel[item.label as keyof typeof iconByLabel] ?? Gauge;
         const active = isActivePath(pathname, item.href);
 
         return (

@@ -1,88 +1,71 @@
-import {
-  BarChart3,
-  Boxes,
-  BriefcaseBusiness,
-  CircleDollarSign,
-  Columns3,
-  ClipboardList,
-  CreditCard,
-  Gauge,
-  Gift,
-  HandCoins,
-  LineChart,
-  Settings,
-  ShoppingBag,
-  Users
-} from "lucide-react";
-
 export const adminNav = [
-  { href: "/admin/dashboard", label: "Dashboard", icon: Gauge },
-  { href: "/admin/sales", label: "Sales", icon: ShoppingBag },
-  { href: "/admin/pipeline", label: "Pipeline", icon: Columns3 },
-  { href: "/admin/orders", label: "Orders", icon: ClipboardList },
-  { href: "/admin/products", label: "Products", icon: Boxes },
-  { href: "/admin/customers", label: "Customers", icon: Users },
-  { href: "/admin/consultants", label: "Consultants", icon: BriefcaseBusiness },
-  { href: "/admin/commissions", label: "Commissions", icon: HandCoins },
-  { href: "/admin/payouts", label: "Payouts", icon: CircleDollarSign },
-  { href: "/admin/rewards", label: "Rewards", icon: Gift },
-  { href: "/admin/reports", label: "Reports", icon: BarChart3 },
-  { href: "/admin/settings", label: "Settings", icon: Settings }
+  { href: "/admin/dashboard", label: "Dashboard" },
+  { href: "/admin/sales", label: "Sales" },
+  { href: "/admin/pipeline", label: "Pipeline" },
+  { href: "/admin/orders", label: "Orders" },
+  { href: "/admin/products", label: "Products" },
+  { href: "/admin/customers", label: "Customers" },
+  { href: "/admin/consultants", label: "Consultants" },
+  { href: "/admin/commissions", label: "Commissions" },
+  { href: "/admin/payouts", label: "Payouts" },
+  { href: "/admin/rewards", label: "Rewards" },
+  { href: "/admin/reports", label: "Reports" },
+  { href: "/admin/settings", label: "Settings" }
 ];
 
 export const consultantNav = [
-  { href: "/consultant/dashboard", label: "Dashboard", icon: Gauge },
-  { href: "/consultant/customers", label: "Customers", icon: Users },
-  { href: "/consultant/pipeline", label: "Pipeline", icon: Columns3 },
-  { href: "/consultant/sales", label: "Sales", icon: ShoppingBag },
-  { href: "/consultant/orders", label: "Orders", icon: ClipboardList },
-  { href: "/consultant/commissions", label: "Commissions", icon: HandCoins },
-  { href: "/consultant/products", label: "Products", icon: Boxes },
-  { href: "/consultant/performance", label: "Performance", icon: LineChart },
-  { href: "/consultant/rewards", label: "Rewards", icon: Gift },
-  { href: "/consultant/referrals", label: "Referrals", icon: CreditCard },
-  { href: "/consultant/profile", label: "Profile", icon: Settings }
+  { href: "/consultant/dashboard", label: "Dashboard" },
+  { href: "/consultant/customers", label: "Customers" },
+  { href: "/consultant/pipeline", label: "Pipeline" },
+  { href: "/consultant/sales", label: "Sales" },
+  { href: "/consultant/orders", label: "Orders" },
+  { href: "/consultant/commissions", label: "Commissions" },
+  { href: "/consultant/products", label: "Products" },
+  { href: "/consultant/performance", label: "Performance" },
+  { href: "/consultant/rewards", label: "Rewards" },
+  { href: "/consultant/referrals", label: "Referrals" },
+  { href: "/consultant/profile", label: "Profile" }
 ];
 
 export const partnerNav = [
-  { href: "/partner/dashboard", label: "Dashboard", icon: Gauge },
-  { href: "/partner/sales", label: "Sales", icon: ClipboardList },
-  { href: "/partner/orders", label: "Orders", icon: ShoppingBag },
-  { href: "/partner/pipeline", label: "Pipeline", icon: Columns3 },
-  { href: "/partner/customers", label: "Customers", icon: Users },
-  { href: "/partner/consultants", label: "Consultants", icon: Users },
-  { href: "/partner/products", label: "Products", icon: Boxes },
-  { href: "/partner/commissions", label: "Commissions", icon: HandCoins },
-  { href: "/partner/payouts", label: "Payouts", icon: CircleDollarSign },
-  { href: "/partner/rewards", label: "Rewards", icon: Gift },
-  { href: "/partner/reports", label: "Reports", icon: BarChart3 },
-  { href: "/partner/settings", label: "Settings", icon: Settings }
+  { href: "/partner/dashboard", label: "Dashboard" },
+  { href: "/partner/sales", label: "Sales" },
+  { href: "/partner/orders", label: "Orders" },
+  { href: "/partner/pipeline", label: "Pipeline" },
+  { href: "/partner/customers", label: "Customers" },
+  { href: "/partner/consultants", label: "Consultants" },
+  { href: "/partner/products", label: "Products" },
+  { href: "/partner/commissions", label: "Commissions" },
+  { href: "/partner/payouts", label: "Payouts" },
+  { href: "/partner/rewards", label: "Rewards" },
+  { href: "/partner/reports", label: "Reports" },
+  { href: "/partner/settings", label: "Settings" }
 ];
 
 export const managerNav = [
-  { href: "/manager/dashboard", label: "Dashboard", icon: Gauge },
-  { href: "/partner/sales", label: "Sales", icon: ClipboardList },
-  { href: "/partner/orders", label: "Orders", icon: ShoppingBag },
-  { href: "/partner/pipeline", label: "Pipeline", icon: Columns3 },
-  { href: "/partner/customers", label: "Customers", icon: Users },
-  { href: "/manager/team", label: "Team", icon: Users },
-  { href: "/partner/products", label: "Products", icon: Boxes },
-  { href: "/partner/commissions", label: "Commissions", icon: HandCoins },
-  { href: "/partner/rewards", label: "Rewards", icon: Gift },
-  { href: "/manager/reports", label: "Reports", icon: BarChart3 },
-  { href: "/manager/profile", label: "Profile", icon: Settings }
+  { href: "/manager/dashboard", label: "Dashboard" },
+  { href: "/partner/sales", label: "Sales" },
+  { href: "/partner/orders", label: "Orders" },
+  { href: "/partner/pipeline", label: "Pipeline" },
+  { href: "/partner/customers", label: "Customers" },
+  { href: "/manager/team", label: "Team" },
+  { href: "/partner/products", label: "Products" },
+  { href: "/partner/commissions", label: "Commissions" },
+  { href: "/partner/rewards", label: "Rewards" },
+  { href: "/manager/reports", label: "Reports" },
+  { href: "/manager/profile", label: "Profile" }
 ];
 
 export const groupLeaderNav = [
-  { href: "/partner/dashboard", label: "Dashboard", icon: Gauge },
-  { href: "/partner/consultants", label: "Team", icon: Users },
-  { href: "/partner/sales", label: "Sales", icon: ClipboardList },
-  { href: "/partner/orders", label: "Orders", icon: ShoppingBag },
-  { href: "/partner/pipeline", label: "Pipeline", icon: Columns3 },
-  { href: "/partner/customers", label: "Customers", icon: Users },
-  { href: "/partner/products", label: "Products", icon: Boxes },
-  { href: "/partner/commissions", label: "Commissions", icon: HandCoins },
-  { href: "/partner/rewards", label: "Rewards", icon: Gift },
-  { href: "/partner/reports", label: "Reports", icon: BarChart3 },
-  { href: "/partner/profile", label: "Profile", icon: Settings }
+  { href: "/partner/dashboard", label: "Dashboard" },
+  { href: "/partner/consultants", label: "Team" },
+  { href: "/partner/sales", label: "Sales" },
+  { href: "/partner/orders", label: "Orders" },
+  { href: "/partner/pipeline", label: "Pipeline" },
+  { href: "/partner/customers", label: "Customers" },
+  { href: "/partner/products", label: "Products" },
+  { href: "/partner/commissions", label: "Commissions" },
+  { href: "/partner/rewards", label: "Rewards" },
+  { href: "/partner/reports", label: "Reports" },
+  { href: "/partner/profile", label: "Profile" }
 ];
