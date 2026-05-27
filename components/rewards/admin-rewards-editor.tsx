@@ -42,6 +42,7 @@ type RewardCampaign = {
   startsAt: Date | string;
   endsAt: Date | string;
   status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED";
+  goalMode: "TOTAL_UNITS" | "PRODUCT_BUNDLE";
   rewardTitle: string;
   rewardDescription: string | null;
   rewardImageUrl: string | null;
@@ -125,6 +126,18 @@ function durationLabel(startsAt: Date | string, endsAt: Date | string) {
   if (days <= 8) return "Weekly sprint";
   if (days <= 35) return "Monthly campaign";
   return `${days}-day campaign`;
+}
+
+function campaignTargetLabel(campaign: RewardCampaign) {
+  if (campaign.goalMode === "PRODUCT_BUNDLE") {
+    return `Bundle target: ${campaign.products
+      .map((item) => `${item.targetQuantity} ${item.product.title}`)
+      .join(" + ")}`;
+  }
+
+  return `${campaign.totalTargetQuantity} total target units across ${campaign.products.length} product${
+    campaign.products.length === 1 ? "" : "s"
+  }`;
 }
 
 function LevelModal({ level, onClose }: { level: RewardLevel; onClose: () => void }) {
@@ -307,6 +320,42 @@ function CampaignModal({
             <div className="flex items-center gap-2">
               <Target className="h-4 w-4 text-clinic-red" />
               <p className="text-sm font-semibold text-clinic-ink">Eligible products and targets</p>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="cursor-pointer rounded-[1.5rem] border border-border bg-white p-4 shadow-line transition has-[:checked]:border-clinic-navy has-[:checked]:bg-blue-50">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="goalMode"
+                    value="TOTAL_UNITS"
+                    defaultChecked={(campaign?.goalMode ?? "TOTAL_UNITS") === "TOTAL_UNITS"}
+                    className="mt-1 size-5"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-clinic-ink">Total units across selected products</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      Any mix of the selected products counts toward the total target.
+                    </p>
+                  </div>
+                </div>
+              </label>
+              <label className="cursor-pointer rounded-[1.5rem] border border-border bg-white p-4 shadow-line transition has-[:checked]:border-clinic-navy has-[:checked]:bg-blue-50">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="goalMode"
+                    value="PRODUCT_BUNDLE"
+                    defaultChecked={campaign?.goalMode === "PRODUCT_BUNDLE"}
+                    className="mt-1 size-5"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-clinic-ink">Required product bundle</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      Every selected product must hit its own quantity target, like 3 B-12 plus 2 Glutathione.
+                    </p>
+                  </div>
+                </div>
+              </label>
             </div>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {products.map((product) => {
@@ -640,9 +689,7 @@ export function AdminRewardsEditor({
                   <div className="min-w-0">
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{campaign.status}</p>
                     <h3 className="mt-1 truncate text-xl font-semibold text-clinic-ink">{campaign.title}</h3>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {campaign.totalTargetQuantity} target units across {campaign.products.length} product{campaign.products.length === 1 ? "" : "s"}
-                    </p>
+                    <p className="mt-1 line-clamp-2 text-sm text-slate-500">{campaignTargetLabel(campaign)}</p>
                     <p className="mt-2 text-sm font-semibold text-clinic-navy">
                       {durationLabel(campaign.startsAt, campaign.endsAt)} · {formatDateRange(campaign.startsAt, campaign.endsAt)}
                     </p>

@@ -90,6 +90,11 @@ enum RewardValueType {
   NON_CASH
 }
 
+enum RewardCampaignGoalMode {
+  TOTAL_UNITS
+  PRODUCT_BUNDLE
+}
+
 enum RewardClaimStatus {
   EARNED
   PAYOUT_PENDING
@@ -751,6 +756,7 @@ model RewardCampaign {
   startsAt          DateTime
   endsAt            DateTime
   status            RewardCampaignStatus    @default(ACTIVE)
+  goalMode          RewardCampaignGoalMode   @default(TOTAL_UNITS)
   rewardTitle       String
   rewardDescription String?
   rewardImageUrl    String?

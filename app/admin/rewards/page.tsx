@@ -51,6 +51,7 @@ export default async function AdminRewardsPage() {
     startsAt: campaign.startsAt.toISOString(),
     endsAt: campaign.endsAt.toISOString(),
     status: campaign.status,
+    goalMode: campaign.goalMode,
     rewardTitle: campaign.rewardTitle,
     rewardDescription: campaign.rewardDescription,
     rewardImageUrl: campaign.rewardImageUrl,

@@ -39,7 +39,9 @@ type CampaignProgress = {
   rewardImageUrl: string | null;
   rewardValueType: "CASH" | "NON_CASH";
   rewardValueCents: number;
+  goalMode: "TOTAL_UNITS" | "PRODUCT_BUNDLE";
   soldQuantity: number;
+  rawSoldQuantity: number;
   targetQuantity: number;
   revenueCents: number;
   marginCents: number;
@@ -51,6 +53,14 @@ type CampaignProgress = {
   progressPercent: number;
   remainingQuantity: number;
   products: Array<{ product: { title: string } }>;
+  productProgress: Array<{
+    productId: string;
+    title: string;
+    targetQuantity: number;
+    soldQuantity: number;
+    remainingQuantity: number;
+    isCompleted: boolean;
+  }>;
 };
 
 function money(cents: number) {
@@ -82,14 +92,25 @@ function durationLabel(startsAt: Date | string, endsAt: Date | string) {
 }
 
 function productBundleLabel(campaign: CampaignProgress) {
+  if (campaign.goalMode === "PRODUCT_BUNDLE" && campaign.productProgress.length) {
+    return campaign.productProgress.map((item) => `${item.targetQuantity} ${item.title}`).join(" + ");
+  }
+
   const names = campaign.products.map((item) => item.product.title);
   if (!names.length) return "Selected products";
+  if (campaign.goalMode === "TOTAL_UNITS") {
+    const label = names.length <= 2 ? names.join(" or ") : `${names.slice(0, 2).join(" or ")} + ${names.length - 2} more`;
+    return `${campaign.targetQuantity} total units from ${label}`;
+  }
   if (names.length <= 2) return names.join(" + ");
   return `${names.slice(0, 2).join(" + ")} + ${names.length - 2} more`;
 }
 
 function campaignStatusText(campaign: CampaignProgress) {
-  if (!campaign.isCompleted) return `${campaign.remainingQuantity} more to unlock`;
+  if (!campaign.isCompleted) {
+    if (campaign.goalMode === "PRODUCT_BUNDLE") return `${campaign.remainingQuantity} required units remaining`;
+    return `${campaign.remainingQuantity} more to unlock`;
+  }
   if (campaign.rewardValueType === "CASH") {
     return campaign.claimStatus === "PAYOUT_APPLIED" ? "Applied to payout" : "Queued for payout";
   }
@@ -298,6 +319,31 @@ export function RewardDashboard({
                       <div className="mt-4 h-4 rounded-full bg-clinic-mist p-1">
                         <div className="h-2 rounded-full bg-clinic-red transition-all" style={{ width: `${campaign.progressPercent}%` }} />
                       </div>
+                      {campaign.goalMode === "PRODUCT_BUNDLE" && campaign.productProgress.length ? (
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                          {campaign.productProgress.map((item) => (
+                            <div
+                              key={item.productId}
+                              className={`rounded-2xl border px-3 py-2 ${
+                                item.isCompleted ? "border-emerald-100 bg-emerald-50" : "border-border bg-clinic-mist"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="truncate text-xs font-bold text-clinic-ink">{item.title}</p>
+                                <span className={`text-xs font-bold ${item.isCompleted ? "text-emerald-700" : "text-clinic-navy"}`}>
+                                  {item.soldQuantity}/{item.targetQuantity}
+                                </span>
+                              </div>
+                              <div className="mt-2 h-2 rounded-full bg-white">
+                                <div
+                                  className={`h-2 rounded-full ${item.isCompleted ? "bg-emerald-500" : "bg-clinic-navy"}`}
+                                  style={{ width: `${Math.min(Math.round((item.soldQuantity / Math.max(item.targetQuantity, 1)) * 100), 100)}%` }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : null}
                       <div className="mt-4 flex flex-col gap-3 rounded-2xl bg-emerald-50 p-4 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                           <p className="text-xs font-bold uppercase text-emerald-700">Reward</p>

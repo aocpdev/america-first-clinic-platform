@@ -43,6 +43,22 @@ function durationLabel(startsAt: Date | string, endsAt: Date | string) {
   return `${days}-day campaign`;
 }
 
+function campaignTargetLabel(campaign: {
+  goalMode: "TOTAL_UNITS" | "PRODUCT_BUNDLE";
+  totalTargetQuantity: number;
+  products: Array<{ targetQuantity: number; product: { title: string } }>;
+}) {
+  if (campaign.goalMode === "PRODUCT_BUNDLE") {
+    return campaign.products.map((item) => `${item.targetQuantity} ${item.product.title}`).join(" + ");
+  }
+
+  const names = campaign.products.map((item) => item.product.title);
+  const productLabel =
+    names.length <= 2 ? names.join(" or ") : `${names.slice(0, 2).join(" or ")} + ${names.length - 2} more`;
+
+  return `${campaign.totalTargetQuantity} total units${productLabel ? ` from ${productLabel}` : ""}`;
+}
+
 export default async function PartnerRewardsPage() {
   const user = await requirePartner();
   const isGroupLeader = user.role === "GROUP_LEADER";
@@ -247,7 +263,7 @@ export default async function PartnerRewardsPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="truncate font-semibold text-clinic-ink">{campaign.title}</p>
-                        <p className="mt-1 text-sm text-slate-500">{campaign.totalTargetQuantity} target units</p>
+                        <p className="mt-1 line-clamp-2 text-sm text-slate-500">{campaignTargetLabel(campaign)}</p>
                         <p className="mt-1 text-sm font-semibold text-clinic-navy">
                           {durationLabel(campaign.startsAt, campaign.endsAt)} · {formatDateRange(campaign.startsAt, campaign.endsAt)}
                         </p>

@@ -495,13 +495,35 @@ export async function getActiveRewardCampaignProgress(input: {
         include: { product: { select: { priceCents: true, internalCostCents: true } } }
       });
 
-      const soldQuantity = orderItems.reduce((sum, item) => sum + item.quantity, 0);
+      const soldQuantityByProduct = new Map<string, number>();
+      for (const item of orderItems) {
+        soldQuantityByProduct.set(item.productId, (soldQuantityByProduct.get(item.productId) ?? 0) + item.quantity);
+      }
+      const productProgress = campaign.products.map((item) => {
+        const soldQuantity = soldQuantityByProduct.get(item.productId) ?? 0;
+        return {
+          productId: item.productId,
+          title: item.product.title,
+          targetQuantity: item.targetQuantity,
+          soldQuantity,
+          remainingQuantity: Math.max(item.targetQuantity - soldQuantity, 0),
+          isCompleted: soldQuantity >= item.targetQuantity
+        };
+      });
+      const rawSoldQuantity = orderItems.reduce((sum, item) => sum + item.quantity, 0);
+      const qualifiedSoldQuantity =
+        campaign.goalMode === "PRODUCT_BUNDLE"
+          ? productProgress.reduce((sum, item) => sum + Math.min(item.soldQuantity, item.targetQuantity), 0)
+          : rawSoldQuantity;
       const revenueCents = orderItems.reduce((sum, item) => sum + item.totalCents, 0);
       const marginCents = orderItems.reduce(
         (sum, item) => sum + Math.max(item.product.priceCents - item.product.internalCostCents, 0) * item.quantity,
         0
       );
-      const isCompleted = soldQuantity >= targetQuantity;
+      const isCompleted =
+        campaign.goalMode === "PRODUCT_BUNDLE"
+          ? productProgress.length > 0 && productProgress.every((item) => item.isCompleted)
+          : rawSoldQuantity >= targetQuantity;
       const claim = isCompleted && input.userId && participant
         ? await ensureCampaignClaim({
             campaignId: campaign.id,
@@ -523,8 +545,10 @@ export async function getActiveRewardCampaignProgress(input: {
 
       return {
         ...campaign,
-        soldQuantity,
+        soldQuantity: qualifiedSoldQuantity,
+        rawSoldQuantity,
         targetQuantity,
+        productProgress,
         revenueCents,
         marginCents,
         isCompleted,
@@ -532,8 +556,8 @@ export async function getActiveRewardCampaignProgress(input: {
         claimStatus: claim?.status ?? null,
         claimRewardValueType: claim?.rewardValueType ?? null,
         claimRewardValueCents: claim?.rewardValueCents ?? null,
-        progressPercent: Math.min(Math.round((soldQuantity / targetQuantity) * 100), 100),
-        remainingQuantity: Math.max(targetQuantity - soldQuantity, 0)
+        progressPercent: Math.min(Math.round((qualifiedSoldQuantity / targetQuantity) * 100), 100),
+        remainingQuantity: Math.max(targetQuantity - qualifiedSoldQuantity, 0)
       };
     })
   );
