@@ -64,6 +64,13 @@ const deleteCampaignSchema = z.object({
   campaignId: z.string().uuid()
 });
 
+export type RewardCampaignActionState = {
+  ok: boolean;
+  message: string | null;
+  error: string | null;
+  savedAt: number | null;
+};
+
 export async function updateRewardLevel(formData: FormData) {
   const user = await requireRole("COMPANY_ADMIN");
   if (!user.companyId) return;
@@ -185,9 +192,11 @@ export async function saveRewardLevelBundle(formData: FormData) {
   revalidatePath("/partner/rewards");
 }
 
-export async function saveRewardCampaign(formData: FormData) {
+async function persistRewardCampaign(formData: FormData) {
   const user = await requireRole("COMPANY_ADMIN");
-  if (!user.companyId) return;
+  if (!user.companyId) {
+    throw new Error("Your admin profile is not connected to a company.");
+  }
 
   const parsed = campaignSchema.parse({
     campaignId: formData.get("campaignId") || undefined,
@@ -264,7 +273,9 @@ export async function saveRewardCampaign(formData: FormData) {
       where: { id: parsed.campaignId, companyId: user.companyId },
       select: { id: true }
     });
-    if (!existingCampaign) return;
+    if (!existingCampaign) {
+      throw new Error("This reward campaign no longer exists or is not available for your company.");
+    }
 
     await prisma.rewardCampaign.update({
       where: { id: existingCampaign.id },
@@ -276,6 +287,11 @@ export async function saveRewardCampaign(formData: FormData) {
         }
       }
     });
+    revalidatePath("/admin/rewards");
+    revalidatePath("/consultant/rewards");
+    revalidatePath("/partner/rewards");
+
+    return { mode: "updated" as const, title: parsed.title };
   } else {
     await prisma.rewardCampaign.create({
       data: {
@@ -288,6 +304,50 @@ export async function saveRewardCampaign(formData: FormData) {
   revalidatePath("/admin/rewards");
   revalidatePath("/consultant/rewards");
   revalidatePath("/partner/rewards");
+
+  return { mode: "created" as const, title: parsed.title };
+}
+
+function actionErrorMessage(error: unknown) {
+  if (error instanceof z.ZodError) {
+    return error.issues[0]?.message ?? "Review the campaign fields and try again.";
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return "The campaign could not be saved. Please try again.";
+}
+
+export async function saveRewardCampaign(formData: FormData) {
+  await persistRewardCampaign(formData);
+}
+
+export async function saveRewardCampaignWithState(
+  _previousState: RewardCampaignActionState,
+  formData: FormData
+): Promise<RewardCampaignActionState> {
+  try {
+    const result = await persistRewardCampaign(formData);
+
+    return {
+      ok: true,
+      message:
+        result.mode === "created"
+          ? "Campaign created successfully. Seller progress is now tracking."
+          : "Campaign saved successfully. Seller progress has been refreshed.",
+      error: null,
+      savedAt: Date.now()
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: null,
+      error: actionErrorMessage(error),
+      savedAt: Date.now()
+    };
+  }
 }
 
 export async function deleteRewardCampaign(formData: FormData) {

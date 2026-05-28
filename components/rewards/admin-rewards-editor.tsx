@@ -1,8 +1,15 @@
 "use client";
 
-import { type MouseEvent, useMemo, useState } from "react";
-import { AlertTriangle, CalendarDays, CheckCircle2, DollarSign, Gift, Pencil, Plus, Send, Settings2, Target, Trash2, Trophy } from "lucide-react";
-import { deleteRewardCampaign, fulfillRewardClaim, markRewardPayoutApplied, saveRewardCampaign, saveRewardLevelBundle } from "@/app/admin/rewards/actions";
+import { type MouseEvent, useActionState, useEffect, useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
+import { AlertTriangle, CalendarDays, CheckCircle2, DollarSign, Gift, Loader2, Pencil, Plus, Send, Settings2, Target, Trash2, Trophy } from "lucide-react";
+import {
+  deleteRewardCampaign,
+  fulfillRewardClaim,
+  markRewardPayoutApplied,
+  saveRewardCampaignWithState,
+  saveRewardLevelBundle
+} from "@/app/admin/rewards/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -154,6 +161,29 @@ function confirmDeleteCampaign(event: MouseEvent<HTMLButtonElement>) {
   }
 }
 
+function CampaignSaveButton({ isSaved, isEditing }: { isSaved: boolean; isEditing: boolean }) {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button
+      type="submit"
+      variant={isSaved ? "default" : "accent"}
+      disabled={pending}
+      className={isSaved ? "bg-emerald-700 hover:bg-emerald-700" : undefined}
+    >
+      {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : isSaved ? <CheckCircle2 className="h-4 w-4" /> : null}
+      {pending ? "Saving campaign..." : isSaved ? "Saved" : isEditing ? "Save campaign" : "Create campaign"}
+    </Button>
+  );
+}
+
+const initialRewardCampaignActionState = {
+  ok: false,
+  message: null,
+  error: null,
+  savedAt: null
+};
+
 function campaignTargetLabel(campaign: RewardCampaign) {
   if (campaign.goalMode === "PRODUCT_BUNDLE") {
     return `Bundle target: ${campaign.products
@@ -276,6 +306,14 @@ function CampaignModal({
   const [endsAtValue, setEndsAtValue] = useState(campaign ? dateInputValue(campaign.endsAt) : defaultCampaignEnd());
   const [windowMode, setWindowMode] = useState<RewardCampaign["windowMode"]>(campaign?.windowMode ?? "CAMPAIGN_RANGE");
   const [rollingWindowDays, setRollingWindowDays] = useState(String(campaign?.rollingWindowDays ?? 5));
+  const [campaignActionState, campaignFormAction] = useActionState(saveRewardCampaignWithState, initialRewardCampaignActionState);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+
+  useEffect(() => {
+    if (campaignActionState.ok) {
+      setHasUnsavedChanges(false);
+    }
+  }, [campaignActionState.ok, campaignActionState.savedAt]);
 
   const campaignQuantity = (productId: string) => targetQuantities[productId] ?? "1";
   const rewardValueCents = Math.max(Math.round((Number(rewardValueDollars) || 0) * 100), 0);
@@ -366,9 +404,31 @@ function CampaignModal({
           </button>
         </div>
 
-        <form action={saveRewardCampaign} className="space-y-5 p-6">
+        <form action={campaignFormAction} onChange={() => setHasUnsavedChanges(true)} className="space-y-5 p-6">
           {campaign ? <input type="hidden" name="campaignId" value={campaign.id} /> : null}
           <input type="hidden" name="targetQuantity" value={Math.max(Number(totalTargetQuantity) || 1, 1)} />
+          <div aria-live="polite" className="space-y-3">
+            {campaignActionState.ok && !hasUnsavedChanges ? (
+              <div className="flex items-start gap-3 rounded-[1.35rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-800 shadow-line">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+                <div>
+                  <p>{campaignActionState.message}</p>
+                  <p className="mt-1 text-xs font-medium text-emerald-700">
+                    You can keep editing or close this modal when you are done.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+            {campaignActionState.error ? (
+              <div className="flex items-start gap-3 rounded-[1.35rem] border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-clinic-red shadow-line">
+                <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                <div>
+                  <p>Campaign was not saved.</p>
+                  <p className="mt-1 text-xs font-medium text-red-700">{campaignActionState.error}</p>
+                </div>
+              </div>
+            ) : null}
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Campaign name</span>
@@ -737,7 +797,7 @@ function CampaignModal({
             ) : (
               <span />
             )}
-            <Button type="submit" variant="accent">{campaign ? "Save campaign" : "Create campaign"}</Button>
+            <CampaignSaveButton isSaved={campaignActionState.ok && !hasUnsavedChanges} isEditing={Boolean(campaign)} />
           </div>
         </form>
       </div>
