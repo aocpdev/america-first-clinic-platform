@@ -146,6 +146,22 @@ function earnedByRoleForOrders(
   return earnedByRole(orders.filter(orderPredicate), role, profileId);
 }
 
+function earnedByRolesForOrders(
+  orders: HierarchyOrderSummary[],
+  roles: CommissionSplitSummary["participantRole"][],
+  orderPredicate: (order: HierarchyOrderSummary) => boolean
+) {
+  const roleSet = new Set(roles);
+
+  return orders.reduce((sum, order) => {
+    if (!orderPredicate(order)) return sum;
+
+    return sum + order.commissionSplits.reduce((splitSum, split) => {
+      return roleSet.has(split.participantRole) ? splitSum + split.amountCents : splitSum;
+    }, 0);
+  }, 0);
+}
+
 function partnerNode(partner: PartnerSummary, orders: HierarchyOrderSummary[], visibility: BuildVisibility = {}): HierarchyNode {
   return {
     id: `partner-${partner.id}`,
@@ -175,6 +191,11 @@ function managerNode(
 ): HierarchyNode {
   const totalEarned = earnedByRole(orders, "MANAGER", manager.id);
   const personalEarned = earnedByRoleForOrders(orders, "MANAGER", manager.id, (order) => managerPersonalOrder(manager.id, order));
+  const teamEarned = earnedByRolesForOrders(
+    orders,
+    ["MANAGER", "GROUP_LEADER", "CONSULTANT"],
+    (order) => managerOwnsOrder(manager.id, order) && !managerPersonalOrder(manager.id, order)
+  );
 
   return {
     id: `manager-${manager.id}`,
@@ -186,7 +207,7 @@ function managerNode(
     revenueCents: sumBy(orders, (order) => managerOwnsOrder(manager.id, order), (order) => order.totalCents),
     commissionCents: totalEarned,
     personalCommissionCents: personalEarned,
-    groupCommissionCents: Math.max(0, totalEarned - personalEarned),
+    groupCommissionCents: teamEarned,
     salesCount: salesCount(orders, (order) => managerOwnsOrder(manager.id, order)),
     showCommissionSetup: !visibility.hideCommissionSetup,
     subtitle: `${leaderCount} leaders and ${directConsultantCount} direct consultants assigned`,
@@ -205,6 +226,11 @@ function leaderNode(
 ): HierarchyNode {
   const totalEarned = earnedByRole(orders, "GROUP_LEADER", leader.id);
   const personalEarned = earnedByRoleForOrders(orders, "GROUP_LEADER", leader.id, (order) => leaderPersonalOrder(leader.id, order));
+  const teamEarned = earnedByRolesForOrders(
+    orders,
+    ["GROUP_LEADER", "CONSULTANT"],
+    (order) => leaderOwnsOrder(leader.id, order) && !leaderPersonalOrder(leader.id, order)
+  );
 
   return {
     id: `leader-${leader.id}`,
@@ -216,7 +242,7 @@ function leaderNode(
     revenueCents: sumBy(orders, (order) => leaderOwnsOrder(leader.id, order), (order) => order.totalCents),
     commissionCents: totalEarned,
     personalCommissionCents: personalEarned,
-    groupCommissionCents: Math.max(0, totalEarned - personalEarned),
+    groupCommissionCents: teamEarned,
     salesCount: salesCount(orders, (order) => leaderOwnsOrder(leader.id, order)),
     showCommissionSetup: !visibility.hideCommissionSetup,
     subtitle: `${consultantCount} consultants assigned`,
