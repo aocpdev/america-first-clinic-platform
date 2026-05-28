@@ -175,6 +175,61 @@ function partnerCompanyPayments(entries: CommissionLedgerEntry[]) {
   return entries.filter((entry) => entry.payoutResponsibility === "COMPANY" && entry.participantRole === "PARTNER");
 }
 
+function rewardPayoutSum(items: PartnerCashRewardPayoutItem[]) {
+  return items.reduce((total, item) => total + item.rewardValueCents, 0);
+}
+
+function participantKey(entry: CommissionLedgerEntry) {
+  return [entry.participantRole, entry.participantEmail || entry.participantName].join(":");
+}
+
+type PartnerPayeeSummary = {
+  key: string;
+  role: CommissionParticipantRole;
+  name: string;
+  email: string;
+  totalCents: number;
+  pendingCents: number;
+  approvedCents: number;
+  paidCents: number;
+  deferredCents: number;
+  entries: CommissionLedgerEntry[];
+};
+
+function buildPartnerPayeeSummaries(entries: CommissionLedgerEntry[]): PartnerPayeeSummary[] {
+  const summaries = new Map<string, PartnerPayeeSummary>();
+
+  entries.forEach((entry) => {
+    const key = participantKey(entry);
+    const existing = summaries.get(key) ?? {
+      key,
+      role: entry.participantRole,
+      name: entry.participantName,
+      email: entry.participantEmail,
+      totalCents: 0,
+      pendingCents: 0,
+      approvedCents: 0,
+      paidCents: 0,
+      deferredCents: 0,
+      entries: []
+    };
+
+    existing.totalCents += entry.amountCents;
+    if (entry.status === "PENDING") existing.pendingCents += entry.amountCents;
+    if (entry.status === "APPROVED") existing.approvedCents += entry.amountCents;
+    if (entry.status === "PAID") existing.paidCents += entry.amountCents;
+    if (entry.status === "REJECTED") existing.deferredCents += entry.amountCents;
+    existing.entries.push(entry);
+    summaries.set(key, existing);
+  });
+
+  return Array.from(summaries.values()).sort((a, b) => b.totalCents - a.totalCents || a.name.localeCompare(b.name));
+}
+
+function companyPaymentForOrder(entries: CommissionLedgerEntry[], orderId: string) {
+  return entries.find((entry) => entry.orderId === orderId && entry.payoutResponsibility === "COMPANY" && entry.participantRole === "PARTNER");
+}
+
 function copyForScope(scope: CommissionLedgerScope) {
   if (scope === "admin") {
     return {
@@ -407,6 +462,161 @@ function RewardPayoutRow({ claim }: { claim: PartnerCashRewardPayoutItem }) {
   );
 }
 
+function PartnerPayoutOverview({
+  teamRows,
+  companyPayments,
+  rewardPayouts
+}: {
+  teamRows: CommissionLedgerEntry[];
+  companyPayments: CommissionLedgerEntry[];
+  rewardPayouts: PartnerCashRewardPayoutItem[];
+}) {
+  const companyPartnerPayout = sum(companyPayments);
+  const teamCommissions = sum(teamRows);
+  const cashRewards = rewardPayoutSum(rewardPayouts);
+  const totalFundedByCompany = companyPartnerPayout + cashRewards;
+  const partnerRetained = Math.max(companyPartnerPayout - teamCommissions, 0);
+
+  return (
+    <Card className="overflow-hidden rounded-[32px] border-blue-100 bg-white shadow-sm">
+      <div className="border-b border-border p-6 sm:p-8">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-clinic-red">Partner settlement</p>
+            <h3 className="mt-3 text-3xl font-semibold tracking-tight text-clinic-ink">Company money in, team payouts out</h3>
+            <p className="mt-3 max-w-4xl text-base leading-7 text-slate-600">
+              The partner receives the company-funded partner payout packet. From that packet, the partner pays managers, leaders, and sellers. Cash rewards are tracked as a separate pass-through payout.
+            </p>
+          </div>
+          <div className="rounded-[26px] border border-blue-100 bg-blue-50 px-5 py-4 text-clinic-navy">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner keeps from commissions</p>
+            <p className="mt-1 text-3xl font-semibold tracking-tight">{dollars(partnerRetained)}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="rounded-[26px] bg-clinic-mist p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Company funded</p>
+          <p className="mt-4 text-3xl font-semibold text-clinic-navy">{dollars(totalFundedByCompany)}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">Partner payout plus any funded cash rewards.</p>
+        </div>
+        <div className="rounded-[26px] bg-blue-50 p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner commission packet</p>
+          <p className="mt-4 text-3xl font-semibold text-clinic-navy">{dollars(companyPartnerPayout)}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">The full amount the company owes the partner from order margins.</p>
+        </div>
+        <div className="rounded-[26px] bg-emerald-50 p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Team to distribute</p>
+          <p className="mt-4 text-3xl font-semibold text-emerald-700">{dollars(teamCommissions)}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">Managers, leaders, and sellers paid by the partner.</p>
+        </div>
+        <div className="rounded-[26px] bg-amber-50 p-5">
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Cash rewards</p>
+          <p className="mt-4 text-3xl font-semibold text-amber-700">{dollars(cashRewards)}</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">Reward payouts to pass through to earners.</p>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function PartnerPayeeLedger({
+  summaries,
+  entries,
+  scope
+}: {
+  summaries: PartnerPayeeSummary[];
+  entries: CommissionLedgerEntry[];
+  scope: CommissionLedgerScope;
+}) {
+  return (
+    <Card className="overflow-hidden rounded-[32px]">
+      <div className="border-b border-border p-6 sm:p-8">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-clinic-red">Team distribution ledger</p>
+        <h3 className="mt-3 text-3xl font-semibold tracking-tight text-clinic-ink">Who the partner needs to pay</h3>
+        <p className="mt-3 max-w-4xl text-base leading-7 text-slate-600">
+          This groups every payable commission by person and shows the exact order source behind each amount.
+        </p>
+      </div>
+
+      {summaries.length ? (
+        <div className="grid gap-4 p-4 xl:grid-cols-2">
+          {summaries.map((summary) => (
+            <div key={summary.key} className="rounded-[28px] border border-border bg-white p-5 shadow-sm">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="truncate text-xl font-semibold text-clinic-ink">{summary.name}</p>
+                    <Badge className="border-blue-200 bg-blue-50 text-clinic-navy">{roleCopy[summary.role]}</Badge>
+                  </div>
+                  <p className="mt-1 break-all text-sm text-slate-500">{summary.email || "No email on file"}</p>
+                </div>
+                <div className="rounded-[22px] bg-emerald-50 px-4 py-3 text-right">
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Total owed</p>
+                  <p className="mt-1 text-2xl font-semibold text-emerald-700">{dollars(summary.totalCents)}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                <div className="rounded-2xl bg-amber-50 p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-amber-700">Pending</p>
+                  <p className="mt-1 font-semibold text-amber-700">{dollars(summary.pendingCents)}</p>
+                </div>
+                <div className="rounded-2xl bg-emerald-50 p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Ready</p>
+                  <p className="mt-1 font-semibold text-emerald-700">{dollars(summary.approvedCents)}</p>
+                </div>
+                <div className="rounded-2xl bg-blue-50 p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-clinic-navy">Paid</p>
+                  <p className="mt-1 font-semibold text-clinic-navy">{dollars(summary.paidCents)}</p>
+                </div>
+                <div className="rounded-2xl bg-red-50 p-3">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-clinic-red">Deferred</p>
+                  <p className="mt-1 font-semibold text-clinic-red">{dollars(summary.deferredCents)}</p>
+                </div>
+              </div>
+
+              <div className="mt-4 overflow-hidden rounded-[22px] border border-border">
+                {summary.entries.slice(0, 5).map((entry) => {
+                  const funding = companyPaymentForOrder(entries, entry.orderId);
+                  return (
+                    <div key={entry.id} className="grid gap-3 border-t border-border p-4 first:border-t-0 md:grid-cols-[1fr_auto] md:items-center">
+                      <div className="min-w-0">
+                        <Link href={orderHref(scope, entry.orderId)} className="inline-flex items-center gap-2 font-semibold text-clinic-navy">
+                          {entry.orderNumber} <ArrowUpRight className="h-4 w-4" />
+                        </Link>
+                        <p className="mt-1 truncate text-sm text-slate-600">{entry.customerName}</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Partner packet: <span className="font-semibold text-clinic-navy">{funding ? dollars(funding.amountCents) : "Not funded yet"}</span>
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                        <Badge className={cn("px-3 py-1.5", statusClassName[entry.status])}>{statusCopy[entry.status]}</Badge>
+                        <p className="min-w-24 text-right text-lg font-semibold text-clinic-navy">{dollars(entry.amountCents)}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                {summary.entries.length > 5 ? (
+                  <div className="bg-clinic-mist px-4 py-3 text-sm font-semibold text-slate-600">
+                    +{summary.entries.length - 5} more order sources hidden by this compact view.
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="p-10 text-center">
+          <h3 className="text-xl font-semibold text-clinic-ink">No team payouts match these filters</h3>
+          <p className="mt-2 text-slate-600">When managers, leaders, or sellers have payable commissions, their grouped totals will appear here.</p>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: PayoutCenterProps) {
   const visibleRows = visiblePayoutEntries(scope, entries);
   const rows = applyPayoutFilters(visibleRows, filters);
@@ -423,6 +633,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
   const readyRows = rows.filter((entry) => entry.status === "APPROVED");
   const historyRows = rows.filter((entry) => entry.status === "PAID" || entry.status === "REJECTED").slice(0, 12);
   const companyPayments = scope === "partner" ? applyPayoutFilters(partnerCompanyPayments(entries), filters) : [];
+  const partnerPayeeSummaries = scope === "partner" ? buildPartnerPayeeSummaries(rows) : [];
   const pendingRewardPayouts = visibleRewardPayouts.filter((claim) => claim.status === "PAYOUT_PENDING");
   const fundedRewardPayouts = visibleRewardPayouts.filter((claim) => claim.status === "PAYOUT_APPLIED");
   const rewardPayoutTotal = visibleRewardPayouts.reduce((total, claim) => total + claim.rewardValueCents, 0);
@@ -511,6 +722,10 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
         </div>
       ) : null}
 
+      {scope === "partner" ? (
+        <PartnerPayoutOverview teamRows={rows} companyPayments={companyPayments} rewardPayouts={visibleRewardPayouts} />
+      ) : null}
+
       <RecordFilters
         title="Payout filters"
         description="Search by partner, team member, customer, order, status, or role."
@@ -535,6 +750,8 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
           <div className="grid gap-3 p-4 lg:grid-cols-2">
             {companyPayments.map((entry) => {
               const obligations = relatedPartnerObligations(entry, entries);
+              const teamOwed = sum(obligations);
+              const partnerKeeps = Math.max(entry.amountCents - teamOwed, 0);
               return (
                 <div key={entry.id} className="rounded-[24px] border border-border bg-white p-4 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -553,14 +770,39 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
                     </div>
                     <div className="rounded-2xl bg-emerald-50 p-3">
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Team owed</p>
-                      <p className="mt-1 text-xl font-semibold text-emerald-700">{dollars(sum(obligations))}</p>
+                      <p className="mt-1 text-xl font-semibold text-emerald-700">{dollars(teamOwed)}</p>
                     </div>
+                  </div>
+                  <div className="mt-3 rounded-2xl border border-blue-100 bg-blue-50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-clinic-navy">Partner keeps</p>
+                      <p className="text-lg font-semibold text-clinic-navy">{dollars(partnerKeeps)}</p>
+                    </div>
+                    {obligations.length ? (
+                      <div className="mt-3 grid gap-2">
+                        {obligations.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl bg-white px-3 py-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-clinic-ink">{item.participantName}</p>
+                              <p className="text-xs text-slate-500">{roleCopy[item.participantRole]}</p>
+                            </div>
+                            <p className="shrink-0 font-semibold text-emerald-700">{dollars(item.amountCents)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-slate-600">No team payout is attached to this order packet.</p>
+                    )}
                   </div>
                 </div>
               );
             })}
           </div>
         </Card>
+      ) : null}
+
+      {scope === "partner" ? (
+        <PartnerPayeeLedger summaries={partnerPayeeSummaries} entries={entries} scope={scope} />
       ) : null}
 
       {scope === "partner" ? (
