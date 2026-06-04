@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { UserRole, UserStatus } from "@prisma/client";
 import { approveConsultant, rejectConsultant } from "@/app/(auth)/actions";
 import { AssignConsultantModal } from "@/app/admin/consultants/assign-consultant-modal";
 import { CreateConsultantModal } from "@/app/admin/consultants/create-consultant-modal";
@@ -42,12 +43,20 @@ const leaderSections = [
   { id: "network", label: "Seller Network" }
 ] as const;
 
+const managerSections = [
+  { id: "hierarchy", label: "Hierarchy" },
+  { id: "leaders", label: "Leaders" },
+  { id: "approval", label: "Approval workflow" },
+  { id: "network", label: "Seller Network" }
+] as const;
+
 type PartnerSection = (typeof partnerSections)[number]["id"];
 type LeaderSectionId = (typeof leaderSections)[number]["id"];
-type TeamSection = PartnerSection | LeaderSectionId;
+type ManagerSectionId = (typeof managerSections)[number]["id"];
+type TeamSection = PartnerSection | LeaderSectionId | ManagerSectionId;
 
-function getTeamSection(section: string | undefined, isGroupLeader: boolean): TeamSection {
-  const sections = isGroupLeader ? leaderSections : partnerSections;
+function getTeamSection(section: string | undefined, roleMode: "partner" | "manager" | "leader"): TeamSection {
+  const sections = roleMode === "leader" ? leaderSections : roleMode === "manager" ? managerSections : partnerSections;
   return sections.some((item) => item.id === section) ? (section as TeamSection) : "hierarchy";
 }
 
@@ -59,9 +68,11 @@ export default async function PartnerConsultantsPage({
   const params = await searchParams;
   const user = await requirePartner();
   const isGroupLeader = user.role === "GROUP_LEADER";
+  const isManager = user.role === "MANAGER";
   const nav = isGroupLeader ? groupLeaderNav : partnerNav;
-  const activeSection = getTeamSection(params.section, isGroupLeader);
-  const availableSections = isGroupLeader ? leaderSections : partnerSections;
+  const roleMode = isGroupLeader ? "leader" : isManager ? "manager" : "partner";
+  const activeSection = getTeamSection(params.section, roleMode);
+  const availableSections = roleMode === "leader" ? leaderSections : roleMode === "manager" ? managerSections : partnerSections;
   const errorMessages: Record<string, string> = {
     duplicate_email: "That email is already assigned to another partner, leader, or consultant.",
     duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant.",
@@ -85,23 +96,66 @@ export default async function PartnerConsultantsPage({
       }
     }
   });
-  const effectivePartnerProfileId = partnerProfile?.id ?? groupLeaderProfile?.partnerProfileId ?? null;
+  const managerProfile = await prisma.managerProfile.findUnique({
+    where: { userId: user.id },
+    include: {
+      user: true,
+      partnerProfile: {
+        include: { user: true }
+      }
+    }
+  });
+  const effectivePartnerProfileId = partnerProfile?.id ?? managerProfile?.partnerProfileId ?? groupLeaderProfile?.partnerProfileId ?? null;
+  const managerLeaderIds = managerProfile
+    ? (
+        await prisma.groupLeaderProfile.findMany({
+          where: { managerProfileId: managerProfile.id },
+          select: { id: true }
+        })
+      ).map((leader) => leader.id)
+    : [];
+  const pendingConsultantWhere = groupLeaderProfile
+    ? {
+        requestedRole: UserRole.CONSULTANT,
+        status: UserStatus.PENDING_APPROVAL,
+        requestedPartnerProfileId: effectivePartnerProfileId,
+        requestedGroupLeaderProfileId: groupLeaderProfile.id
+      }
+    : managerProfile
+      ? {
+          requestedRole: UserRole.CONSULTANT,
+          status: UserStatus.PENDING_APPROVAL,
+          requestedPartnerProfileId: effectivePartnerProfileId,
+          OR: [
+            { requestedManagerProfileId: managerProfile.id },
+            ...(managerLeaderIds.length > 0 ? [{ requestedGroupLeaderProfileId: { in: managerLeaderIds } }] : [])
+          ]
+        }
+      : {
+          requestedRole: { in: [UserRole.CONSULTANT, UserRole.GROUP_LEADER] },
+          status: UserStatus.PENDING_APPROVAL,
+          requestedPartnerProfileId: effectivePartnerProfileId
+        };
   const [pendingConsultants, consultants, groupLeaders, managers, hierarchyOrders] = effectivePartnerProfileId
     ? await Promise.all([
         prisma.user.findMany({
-          where: {
-            requestedRole: groupLeaderProfile ? "CONSULTANT" : { in: ["CONSULTANT", "GROUP_LEADER"] },
-            status: "PENDING_APPROVAL",
-            requestedPartnerProfileId: effectivePartnerProfileId,
-            ...(groupLeaderProfile ? { requestedGroupLeaderProfileId: groupLeaderProfile.id } : {})
-          },
+          where: pendingConsultantWhere,
           orderBy: { createdAt: "desc" }
         }),
         prisma.consultantProfile.findMany({
           where: {
             partnerProfileId: effectivePartnerProfileId,
             user: { is: { role: "CONSULTANT" } },
-            ...(groupLeaderProfile ? { groupLeaderProfileId: groupLeaderProfile.id } : {})
+            ...(groupLeaderProfile
+              ? { groupLeaderProfileId: groupLeaderProfile.id }
+              : managerProfile
+                ? {
+                    OR: [
+                      { managerProfileId: managerProfile.id },
+                      ...(managerLeaderIds.length > 0 ? [{ groupLeaderProfileId: { in: managerLeaderIds } }] : [])
+                    ]
+                  }
+                : {})
           },
           include: {
             user: true,
@@ -115,7 +169,9 @@ export default async function PartnerConsultantsPage({
         prisma.groupLeaderProfile.findMany({
           where: groupLeaderProfile
             ? { id: groupLeaderProfile.id }
-            : { partnerProfileId: effectivePartnerProfileId, user: { is: { role: "GROUP_LEADER" } } },
+            : managerProfile
+              ? { managerProfileId: managerProfile.id, user: { is: { role: "GROUP_LEADER" } } }
+              : { partnerProfileId: effectivePartnerProfileId, user: { is: { role: "GROUP_LEADER" } } },
           include: { user: true, managerProfile: true },
           orderBy: { displayName: "asc" }
         }),
@@ -124,6 +180,8 @@ export default async function PartnerConsultantsPage({
             ? groupLeaderProfile.managerProfileId
               ? { id: groupLeaderProfile.managerProfileId, user: { is: { role: "MANAGER" } } }
               : { id: "__no-manager-assigned__" }
+            : managerProfile
+              ? { id: managerProfile.id, user: { is: { role: "MANAGER" } } }
             : { partnerProfileId: effectivePartnerProfileId, user: { is: { role: "MANAGER" } } },
           include: { user: true },
           orderBy: { displayName: "asc" }
@@ -136,6 +194,15 @@ export default async function PartnerConsultantsPage({
                   { consultantProfile: { groupLeaderProfileId: groupLeaderProfile.id } }
                 ]
               }
+            : managerProfile
+              ? {
+                  OR: [
+                    { managerProfileId: managerProfile.id },
+                    { groupLeaderProfile: { managerProfileId: managerProfile.id } },
+                    { consultantProfile: { managerProfileId: managerProfile.id } },
+                    { consultantProfile: { groupLeaderProfile: { managerProfileId: managerProfile.id } } }
+                  ]
+                }
             : {
                 OR: [
                   { partnerProfileId: effectivePartnerProfileId },
@@ -181,7 +248,7 @@ export default async function PartnerConsultantsPage({
         })
       ])
     : [[], [], [], [], []];
-  const hierarchyPartner = partnerProfile ?? groupLeaderProfile?.partnerProfile ?? null;
+  const hierarchyPartner = partnerProfile ?? managerProfile?.partnerProfile ?? groupLeaderProfile?.partnerProfile ?? null;
   const selectedManager = !isGroupLeader && params.managerId
     ? managers.find((manager) => manager.id === params.managerId) ?? null
     : null;
@@ -211,10 +278,16 @@ export default async function PartnerConsultantsPage({
     id: manager.id,
     displayName: manager.displayName
   }));
+  const canReviewApplications = Boolean(partnerProfile || managerProfile || groupLeaderProfile);
+  const canEditApprovalPlacement = Boolean(partnerProfile);
   const sectionHref = (section: TeamSection) => `/partner/consultants?section=${section}`;
 
   return (
-    <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title={isGroupLeader ? "Team" : "Partner network"}>
+    <SidebarShell
+      nav={nav}
+      eyebrow={isGroupLeader ? "Group leader" : isManager ? "Manager" : "Partner"}
+      title={isGroupLeader ? "Team" : isManager ? "Manager network" : "Partner network"}
+    >
       <div className="space-y-6">
         {params.updated ? (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
@@ -520,7 +593,7 @@ export default async function PartnerConsultantsPage({
           </Card>
         ) : null}
 
-        {activeSection === "approval" && partnerProfile ? (
+        {activeSection === "approval" && canReviewApplications ? (
           <Card className="overflow-hidden">
             <div className="border-b border-border p-5">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -534,6 +607,13 @@ export default async function PartnerConsultantsPage({
             <div className="divide-y divide-border bg-white">
               {pendingConsultants.map((applicant) => {
                 const isLeaderApplication = applicant.requestedRole === "GROUP_LEADER";
+                const applicantManagerName = applicant.requestedManagerProfileId
+                  ? managers.find((manager) => manager.id === applicant.requestedManagerProfileId)?.displayName ?? "Requested manager"
+                  : null;
+                const applicantLeaderName = applicant.requestedGroupLeaderProfileId
+                  ? groupLeaders.find((leader) => leader.id === applicant.requestedGroupLeaderProfileId)?.displayName ?? "Requested leader"
+                  : null;
+
                 return (
                   <div key={applicant.id} className="flex flex-col gap-4 p-5 lg:flex-row lg:items-center lg:justify-between">
                     <div>
@@ -544,82 +624,101 @@ export default async function PartnerConsultantsPage({
                         </Badge>
                       </div>
                       <p className="mt-1 text-sm text-slate-500">{applicant.email}</p>
+                      {!canEditApprovalPlacement ? (
+                        <p className="mt-2 text-xs font-semibold text-slate-500">
+                          {applicantLeaderName ? `Assigned to ${applicantLeaderName}` : applicantManagerName ? `Assigned to ${applicantManagerName}` : "Assigned to your network"}
+                        </p>
+                      ) : null}
                     </div>
                     <div className="flex flex-wrap justify-end gap-2">
                       <form action={rejectConsultant}>
                         <input type="hidden" name="userId" value={applicant.id} />
-                        <input type="hidden" name="reason" value="Application rejected by partner." />
+                        <input type="hidden" name="reason" value="Application rejected from the approval workflow." />
                         <SubmitButton size="sm" variant="outline" pendingText="Rejecting...">Reject</SubmitButton>
                       </form>
                       <form action={approveConsultant} className="flex flex-wrap justify-end gap-2">
                         <input type="hidden" name="userId" value={applicant.id} />
+                        {!canEditApprovalPlacement && applicant.requestedManagerProfileId ? (
+                          <input type="hidden" name="managerProfileId" value={applicant.requestedManagerProfileId} />
+                        ) : null}
+                        {!canEditApprovalPlacement && applicant.requestedGroupLeaderProfileId ? (
+                          <input type="hidden" name="groupLeaderProfileId" value={applicant.requestedGroupLeaderProfileId} />
+                        ) : null}
                         {isLeaderApplication ? (
                           <>
-                            <select
-                              name="managerProfileId"
-                              className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                              defaultValue={applicant.requestedManagerProfileId ?? ""}
-                            >
-                              <option value="">Direct partner</option>
-                              {managers.map((manager) => (
-                                <option key={manager.id} value={manager.id}>{manager.displayName}</option>
-                              ))}
-                            </select>
-                            <input
-                              name="leaderCommissionPercent"
-                              type="number"
-                              min="0"
-                              max="50"
-                              step="0.01"
-                              defaultValue="25"
-                              className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                              aria-label="Leader direct share of partner pool"
-                            />
-                            <input
-                              name="consultantOverridePercent"
-                              type="number"
-                              min="0"
-                              max="50"
-                              step="0.01"
-                              defaultValue="0"
-                              className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                              aria-label="Leader override from consultant sales"
-                            />
+                            {canEditApprovalPlacement ? (
+                              <>
+                                <select
+                                  name="managerProfileId"
+                                  className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                                  defaultValue={applicant.requestedManagerProfileId ?? ""}
+                                >
+                                  <option value="">Direct partner</option>
+                                  {managers.map((manager) => (
+                                    <option key={manager.id} value={manager.id}>{manager.displayName}</option>
+                                  ))}
+                                </select>
+                                <input
+                                  name="leaderCommissionPercent"
+                                  type="number"
+                                  min="0"
+                                  max="50"
+                                  step="0.01"
+                                  defaultValue="25"
+                                  className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                                  aria-label="Leader direct share of partner pool"
+                                />
+                                <input
+                                  name="consultantOverridePercent"
+                                  type="number"
+                                  min="0"
+                                  max="50"
+                                  step="0.01"
+                                  defaultValue="0"
+                                  className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                                  aria-label="Leader override from consultant sales"
+                                />
+                              </>
+                            ) : null}
                           </>
                         ) : (
                           <>
-                            <select
-                              name="managerProfileId"
-                              className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                              defaultValue={applicant.requestedManagerProfileId ?? ""}
-                            >
-                              <option value="">Direct partner</option>
-                              {managers.map((manager) => (
-                                <option key={manager.id} value={manager.id}>{manager.displayName}</option>
-                              ))}
-                            </select>
-                            <select
-                              name="groupLeaderProfileId"
-                              className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                              defaultValue={applicant.requestedGroupLeaderProfileId ?? ""}
-                            >
-                              <option value="">Direct partner</option>
-                              {groupLeaders.map((leader) => (
-                                <option key={leader.id} value={leader.id}>
-                                  {leader.displayName}{leader.managerProfile ? ` - ${leader.managerProfile.displayName}` : ""}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              name="consultantCommissionPercent"
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              defaultValue="50"
-                              className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                              aria-label="Consultant share of partner pool"
-                            />
+                            {canEditApprovalPlacement ? (
+                              <>
+                                <select
+                                  name="managerProfileId"
+                                  className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                                  defaultValue={applicant.requestedManagerProfileId ?? ""}
+                                >
+                                  <option value="">Direct partner</option>
+                                  {managers.map((manager) => (
+                                    <option key={manager.id} value={manager.id}>{manager.displayName}</option>
+                                  ))}
+                                </select>
+                                <select
+                                  name="groupLeaderProfileId"
+                                  className="h-9 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                                  defaultValue={applicant.requestedGroupLeaderProfileId ?? ""}
+                                >
+                                  <option value="">Direct partner</option>
+                                  {groupLeaders.map((leader) => (
+                                    <option key={leader.id} value={leader.id}>
+                                      {leader.displayName}{leader.managerProfile ? ` - ${leader.managerProfile.displayName}` : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                                <input
+                                  name="consultantCommissionPercent"
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  defaultValue="50"
+                                  className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
+                                  aria-label="Consultant share of partner pool"
+                                />
+                              </>
+                            ) : null}
                           </>
                         )}
                         <SubmitButton size="sm" variant="accent" pendingText="Approving...">Approve</SubmitButton>

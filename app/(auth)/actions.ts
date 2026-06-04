@@ -173,30 +173,47 @@ export async function registerUser(formData: FormData) {
     redirect("/register?error=invalid_partner");
   }
 
+  let selectedManagerForApproval: { id: string; userId: string; displayName: string } | null = null;
+  let selectedLeaderForApproval: {
+    id: string;
+    userId: string;
+    displayName: string;
+    managerProfileId: string | null;
+    managerProfile: { userId: string; displayName: string } | null;
+  } | null = null;
+
   if (requestedManagerProfileId) {
-    const selectedManager = await prisma.managerProfile.findFirst({
+    selectedManagerForApproval = await prisma.managerProfile.findFirst({
       where: {
         id: requestedManagerProfileId,
         partnerProfileId: selectedPartner.id
       },
-      select: { id: true }
+      select: { id: true, userId: true, displayName: true }
     });
 
-    if (!selectedManager) {
+    if (!selectedManagerForApproval) {
       redirect("/register?error=invalid_manager");
     }
   }
 
   if (requestedGroupLeaderProfileId) {
-    const selectedLeader = await prisma.groupLeaderProfile.findFirst({
+    selectedLeaderForApproval = await prisma.groupLeaderProfile.findFirst({
       where: {
         id: requestedGroupLeaderProfileId,
         partnerProfileId: selectedPartner.id
       },
-      select: { id: true }
+      select: {
+        id: true,
+        userId: true,
+        displayName: true,
+        managerProfileId: true,
+        managerProfile: {
+          select: { userId: true, displayName: true }
+        }
+      }
     });
 
-    if (!selectedLeader) {
+    if (!selectedLeaderForApproval) {
       redirect("/register?error=invalid_group_leader");
     }
   }
@@ -267,6 +284,52 @@ export async function registerUser(formData: FormData) {
   const adminIds = await companyAdminUserIds(prisma, company.id);
   const applicantName = personDisplayName({ firstName, lastName, email });
   const roleLabel = requestedRole === "GROUP_LEADER" ? "group leader" : "seller";
+  const managerNotificationUserId = selectedManagerForApproval?.userId ?? selectedLeaderForApproval?.managerProfile?.userId ?? null;
+  const managerNotificationName = selectedManagerForApproval?.displayName ?? selectedLeaderForApproval?.managerProfile?.displayName ?? null;
+  const directApproverNotifications =
+    requestedRole === "CONSULTANT"
+      ? [
+          {
+            userId: managerNotificationUserId,
+            title: "New seller registration",
+            body: `${applicantName} is waiting for approval${managerNotificationName ? ` under ${managerNotificationName}` : ""}.`,
+            metadata: {
+              type: "registration",
+              userId: user.id,
+              requestedRole,
+              partnerProfileId: selectedPartner.id,
+              managerProfileId: requestedManagerProfileId ?? selectedLeaderForApproval?.managerProfileId ?? null,
+              groupLeaderProfileId: requestedGroupLeaderProfileId
+            }
+          },
+          {
+            userId: selectedLeaderForApproval?.userId,
+            title: "New seller registration",
+            body: `${applicantName} is waiting for approval in your seller group.`,
+            metadata: {
+              type: "registration",
+              userId: user.id,
+              requestedRole,
+              partnerProfileId: selectedPartner.id,
+              managerProfileId: requestedManagerProfileId ?? selectedLeaderForApproval?.managerProfileId ?? null,
+              groupLeaderProfileId: requestedGroupLeaderProfileId
+            }
+          }
+        ]
+      : [
+          {
+            userId: selectedManagerForApproval?.userId,
+            title: "New group leader registration",
+            body: `${applicantName} is waiting for approval in your manager network.`,
+            metadata: {
+              type: "registration",
+              userId: user.id,
+              requestedRole,
+              partnerProfileId: selectedPartner.id,
+              managerProfileId: requestedManagerProfileId
+            }
+          }
+        ];
   await notifyUsers(prisma, [
     ...adminIds.map((adminId) => ({
       userId: adminId,
@@ -277,7 +340,8 @@ export async function registerUser(formData: FormData) {
         userId: user.id,
         requestedRole,
         partnerProfileId: selectedPartner.id,
-        managerProfileId: requestedManagerProfileId
+        managerProfileId: requestedManagerProfileId ?? selectedLeaderForApproval?.managerProfileId ?? null,
+        groupLeaderProfileId: requestedGroupLeaderProfileId
       }
     })),
     {
@@ -289,9 +353,11 @@ export async function registerUser(formData: FormData) {
         userId: user.id,
         requestedRole,
         partnerProfileId: selectedPartner.id,
-        managerProfileId: requestedManagerProfileId
+        managerProfileId: requestedManagerProfileId ?? selectedLeaderForApproval?.managerProfileId ?? null,
+        groupLeaderProfileId: requestedGroupLeaderProfileId
       }
-    }
+    },
+    ...directApproverNotifications
   ]);
 
   await dispatchWebhookEvent({
@@ -503,11 +569,47 @@ export async function approveConsultant(formData: FormData) {
       redirect("/partner/consultants?error=access_denied");
     }
     const groupLeaderProfile = await prisma.groupLeaderProfile.findUnique({ where: { userId: approver.id } });
-    if (!groupLeaderProfile || user.requestedPartnerProfileId !== groupLeaderProfile.partnerProfileId) {
+    if (
+      !groupLeaderProfile ||
+      user.requestedPartnerProfileId !== groupLeaderProfile.partnerProfileId ||
+      user.requestedGroupLeaderProfileId !== groupLeaderProfile.id
+    ) {
       redirect("/partner/consultants?error=access_denied");
     }
     partnerProfileId = groupLeaderProfile.partnerProfileId;
+    managerProfileId = groupLeaderProfile.managerProfileId;
     groupLeaderProfileId = groupLeaderProfile.id;
+    consultantCommissionBps = DEFAULT_CONSULTANT_SHARE_BPS;
+  } else if (approver.role === "MANAGER") {
+    if (user.requestedRole !== "CONSULTANT") {
+      redirect("/partner/consultants?error=access_denied");
+    }
+    const managerProfile = await prisma.managerProfile.findUnique({ where: { userId: approver.id } });
+    if (!managerProfile || user.requestedPartnerProfileId !== managerProfile.partnerProfileId) {
+      redirect("/partner/consultants?error=access_denied");
+    }
+
+    const isDirectManagerApplicant = user.requestedManagerProfileId === managerProfile.id;
+    if (user.requestedGroupLeaderProfileId) {
+      const requestedLeader = await prisma.groupLeaderProfile.findFirst({
+        where: {
+          id: user.requestedGroupLeaderProfileId,
+          partnerProfileId: managerProfile.partnerProfileId,
+          managerProfileId: managerProfile.id
+        },
+        select: { id: true }
+      });
+
+      if (!requestedLeader) {
+        redirect("/partner/consultants?error=access_denied");
+      }
+      groupLeaderProfileId = requestedLeader.id;
+    } else if (!isDirectManagerApplicant) {
+      redirect("/partner/consultants?error=access_denied");
+    }
+
+    partnerProfileId = managerProfile.partnerProfileId;
+    managerProfileId = managerProfile.id;
     consultantCommissionBps = DEFAULT_CONSULTANT_SHARE_BPS;
   } else if (approver.role !== "COMPANY_ADMIN" && approver.role !== "SUPER_ADMIN") {
     redirect("/login?error=access_denied");
@@ -580,7 +682,17 @@ export async function approveConsultant(formData: FormData) {
           action: "GROUP_LEADER_APPROVED",
           resource: "User",
           resourceId: user.id,
-          metadata: { partnerProfileId, managerProfileId, groupLeaderProfileId: leader.id, leaderCommissionBps, leaderConsultantOverrideBps }
+          metadata: {
+            approvedByRole: approver.role,
+            approvedByUserId: approver.id,
+            partnerProfileId,
+            managerProfileId,
+            groupLeaderProfileId: leader.id,
+            leaderCommissionBps,
+            leaderConsultantOverrideBps,
+            requestedPartnerProfileId: user.requestedPartnerProfileId,
+            requestedManagerProfileId: user.requestedManagerProfileId
+          }
         }
       });
     });
@@ -702,15 +814,32 @@ export async function approveConsultant(formData: FormData) {
         userId: approver.id,
         action: "CONSULTANT_APPROVED",
         resource: "User",
-        resourceId: user.id
+        resourceId: user.id,
+        metadata: {
+          approvedByRole: approver.role,
+          approvedByUserId: approver.id,
+          partnerProfileId,
+          managerProfileId,
+          groupLeaderProfileId,
+          consultantCommissionBps,
+          requestedPartnerProfileId: user.requestedPartnerProfileId,
+          requestedManagerProfileId: user.requestedManagerProfileId,
+          requestedGroupLeaderProfileId: user.requestedGroupLeaderProfileId
+        }
       }
     });
   });
 
-  const [leaderProfile, partnerProfile] = await Promise.all([
+  const [leaderProfile, managerProfile, partnerProfile] = await Promise.all([
     groupLeaderProfileId
       ? prisma.groupLeaderProfile.findUnique({
           where: { id: groupLeaderProfileId },
+          select: { userId: true, displayName: true }
+        })
+      : null,
+    managerProfileId
+      ? prisma.managerProfile.findUnique({
+          where: { id: managerProfileId },
           select: { userId: true, displayName: true }
         })
       : null,
@@ -733,6 +862,12 @@ export async function approveConsultant(formData: FormData) {
       userId: leaderProfile?.userId,
       title: "New seller approved",
       body: `${consultantName} has been added to your seller group.`,
+      metadata: { type: "approval", userId: user.id, role: "CONSULTANT", partnerProfileId, managerProfileId, groupLeaderProfileId }
+    },
+    {
+      userId: managerProfile?.userId,
+      title: "New seller approved",
+      body: `${consultantName} is now active${leaderProfile?.displayName ? ` under ${leaderProfile.displayName}` : " in your manager network"}.`,
       metadata: { type: "approval", userId: user.id, role: "CONSULTANT", partnerProfileId, managerProfileId, groupLeaderProfileId }
     },
     {
@@ -799,6 +934,32 @@ export async function rejectConsultant(formData: FormData) {
     if (!partnerProfile || user.requestedPartnerProfileId !== partnerProfile.id) {
       redirect("/partner/consultants?error=access_denied");
     }
+  } else if (approver.role === "MANAGER") {
+    if (user.requestedRole !== "CONSULTANT") {
+      redirect("/partner/consultants?error=access_denied");
+    }
+    const managerProfile = await prisma.managerProfile.findUnique({ where: { userId: approver.id } });
+    if (!managerProfile || user.requestedPartnerProfileId !== managerProfile.partnerProfileId) {
+      redirect("/partner/consultants?error=access_denied");
+    }
+
+    const isDirectManagerApplicant = user.requestedManagerProfileId === managerProfile.id;
+    if (user.requestedGroupLeaderProfileId) {
+      const requestedLeader = await prisma.groupLeaderProfile.findFirst({
+        where: {
+          id: user.requestedGroupLeaderProfileId,
+          partnerProfileId: managerProfile.partnerProfileId,
+          managerProfileId: managerProfile.id
+        },
+        select: { id: true }
+      });
+
+      if (!requestedLeader) {
+        redirect("/partner/consultants?error=access_denied");
+      }
+    } else if (!isDirectManagerApplicant) {
+      redirect("/partner/consultants?error=access_denied");
+    }
   } else if (approver.role === "GROUP_LEADER") {
     if (user.requestedRole !== "CONSULTANT") {
       redirect("/partner/consultants?error=access_denied");
@@ -832,7 +993,15 @@ export async function rejectConsultant(formData: FormData) {
       action: "CONSULTANT_REJECTED",
       resource: "User",
       resourceId: userId,
-      metadata: { reason }
+      metadata: {
+        reason,
+        rejectedByRole: approver.role,
+        rejectedByUserId: approver.id,
+        requestedRole: user.requestedRole,
+        requestedPartnerProfileId: user.requestedPartnerProfileId,
+        requestedManagerProfileId: user.requestedManagerProfileId,
+        requestedGroupLeaderProfileId: user.requestedGroupLeaderProfileId
+      }
     }
   });
 
