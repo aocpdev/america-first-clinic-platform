@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
 import { normalizePhoneToE164 } from "@/lib/phone";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { updateConfirmedAuthUser } from "@/lib/supabase/admin-auth";
 
 function textValue(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -46,13 +47,16 @@ export async function updateProfile(formData: FormData) {
       redirect(`${profilePath}?error=email_taken`);
     }
 
-    const adminClient = createSupabaseAdminClient();
-    const { error } = await adminClient.auth.admin.updateUserById(user.authUserId, {
-      email: nextEmail,
-      email_confirm: true
-    });
-
-    if (error) {
+    try {
+      await updateConfirmedAuthUser(user.authUserId, {
+        email: nextEmail,
+        user_metadata: {
+          first_name: firstName || null,
+          last_name: lastName || null,
+          phone
+        }
+      });
+    } catch {
       redirect(`${profilePath}?error=email_update_failed`);
     }
   }
@@ -85,12 +89,11 @@ export async function changePassword(formData: FormData) {
     redirect(`${profilePath}?error=password_mismatch`);
   }
 
-  const adminClient = createSupabaseAdminClient();
-  const { error } = await adminClient.auth.admin.updateUserById(user.authUserId, {
-    password
-  });
-
-  if (error) {
+  try {
+    await updateConfirmedAuthUser(user.authUserId, {
+      password
+    });
+  } catch {
     redirect(`${profilePath}?error=password_update_failed`);
   }
 

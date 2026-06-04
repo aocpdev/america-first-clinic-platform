@@ -22,7 +22,7 @@ const updatedMessages: Record<string, string> = {
   profile: "Profile details updated.",
   avatar: "Profile photo updated.",
   company: "Partner company updated.",
-  password: "Password updated."
+  password: "Password updated. Use the new password the next time you sign in."
 };
 
 function initials(user: Pick<User, "firstName" | "lastName" | "email">) {
@@ -144,17 +144,25 @@ export function ProfileSettings({
           </div>
         </form>
       </section>
-      <section className="rounded-3xl border border-border bg-white p-6 shadow-sm">
-        <div className="flex items-start gap-3">
-          <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-clinic-mist text-clinic-navy">
-            <LockKeyhole className="h-5 w-5" />
+      <section className="overflow-hidden rounded-3xl border border-border bg-white shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-border bg-gradient-to-br from-white to-clinic-mist/70 p-6 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white text-clinic-navy shadow-sm ring-1 ring-border">
+              <LockKeyhole className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Secure access</p>
+              <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Password & access</h3>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
+                Update the password used to sign in to the CRM. This changes the Supabase Auth password directly without sending an email.
+              </p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-lg font-semibold text-clinic-ink">Password & access</h3>
-            <p className="mt-1 text-sm text-slate-500">Update the password used to sign in to the CRM.</p>
+          <div className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
+            Active account
           </div>
         </div>
-        <form action={changePassword} className="mt-6 grid gap-4 md:grid-cols-2">
+        <form action={changePassword} className="grid gap-4 p-6 md:grid-cols-2">
           <label className="space-y-2">
             <span className="text-sm font-semibold text-clinic-ink">New password</span>
             <input
@@ -163,7 +171,8 @@ export function ProfileSettings({
               minLength={8}
               required
               autoComplete="new-password"
-              className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+              placeholder="At least 8 characters"
+              className="h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
             />
           </label>
           <label className="space-y-2">
@@ -174,11 +183,15 @@ export function ProfileSettings({
               minLength={8}
               required
               autoComplete="new-password"
-              className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
+              placeholder="Repeat new password"
+              className="h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
             />
           </label>
+          <div className="rounded-2xl border border-border bg-clinic-mist p-4 text-sm leading-6 text-slate-600 md:col-span-2">
+            Passwords are never stored in the CRM database. Supabase stores the encrypted credential and the CRM keeps only the user profile and role.
+          </div>
           <div className="md:col-span-2">
-            <SubmitButton>Save password</SubmitButton>
+            <SubmitButton pendingText="Updating password...">Update password</SubmitButton>
           </div>
         </form>
       </section>
