@@ -7,6 +7,7 @@ import { UserRole, UserStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { createReferralCode, createReferralSlug } from "@/lib/auth/slug";
 import { createSupabaseAdminClient, createSupabaseServerClient } from "@/lib/supabase/server";
+import { updateConfirmedAuthUser, upsertConfirmedAuthUserByEmail } from "@/lib/supabase/admin-auth";
 import { roleSchema } from "@/lib/validations/core";
 import { getAuthenticatedUser, IMPERSONATION_COOKIE, requireRole, requireUser } from "@/lib/auth/current-user";
 import { dashboardPathForRole } from "@/lib/auth/redirects";
@@ -202,30 +203,37 @@ export async function registerUser(formData: FormData) {
 
   const status = UserStatus.PENDING_APPROVAL;
   const role = requestedRole === "GROUP_LEADER" ? UserRole.GROUP_LEADER : UserRole.CONSULTANT;
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
-      data: {
+  let authUser;
+  try {
+    authUser = await upsertConfirmedAuthUserByEmail({
+      email,
+      password,
+      app_metadata: {
+        role,
+        company_id: company.id,
+        status
+      },
+      user_metadata: {
         first_name: firstName,
         last_name: lastName,
+        phone,
         requested_role: requestedRole,
         requested_partner_profile_id: selectedPartner.id,
         requested_manager_profile_id: requestedManagerProfileId,
         requested_group_leader_profile_id: requestedGroupLeaderProfileId,
         status
       }
-    }
-  });
+    });
+  } catch (error) {
+    redirect(`/register?error=${encodeURIComponent(error instanceof Error ? error.message : "registration_failed")}`);
+  }
 
-  if (error || !data.user?.id) {
-    redirect(`/register?error=${encodeURIComponent(error?.message ?? "registration_failed")}`);
+  if (!authUser?.id) {
+    redirect("/register?error=registration_failed");
   }
 
   const user = await prisma.user.upsert({
-    where: { authUserId: data.user.id },
+    where: { authUserId: authUser.id },
     update: {
       companyId: company.id,
       requestedRole,
@@ -240,7 +248,7 @@ export async function registerUser(formData: FormData) {
       isActive: false
     },
     create: {
-      authUserId: data.user.id,
+      authUserId: authUser.id,
       companyId: company.id,
       requestedRole,
       requestedPartnerProfileId: selectedPartner.id,
@@ -359,18 +367,16 @@ async function activateSupabaseLogin({
   role: UserRole;
   companyId: string;
 }) {
-  const adminClient = createSupabaseAdminClient();
-  const { error } = await adminClient.auth.admin.updateUserById(authUserId, {
-    email_confirm: true,
-    app_metadata: {
-      role,
-      company_id: companyId,
-      status: "ACTIVE"
-    }
-  });
-
-  if (error) {
-    throw new Error(`Unable to activate Supabase login: ${error.message}`);
+  try {
+    await updateConfirmedAuthUser(authUserId, {
+      app_metadata: {
+        role,
+        company_id: companyId,
+        status: "ACTIVE"
+      }
+    });
+  } catch (error) {
+    throw new Error(`Unable to activate Supabase login: ${error instanceof Error ? error.message : "unknown error"}`);
   }
 }
 
