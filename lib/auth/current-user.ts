@@ -70,6 +70,43 @@ async function canImpersonate(realUser: NonNullable<Awaited<ReturnType<typeof ge
     );
   }
 
+  if (realUser.role === "MANAGER" && realUser.managerProfile) {
+    const managerProfileId = realUser.managerProfile.id;
+    return Boolean(
+      await prisma.user.findFirst({
+        where: {
+          id: targetUserId,
+          companyId: realUser.companyId,
+          role: { in: ["GROUP_LEADER", "CONSULTANT"] },
+          status: "ACTIVE",
+          isActive: true,
+          OR: [
+            { groupLeaderProfile: { managerProfileId } },
+            { consultantProfile: { managerProfileId } },
+            { consultantProfile: { groupLeaderProfile: { managerProfileId } } }
+          ]
+        },
+        select: { id: true }
+      })
+    );
+  }
+
+  if (realUser.role === "GROUP_LEADER" && realUser.groupLeaderProfile) {
+    return Boolean(
+      await prisma.user.findFirst({
+        where: {
+          id: targetUserId,
+          companyId: realUser.companyId,
+          role: "CONSULTANT",
+          status: "ACTIVE",
+          isActive: true,
+          consultantProfile: { groupLeaderProfileId: realUser.groupLeaderProfile.id }
+        },
+        select: { id: true }
+      })
+    );
+  }
+
   return false;
 }
 

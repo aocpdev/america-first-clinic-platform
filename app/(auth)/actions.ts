@@ -455,7 +455,12 @@ async function ensureCanImpersonateTarget(targetUserId: string) {
 
   const target = await prisma.user.findUnique({
     where: { id: targetUserId },
-    include: { consultantProfile: true, groupLeaderProfile: true, partnerProfile: true }
+    include: {
+      consultantProfile: { include: { groupLeaderProfile: true } },
+      groupLeaderProfile: true,
+      managerProfile: true,
+      partnerProfile: true
+    }
   });
 
   if (!target || target.status !== "ACTIVE" || !target.isActive) {
@@ -465,7 +470,7 @@ async function ensureCanImpersonateTarget(targetUserId: string) {
   if (realUser.role === "COMPANY_ADMIN" || realUser.role === "SUPER_ADMIN") {
     if (
       target.companyId !== realUser.companyId ||
-      !["PARTNER", "GROUP_LEADER", "CONSULTANT"].includes(target.role)
+      !["PARTNER", "MANAGER", "GROUP_LEADER", "CONSULTANT"].includes(target.role)
     ) {
       redirect("/login?error=access_denied");
     }
@@ -475,14 +480,42 @@ async function ensureCanImpersonateTarget(targetUserId: string) {
 
   if (realUser.role === "PARTNER" && realUser.partnerProfile) {
     const partnerProfileId = realUser.partnerProfile.id;
+    const isManager = target.managerProfile?.partnerProfileId === partnerProfileId;
     const isLeader = target.groupLeaderProfile?.partnerProfileId === partnerProfileId;
     const isConsultant = target.consultantProfile?.partnerProfileId === partnerProfileId;
 
-    if (target.companyId !== realUser.companyId || (!isLeader && !isConsultant)) {
+    if (target.companyId !== realUser.companyId || (!isManager && !isLeader && !isConsultant)) {
       redirect("/login?error=access_denied");
     }
 
-    if (target.role !== "GROUP_LEADER" && target.role !== "CONSULTANT") {
+    if (!["MANAGER", "GROUP_LEADER", "CONSULTANT"].includes(target.role)) {
+      redirect("/login?error=access_denied");
+    }
+
+    return { realUser, target };
+  }
+
+  if (realUser.role === "MANAGER" && realUser.managerProfile) {
+    const managerProfileId = realUser.managerProfile.id;
+    const isLeader = target.groupLeaderProfile?.managerProfileId === managerProfileId;
+    const isDirectConsultant = target.consultantProfile?.managerProfileId === managerProfileId;
+    const isLeaderConsultant = target.consultantProfile?.groupLeaderProfile?.managerProfileId === managerProfileId;
+
+    if (target.companyId !== realUser.companyId || (!isLeader && !isDirectConsultant && !isLeaderConsultant)) {
+      redirect("/login?error=access_denied");
+    }
+
+    if (!["GROUP_LEADER", "CONSULTANT"].includes(target.role)) {
+      redirect("/login?error=access_denied");
+    }
+
+    return { realUser, target };
+  }
+
+  if (realUser.role === "GROUP_LEADER" && realUser.groupLeaderProfile) {
+    const isConsultant = target.consultantProfile?.groupLeaderProfileId === realUser.groupLeaderProfile.id;
+
+    if (target.companyId !== realUser.companyId || target.role !== "CONSULTANT" || !isConsultant) {
       redirect("/login?error=access_denied");
     }
 

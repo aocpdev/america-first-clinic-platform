@@ -1,4 +1,4 @@
-import type { HierarchyLeaderGroup, HierarchyManagerGroup, HierarchyNode, SalesHierarchyTree } from "@/components/network/sales-hierarchy-view";
+import type { HierarchyLeaderGroup, HierarchyManagerGroup, HierarchyNode, SalesHierarchyTree } from "@/lib/network/sales-hierarchy-types";
 
 type UserSummary = {
   firstName: string | null;

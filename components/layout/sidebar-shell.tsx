@@ -9,6 +9,17 @@ import { getImpersonationContext } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
 import { prisma } from "@/lib/db/prisma";
 
+type ImpersonationTargetRecord = {
+  id: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: string;
+  partnerProfile: { companyName: string | null; displayName: string } | null;
+  managerProfile: { displayName: string } | null;
+  groupLeaderProfile: { displayName: string } | null;
+};
+
 export async function SidebarShell({
   nav,
   title,
@@ -113,37 +124,68 @@ async function prismaUserImpersonationTargets(realUser: NonNullable<Awaited<Retu
     groupLeaderProfile: { select: { displayName: true } }
   } as const;
 
-  const users =
-    realUser.role === "COMPANY_ADMIN" || realUser.role === "SUPER_ADMIN"
-      ? await prisma.user.findMany({
-          where: {
-            id: { not: realUser.id },
-            companyId: realUser.companyId,
-            role: { in: ["PARTNER", "MANAGER", "GROUP_LEADER", "CONSULTANT"] },
-            status: "ACTIVE",
-            isActive: true
-          },
-          select: baseSelect,
-          orderBy: [{ role: "asc" }, { firstName: "asc" }, { email: "asc" }]
-        })
-      : realUser.role === "PARTNER" && realUser.partnerProfile
-        ? await prisma.user.findMany({
-            where: {
-              id: { not: realUser.id },
-              companyId: realUser.companyId,
-              role: { in: ["MANAGER", "GROUP_LEADER", "CONSULTANT"] },
-              status: "ACTIVE",
-              isActive: true,
-              OR: [
-                { managerProfile: { partnerProfileId: realUser.partnerProfile.id } },
-                { groupLeaderProfile: { partnerProfileId: realUser.partnerProfile.id } },
-                { consultantProfile: { partnerProfileId: realUser.partnerProfile.id } }
-              ]
-            },
-            select: baseSelect,
-            orderBy: [{ role: "asc" }, { firstName: "asc" }, { email: "asc" }]
-          })
-        : [];
+  let users: ImpersonationTargetRecord[] = [];
+
+  if (realUser.role === "COMPANY_ADMIN" || realUser.role === "SUPER_ADMIN") {
+    users = await prisma.user.findMany({
+      where: {
+        id: { not: realUser.id },
+        companyId: realUser.companyId,
+        role: { in: ["PARTNER", "MANAGER", "GROUP_LEADER", "CONSULTANT"] },
+        status: "ACTIVE",
+        isActive: true
+      },
+      select: baseSelect,
+      orderBy: [{ role: "asc" }, { firstName: "asc" }, { email: "asc" }]
+    });
+  } else if (realUser.role === "PARTNER" && realUser.partnerProfile) {
+    users = await prisma.user.findMany({
+      where: {
+        id: { not: realUser.id },
+        companyId: realUser.companyId,
+        role: { in: ["MANAGER", "GROUP_LEADER", "CONSULTANT"] },
+        status: "ACTIVE",
+        isActive: true,
+        OR: [
+          { managerProfile: { partnerProfileId: realUser.partnerProfile.id } },
+          { groupLeaderProfile: { partnerProfileId: realUser.partnerProfile.id } },
+          { consultantProfile: { partnerProfileId: realUser.partnerProfile.id } }
+        ]
+      },
+      select: baseSelect,
+      orderBy: [{ role: "asc" }, { firstName: "asc" }, { email: "asc" }]
+    });
+  } else if (realUser.role === "MANAGER" && realUser.managerProfile) {
+    users = await prisma.user.findMany({
+      where: {
+        id: { not: realUser.id },
+        companyId: realUser.companyId,
+        role: { in: ["GROUP_LEADER", "CONSULTANT"] },
+        status: "ACTIVE",
+        isActive: true,
+        OR: [
+          { groupLeaderProfile: { managerProfileId: realUser.managerProfile.id } },
+          { consultantProfile: { managerProfileId: realUser.managerProfile.id } },
+          { consultantProfile: { groupLeaderProfile: { managerProfileId: realUser.managerProfile.id } } }
+        ]
+      },
+      select: baseSelect,
+      orderBy: [{ role: "asc" }, { firstName: "asc" }, { email: "asc" }]
+    });
+  } else if (realUser.role === "GROUP_LEADER" && realUser.groupLeaderProfile) {
+    users = await prisma.user.findMany({
+      where: {
+        id: { not: realUser.id },
+        companyId: realUser.companyId,
+        role: "CONSULTANT",
+        status: "ACTIVE",
+        isActive: true,
+        consultantProfile: { groupLeaderProfileId: realUser.groupLeaderProfile.id }
+      },
+      select: baseSelect,
+      orderBy: [{ firstName: "asc" }, { email: "asc" }]
+    });
+  }
 
   return users.map((target) => {
     const personName = [target.firstName, target.lastName].filter(Boolean).join(" ").trim();
