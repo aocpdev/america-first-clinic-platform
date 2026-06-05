@@ -79,14 +79,14 @@ async function assertUniqueUserContact({
   }
 }
 
-async function getAmericaFirstClinic() {
+async function getGoVirtualHealthCompany() {
   return prisma.company.upsert({
     where: { slug: "america-first-clinic" },
     update: {},
     create: {
-      name: "America First Clinic",
+      name: "Go Virtual Health",
       slug: "america-first-clinic",
-      logoUrl: "/america-first-clinic-logo.jpeg"
+      logoUrl: "/go-virtual-health-logo.jpeg"
     }
   });
 }
@@ -99,7 +99,7 @@ export async function requestPasswordReset(formData: FormData) {
     redirectWithError("/forgot-password", "invalid_email");
   }
 
-  const company = await getAmericaFirstClinic();
+  const company = await getGoVirtualHealthCompany();
   const user = await prisma.user.findUnique({
     where: { email },
     include: {
@@ -159,7 +159,7 @@ export async function registerUser(formData: FormData) {
     redirect("/register?error=invalid_registration");
   }
 
-  const company = await getAmericaFirstClinic();
+  const company = await getGoVirtualHealthCompany();
   await assertUniqueUserContact({ email, phone, redirectPath: "/register" });
   const selectedPartner = await prisma.partnerProfile.findFirst({
     where: {
@@ -583,7 +583,7 @@ export async function approveConsultant(formData: FormData) {
     redirect("/admin/consultants?error=application_not_found");
   }
 
-  const company = await getAmericaFirstClinic();
+  const company = await getGoVirtualHealthCompany();
   let partnerProfileId = requestedFormPartnerProfileId || user.requestedPartnerProfileId;
   let groupLeaderProfileId = requestedGroupLeaderProfileId || user.requestedGroupLeaderProfileId;
   managerProfileId = managerProfileId || user.requestedManagerProfileId;
@@ -738,7 +738,7 @@ export async function approveConsultant(formData: FormData) {
       {
         userId: user.id,
         title: "Group leader account approved",
-        body: "Your America First Clinic workspace is ready.",
+        body: "Your Go Virtual Health workspace is ready.",
         metadata: { type: "approval", userId: user.id, role: "GROUP_LEADER", partnerProfileId }
       },
       {
@@ -888,7 +888,7 @@ export async function approveConsultant(formData: FormData) {
     {
       userId: user.id,
       title: "Seller account approved",
-      body: "Your America First Clinic seller workspace is ready.",
+      body: "Your Go Virtual Health seller workspace is ready.",
       metadata: { type: "approval", userId: user.id, role: "CONSULTANT", partnerProfileId, managerProfileId, groupLeaderProfileId }
     },
     {
@@ -1090,7 +1090,7 @@ export async function createPartnerByAdmin(formData: FormData) {
     redirect("/admin/consultants?error=invalid_partner");
   }
 
-  const company = await getAmericaFirstClinic();
+  const company = await getGoVirtualHealthCompany();
   await assertUniqueUserContact({ email, phone, redirectPath: "/admin/consultants" });
   const adminClient = createSupabaseAdminClient();
   const { data, error } = await adminClient.auth.admin.createUser({
@@ -1187,7 +1187,7 @@ export async function createGroupLeader(formData: FormData) {
     redirect(actor.role === "PARTNER" ? "/partner/consultants?error=invalid_group_leader" : "/admin/consultants?error=invalid_group_leader");
   }
 
-  const company = await getAmericaFirstClinic();
+  const company = await getGoVirtualHealthCompany();
   let partnerProfileId = selectedPartnerProfileId;
 
   if (actor.role === "PARTNER") {
@@ -1333,7 +1333,7 @@ export async function createManager(formData: FormData) {
     redirect(actor.role === "PARTNER" ? "/partner/consultants?error=invalid_manager" : "/admin/consultants?error=invalid_manager");
   }
 
-  const company = await getAmericaFirstClinic();
+  const company = await getGoVirtualHealthCompany();
   let partnerProfileId = selectedPartnerProfileId;
 
   if (actor.role === "PARTNER") {
@@ -1469,7 +1469,7 @@ export async function createConsultantByAdmin(formData: FormData) {
     redirect("/admin/consultants?error=invalid_consultant");
   }
 
-  const company = await getAmericaFirstClinic();
+  const company = await getGoVirtualHealthCompany();
   let partnerProfileId = selectedPartnerProfileId;
 
   if (actor.role === "PARTNER") {

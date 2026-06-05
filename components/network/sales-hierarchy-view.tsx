@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Children, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent, ReactNode } from "react";
 import { Building2, UserRound, X, ZoomIn, ZoomOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -83,6 +83,7 @@ function PersonNode({
   return (
     <button
       type="button"
+      data-branch-anchor="true"
       onClick={() => onSelect(node)}
       draggable={false}
       onPointerDown={(event) => event.currentTarget.blur()}
@@ -106,20 +107,117 @@ function PersonNode({
   );
 }
 
-function BranchLine({ children, className = "" }: { children: ReactNode; className?: string }) {
+function BranchLine({ children, className = "gap-12" }: { children: ReactNode; className?: string }) {
+  const items = Children.toArray(children).filter(Boolean);
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const [metrics, setMetrics] = useState<{ left: number; width: number; anchors: number[] } | null>(null);
+
+  useEffect(() => {
+    const updateLine = () => {
+      const row = rowRef.current;
+
+      if (!row || items.length === 0) {
+        setMetrics(null);
+        return;
+      }
+
+      const rowRect = row.getBoundingClientRect();
+      const anchors = itemRefs.current
+        .slice(0, items.length)
+        .map((item) => {
+          if (!item) return null;
+          const anchor = item.querySelector("[data-branch-anchor='true']") as HTMLElement | null;
+          const rect = (anchor ?? item).getBoundingClientRect();
+          return rect.left + rect.width / 2 - rowRect.left;
+        })
+        .filter((value): value is number => typeof value === "number");
+
+      if (anchors.length === 0) {
+        setMetrics(null);
+        return;
+      }
+
+      const left = Math.min(...anchors);
+      const right = Math.max(...anchors);
+      const nextMetrics = {
+        left,
+        width: Math.max(0, right - left),
+        anchors
+      };
+
+      setMetrics((currentMetrics) => {
+        if (
+          currentMetrics &&
+          Math.abs(currentMetrics.left - nextMetrics.left) < 0.5 &&
+          Math.abs(currentMetrics.width - nextMetrics.width) < 0.5 &&
+          currentMetrics.anchors.length === nextMetrics.anchors.length &&
+          currentMetrics.anchors.every((anchor, index) => Math.abs(anchor - nextMetrics.anchors[index]) < 0.5)
+        ) {
+          return currentMetrics;
+        }
+
+        return nextMetrics;
+      });
+    };
+
+    updateLine();
+
+    const observer = new ResizeObserver(updateLine);
+    if (rowRef.current) {
+      observer.observe(rowRef.current);
+    }
+
+    itemRefs.current.forEach((item) => {
+      if (item) {
+        observer.observe(item);
+      }
+    });
+
+    window.addEventListener("resize", updateLine);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateLine);
+    };
+  }, [items.length, className]);
+
   return (
-    <div className={`relative flex items-start justify-center gap-12 pt-10 before:absolute before:left-1/2 before:top-0 before:h-10 before:w-px before:-translate-x-1/2 before:bg-slate-300 after:absolute after:left-14 after:right-14 after:top-10 after:h-px after:bg-slate-300 ${className}`}>
-      {children}
+    <div className="relative isolate flex flex-col items-center pt-12 before:absolute before:left-1/2 before:top-0 before:z-0 before:h-6 before:w-px before:-translate-x-1/2 before:bg-slate-300">
+      {metrics && metrics.width > 0 ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute top-6 z-0 h-px bg-slate-300"
+          style={{ left: metrics.left, width: metrics.width }}
+        />
+      ) : null}
+      {metrics?.anchors.map((anchor, index) => (
+        <span
+          key={`${anchor}-${index}`}
+          aria-hidden="true"
+          className="pointer-events-none absolute top-6 z-0 h-6 w-px -translate-x-1/2 bg-slate-300"
+          style={{ left: anchor }}
+        />
+      ))}
+      <div ref={rowRef} className={`relative z-10 flex items-start justify-center ${className}`}>
+        {items.map((item, index) => (
+          <div
+            key={index}
+            ref={(node) => {
+              itemRefs.current[index] = node;
+            }}
+            className="relative z-10 flex flex-col items-center"
+          >
+            {item}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function BranchItem({ children, showStem = true }: { children: ReactNode; showStem?: boolean }) {
-  return (
-    <div className={`relative flex flex-col items-center ${showStem ? "before:absolute before:left-1/2 before:top-[-2.5rem] before:h-10 before:w-px before:-translate-x-1/2 before:bg-slate-300" : ""}`}>
-      {children}
-    </div>
-  );
+function BranchItem({ children }: { children: ReactNode; showStem?: boolean }) {
+  return <div className="relative z-10 flex flex-col items-center">{children}</div>;
 }
 
 function DetailPanel({ node, onClose }: { node: HierarchyNode | null; onClose: () => void }) {

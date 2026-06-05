@@ -77,11 +77,11 @@ export function OrderDocument({
       <div className="border-b border-border bg-gradient-to-br from-white to-clinic-mist px-6 py-6">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-4">
-            <div className="grid size-16 place-items-center rounded-2xl border border-border bg-white shadow-line">
-              <img src="/america-first-clinic-logo.jpeg" alt="America First Clinic" className="h-12 w-12 object-contain" />
+            <div className="rounded-2xl border border-border bg-white px-4 py-3 shadow-line">
+              <img src="/go-virtual-health-logo.jpeg" alt="Go Virtual Health" className="h-12 w-auto object-contain" />
             </div>
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">America First Clinic</p>
+              <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">Go Virtual Health</p>
               <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">
                 {isReceipt ? "Customer receipt" : "Internal order document"}
               </h2>

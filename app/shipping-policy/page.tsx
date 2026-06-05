@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 
 export const metadata: Metadata = {
-  title: "Shipping Policy | America First Clinic",
-  description: "Shipping and fulfillment policy for America First Clinic orders."
+  title: "Shipping Policy | Go Virtual Health",
+  description: "Shipping and fulfillment policy for Go Virtual Health orders."
 };
 
 export default function ShippingPolicyPage() {
@@ -12,7 +12,7 @@ export default function ShippingPolicyPage() {
       eyebrow="Fulfillment"
       title="Shipping Policy"
       updated="May 18, 2026"
-      intro="This policy describes how America First Clinic handles order processing, shipping, delivery, and address responsibilities for products and programs operated by ACV2 Investment Group LLC."
+      intro="This policy describes how Go Virtual Health handles order processing, shipping, delivery, and address responsibilities for products and programs operated by ACV2 Investment Group LLC."
       sections={[
         {
           title: "Order processing",

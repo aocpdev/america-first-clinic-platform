@@ -34,7 +34,7 @@ export default async function LoginPage({
         <Card className="p-6 shadow-soft">
           <ClinicLogo />
           <h1 className="mt-8 text-3xl font-semibold text-clinic-ink">Log in</h1>
-          <p className="mt-2 text-sm text-slate-500">Access your secure America First Clinic workspace.</p>
+          <p className="mt-2 text-sm text-slate-500">Access your secure Go Virtual Health workspace.</p>
           {error && (
             <div className="mt-5 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
               {errorMessages[error] ?? "We could not sign you in. Please try again."}

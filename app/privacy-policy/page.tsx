@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | America First Clinic",
-  description: "Privacy policy for America First Clinic websites, CRM, checkout, and communications."
+  title: "Privacy Policy | Go Virtual Health",
+  description: "Privacy policy for Go Virtual Health websites, CRM, checkout, and communications."
 };
 
 export default function PrivacyPolicyPage() {
@@ -12,7 +12,7 @@ export default function PrivacyPolicyPage() {
       eyebrow="Privacy"
       title="Privacy Policy"
       updated="May 18, 2026"
-      intro="This Privacy Policy explains how America First Clinic, operated by ACV2 Investment Group LLC, collects, uses, and protects information across its website, CRM, checkout, consultant, and customer communication workflows."
+      intro="This Privacy Policy explains how Go Virtual Health, operated by ACV2 Investment Group LLC, collects, uses, and protects information across its website, CRM, checkout, consultant, and customer communication workflows."
       sections={[
         {
           title: "Information we collect",

@@ -62,11 +62,11 @@ export default async function PublicInvoicePage({
         <div className="border-b border-border bg-gradient-to-br from-white to-clinic-mist px-6 py-6 sm:px-8">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-4">
-              <div className="grid size-16 place-items-center rounded-2xl border border-border bg-white shadow-line">
-                <img src="/america-first-clinic-logo.jpeg" alt="America First Clinic" className="h-12 w-12 object-contain" />
-              </div>
+            <div className="rounded-2xl border border-border bg-white px-4 py-3 shadow-line">
+              <img src="/go-virtual-health-logo.jpeg" alt="Go Virtual Health" className="h-12 w-auto object-contain" />
+            </div>
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">America First Clinic</p>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">Go Virtual Health</p>
                 <h1 className="mt-2 text-3xl font-semibold text-clinic-ink">Invoice</h1>
                 <p className="mt-1 text-sm text-slate-500">Operated by ACV2 Investment Group LLC.</p>
               </div>
@@ -143,7 +143,7 @@ export default async function PublicInvoicePage({
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Secure payment</p>
               <p className="mt-3 text-sm leading-6 text-slate-600">
                 {isPaid
-                  ? "This invoice has already been paid. Please contact America First Clinic if you need support."
+                  ? "This invoice has already been paid. Please contact Go Virtual Health if you need support."
                   : "Pay securely through our encrypted payment provider. Card information is never stored inside the CRM."}
               </p>
               {isPaid ? (
@@ -169,4 +169,3 @@ export default async function PublicInvoicePage({
     </main>
   );
 }
-

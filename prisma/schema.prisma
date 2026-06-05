@@ -204,7 +204,7 @@ model ConsultantProfile {
   groupLeaderProfile   GroupLeaderProfile? @relation(fields: [groupLeaderProfileId], references: [id])
   referralSlug         String              @unique
   referralCode         String              @unique
-  commissionBps        Int                 @default(1250)
+  commissionBps        Int                 @default(5000)
   bio                  String?
   rank                 Int?
   monthlyGoal          Int                 @default(0)
@@ -234,7 +234,7 @@ model PartnerProfile {
   company              Company              @relation(fields: [companyId], references: [id])
   displayName          String
   companyName          String?
-  commissionBps        Int                  @default(1250)
+  commissionBps        Int                  @default(2500)
   payoutResponsibility PayoutResponsibility @default(PARTNER)
   managers             ManagerProfile[]
   consultants          ConsultantProfile[]
@@ -258,7 +258,7 @@ model ManagerProfile {
   partnerProfileId  String               @db.Uuid
   partnerProfile    PartnerProfile       @relation(fields: [partnerProfileId], references: [id])
   displayName       String
-  commissionBps     Int                  @default(2500)
+  commissionBps     Int                  @default(5000)
   leaderOverrideBps Int                  @default(0)
   consultants       ConsultantProfile[]
   groupLeaders      GroupLeaderProfile[]
@@ -284,7 +284,7 @@ model GroupLeaderProfile {
   managerProfileId      String?             @db.Uuid
   managerProfile        ManagerProfile?     @relation(fields: [managerProfileId], references: [id])
   displayName           String
-  commissionBps         Int                 @default(625)
+  commissionBps         Int                 @default(5000)
   consultantOverrideBps Int                 @default(0)
   consultants           ConsultantProfile[]
   customers             Customer[]

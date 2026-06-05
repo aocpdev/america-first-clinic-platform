@@ -6,18 +6,13 @@ export function ClinicLogo({ compact = false, className }: { compact?: boolean; 
   return (
     <Link href="/" className={cn("flex items-center gap-3", className)}>
       <Image
-        src="/america-first-clinic-logo.jpeg"
-        alt="America First Clinic logo"
-        width={compact ? 38 : 46}
-        height={compact ? 38 : 46}
-        className="rounded-lg object-cover"
+        src={compact ? "/go-virtual-health-emblem.png" : "/go-virtual-health-logo.jpeg"}
+        alt="Go Virtual Health logo"
+        width={compact ? 38 : 210}
+        height={compact ? 38 : 70}
+        className={cn(compact ? "rounded-full object-contain" : "h-14 w-auto object-contain")}
         priority
       />
-      {!compact && (
-        <div className="leading-tight">
-          <p className="font-display text-xl font-semibold tracking-normal text-clinic-navy">America First Clinic</p>
-        </div>
-      )}
     </Link>
   );
 }

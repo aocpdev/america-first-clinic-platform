@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 
 export const metadata: Metadata = {
-  title: "Medical Disclaimer | America First Clinic",
-  description: "Medical disclaimer for America First Clinic wellness information and programs."
+  title: "Medical Disclaimer | Go Virtual Health",
+  description: "Medical disclaimer for Go Virtual Health wellness information and programs."
 };
 
 export default function MedicalDisclaimerPage() {
@@ -12,7 +12,7 @@ export default function MedicalDisclaimerPage() {
       eyebrow="Medical notice"
       title="Medical Disclaimer"
       updated="May 18, 2026"
-      intro="America First Clinic provides wellness information, sales support, and access to products or programs operated by ACV2 Investment Group LLC. This disclaimer explains the limits of website and CRM information."
+      intro="Go Virtual Health provides wellness information, sales support, and access to products or programs operated by ACV2 Investment Group LLC. This disclaimer explains the limits of website and CRM information."
       sections={[
         {
           title: "Information is not medical advice",
@@ -32,7 +32,7 @@ export default function MedicalDisclaimerPage() {
         },
         {
           title: "Emergency care",
-          body: "America First Clinic is not an emergency medical provider. If you are experiencing a medical emergency, severe allergic reaction, chest pain, difficulty breathing, or another urgent condition, call 911 or seek immediate emergency medical care."
+          body: "Go Virtual Health is not an emergency medical provider. If you are experiencing a medical emergency, severe allergic reaction, chest pain, difficulty breathing, or another urgent condition, call 911 or seek immediate emergency medical care."
         },
         {
           title: "Customer responsibility",

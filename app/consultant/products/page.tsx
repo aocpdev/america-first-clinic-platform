@@ -15,7 +15,7 @@ export default async function ConsultantProductsPage() {
       <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Products">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Company setup required</h2>
-          <p className="mt-2 text-slate-600">Your account needs to be linked to America First Clinic before products are available.</p>
+          <p className="mt-2 text-slate-600">Your account needs to be linked to Go Virtual Health before products are available.</p>
         </Card>
       </SidebarShell>
     );

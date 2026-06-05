@@ -108,7 +108,7 @@ export function CreateManagerModal({
                   <>
                     <Field label="Direct share of partner pool">
                       <div className="relative">
-                        <Input name="commissionPercent" type="number" min="0" max="50" step="0.01" defaultValue="25" className="pr-10" required />
+                        <Input name="commissionPercent" type="number" min="0" max="50" step="0.01" defaultValue="50" className="pr-10" required />
                         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
                       </div>
                     </Field>

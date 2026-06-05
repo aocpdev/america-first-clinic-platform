@@ -2,8 +2,8 @@ import { CommissionStatus, type PrismaClient } from "@prisma/client";
 
 export const DEFAULT_MARGIN_POOL_BPS = 2500;
 export const DEFAULT_PARTNER_SPLIT_BPS = 5000;
-export const DEFAULT_MANAGER_SHARE_BPS = 2500;
-export const DEFAULT_GROUP_LEADER_SHARE_BPS = 2500;
+export const DEFAULT_MANAGER_SHARE_BPS = 5000;
+export const DEFAULT_GROUP_LEADER_SHARE_BPS = 5000;
 export const DEFAULT_CONSULTANT_SHARE_BPS = 5000;
 export const MAX_GROUP_LEADER_POOL_SHARE_BPS = 5000;
 

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 
 export const metadata: Metadata = {
-  title: "Refund Policy | America First Clinic",
-  description: "Refund and cancellation policy for America First Clinic orders and services."
+  title: "Refund Policy | Go Virtual Health",
+  description: "Refund and cancellation policy for Go Virtual Health orders and services."
 };
 
 export default function RefundPolicyPage() {
@@ -12,7 +12,7 @@ export default function RefundPolicyPage() {
       eyebrow="Customer policy"
       title="Refund Policy"
       updated="May 18, 2026"
-      intro="This policy explains how refunds, cancellations, and order adjustments are handled for America First Clinic products, services, and programs operated by ACV2 Investment Group LLC."
+      intro="This policy explains how refunds, cancellations, and order adjustments are handled for Go Virtual Health products, services, and programs operated by ACV2 Investment Group LLC."
       sections={[
         {
           title: "General refund approach",

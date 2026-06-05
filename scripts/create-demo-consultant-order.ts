@@ -7,7 +7,7 @@ async function main() {
   });
 
   if (!company) {
-    throw new Error("America First Clinic company was not found.");
+    throw new Error("Go Virtual Health company was not found.");
   }
 
   const consultant = await prisma.consultantProfile.findFirst({

@@ -1,4 +1,4 @@
-# America First Clinic CRM + eCommerce Platform
+# Go Virtual Health CRM + eCommerce Platform
 
 Production-oriented SaaS foundation for a healthcare and wellness consultant sales platform.
 

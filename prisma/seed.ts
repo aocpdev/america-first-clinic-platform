@@ -7,9 +7,9 @@ async function main() {
     where: { slug: "america-first-clinic" },
     update: {},
     create: {
-      name: "America First Clinic",
+      name: "Go Virtual Health",
       slug: "america-first-clinic",
-      logoUrl: "/america-first-clinic-logo.jpeg",
+      logoUrl: "/go-virtual-health-logo.jpeg",
       primaryColor: "#073763",
       accentColor: "#DC1F2A"
     }

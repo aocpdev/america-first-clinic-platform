@@ -34,7 +34,7 @@ export const defaultRewardLevels = [
     salesThreshold: 12,
     accentColor: "#0E7C66",
     reward: {
-      title: "America First Clinic Gear",
+      title: "Go Virtual Health Gear",
       description: "Premium branded gear for sellers who consistently convert qualified customers.",
       valueCents: 15000,
       imageUrl: ""

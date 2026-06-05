@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import type { Prisma } from "@prisma/client";
 import { z } from "zod";
 import { requireApprovedConsultant, requirePartner, requireRole } from "@/lib/auth/current-user";
 import { createMarginCommissionLedger } from "@/lib/commissions/margin-split";
@@ -68,7 +69,7 @@ function orderPaymentUrl(orderId: string, providerCode: PaymentProviderCode) {
   return fallbackOrderPaymentUrl(orderId, providerCode);
 }
 
-function orderDetailPath(workspace: "consultant" | "partner" | "group_leader" | "admin", orderId: string) {
+function orderDetailPath(workspace: "consultant" | "partner" | "manager" | "group_leader" | "admin", orderId: string) {
   if (workspace === "admin") return `/admin/orders/${orderId}`;
   if (workspace === "consultant") return `/consultant/orders/${orderId}`;
   return `/partner/orders/${orderId}`;
@@ -189,16 +190,26 @@ async function queueInvoiceWebhook(input: {
 async function createWorkspaceOrder(
   formData: FormData,
   context: {
-    workspace: "consultant" | "partner" | "group_leader" | "admin";
+    workspace: "consultant" | "partner" | "manager" | "group_leader" | "admin";
     companyId: string;
     actorUserId: string;
     consultantProfileId?: string | null;
     partnerProfileId?: string | null;
+    managerProfileId?: string | null;
     groupLeaderProfileId?: string | null;
     redirectBasePath: string;
   }
 ) {
-  const { workspace, companyId, actorUserId, consultantProfileId = null, partnerProfileId = null, groupLeaderProfileId = null, redirectBasePath } = context;
+  const {
+    workspace,
+    companyId,
+    actorUserId,
+    consultantProfileId = null,
+    partnerProfileId = null,
+    managerProfileId = null,
+    groupLeaderProfileId = null,
+    redirectBasePath
+  } = context;
   const customerMode = formString(formData, "customerMode") || "existing";
   const pipelineStageInput = formString(formData, "pipelineStage");
   const pipelineStage = isCustomerPipelineStage(pipelineStageInput) ? pipelineStageInput : "AWAITING_PAYMENT";
@@ -245,6 +256,7 @@ async function createWorkspaceOrder(
         phone: true,
         consultantProfileId: true,
         partnerProfileId: true,
+        managerProfileId: true,
         groupLeaderProfileId: true
       }
     });
@@ -265,6 +277,10 @@ async function createWorkspaceOrder(
       redirect(`${redirectBasePath}?error=customer_not_assigned`);
     }
 
+    if (workspace === "manager" && existingCustomer?.managerProfileId && existingCustomer.managerProfileId !== managerProfileId) {
+      redirect(`${redirectBasePath}?error=customer_not_assigned`);
+    }
+
     if (workspace === "group_leader" && existingCustomer?.groupLeaderProfileId && existingCustomer.groupLeaderProfileId !== groupLeaderProfileId) {
       redirect(`${redirectBasePath}?error=customer_not_assigned`);
     }
@@ -274,7 +290,8 @@ async function createWorkspaceOrder(
           where: { id: existingCustomer.id },
           data: {
             consultantProfileId: workspace === "consultant" ? consultantProfileId : existingCustomer.consultantProfileId,
-            partnerProfileId: workspace === "partner" || workspace === "group_leader" ? partnerProfileId : existingCustomer.partnerProfileId,
+            partnerProfileId: workspace === "partner" || workspace === "manager" || workspace === "group_leader" ? partnerProfileId : existingCustomer.partnerProfileId,
+            managerProfileId: workspace === "consultant" || workspace === "manager" || workspace === "group_leader" ? managerProfileId : existingCustomer.managerProfileId,
             groupLeaderProfileId: workspace === "consultant" || workspace === "group_leader" ? groupLeaderProfileId : existingCustomer.groupLeaderProfileId,
             pipelineStage,
             pipelineUpdatedAt: new Date(),
@@ -290,7 +307,8 @@ async function createWorkspaceOrder(
           data: {
             companyId,
             consultantProfileId: workspace === "consultant" ? consultantProfileId : null,
-            partnerProfileId: workspace === "partner" || workspace === "group_leader" ? partnerProfileId : null,
+            partnerProfileId: workspace === "partner" || workspace === "manager" || workspace === "group_leader" || workspace === "consultant" ? partnerProfileId : null,
+            managerProfileId: workspace === "consultant" || workspace === "manager" || workspace === "group_leader" ? managerProfileId : null,
             groupLeaderProfileId: workspace === "consultant" || workspace === "group_leader" ? groupLeaderProfileId : null,
             email,
             pipelineStage,
@@ -307,28 +325,52 @@ async function createWorkspaceOrder(
     customerId = customer.id;
   }
 
-  const customerWhere =
-    workspace === "consultant"
-      ? { id: customerId, companyId, consultantProfileId }
-      : workspace === "partner"
-        ? {
-            id: customerId,
-            companyId,
-            OR: [
-              { partnerProfileId },
-              { consultantProfile: { partnerProfileId } }
-            ]
-          }
-        : workspace === "group_leader"
-          ? {
-              id: customerId,
-              companyId,
-              OR: [
-                { groupLeaderProfileId },
-                { consultantProfile: { groupLeaderProfileId } }
-              ]
-            }
-        : { id: customerId, companyId };
+  let customerWhere: Prisma.CustomerWhereInput = { id: customerId, companyId };
+
+  if (workspace === "consultant") {
+    if (!consultantProfileId) redirect(`${redirectBasePath}?error=customer_not_assigned`);
+    customerWhere = { id: customerId, companyId, consultantProfileId };
+  }
+
+  if (workspace === "partner") {
+    if (!partnerProfileId) redirect(`${redirectBasePath}?error=customer_not_assigned`);
+    customerWhere = {
+      id: customerId,
+      companyId,
+      OR: [
+        { partnerProfileId },
+        { managerProfile: { partnerProfileId } },
+        { groupLeaderProfile: { partnerProfileId } },
+        { consultantProfile: { partnerProfileId } }
+      ]
+    };
+  }
+
+  if (workspace === "manager") {
+    if (!managerProfileId) redirect(`${redirectBasePath}?error=customer_not_assigned`);
+    customerWhere = {
+      id: customerId,
+      companyId,
+      OR: [
+        { managerProfileId },
+        { groupLeaderProfile: { managerProfileId } },
+        { consultantProfile: { managerProfileId } },
+        { consultantProfile: { groupLeaderProfile: { managerProfileId } } }
+      ]
+    };
+  }
+
+  if (workspace === "group_leader") {
+    if (!groupLeaderProfileId) redirect(`${redirectBasePath}?error=customer_not_assigned`);
+    customerWhere = {
+      id: customerId,
+      companyId,
+      OR: [
+        { groupLeaderProfileId },
+        { consultantProfile: { groupLeaderProfileId } }
+      ]
+    };
+  }
 
   const customer = await prisma.customer.findFirst({ where: customerWhere });
 
@@ -443,16 +485,19 @@ async function createWorkspaceOrder(
       ? "CONSULTANT_PARTNER_SPLIT"
       : workspace === "partner"
         ? "PARTNER_DIRECT"
-        : workspace === "group_leader"
-          ? "GROUP_LEADER_DIRECT"
-          : "ADMIN_DIRECT";
+        : workspace === "manager"
+          ? "MANAGER_DIRECT"
+          : workspace === "group_leader"
+            ? "GROUP_LEADER_DIRECT"
+            : "ADMIN_DIRECT";
 
   const order = await prisma.order.create({
     data: {
       companyId,
       customerId: customer.id,
       consultantProfileId: workspace === "consultant" ? consultantProfileId : null,
-      partnerProfileId: workspace === "partner" || workspace === "group_leader" ? partnerProfileId : null,
+      partnerProfileId: workspace === "partner" || workspace === "manager" || workspace === "group_leader" || workspace === "consultant" ? partnerProfileId : null,
+      managerProfileId: workspace === "consultant" || workspace === "manager" || workspace === "group_leader" ? managerProfileId : null,
       groupLeaderProfileId: workspace === "consultant" || workspace === "group_leader" ? groupLeaderProfileId : null,
       subtotalCents,
       totalCents: subtotalCents,
@@ -621,6 +666,8 @@ async function createWorkspaceOrder(
   revalidatePath("/partner/sales");
   revalidatePath("/partner/commissions");
   revalidatePath("/partner/pipeline");
+  revalidatePath("/manager/dashboard");
+  revalidatePath("/manager/reports");
   revalidatePath("/consultant/sales");
   revalidatePath("/consultant/commissions");
   revalidatePath("/consultant/pipeline");

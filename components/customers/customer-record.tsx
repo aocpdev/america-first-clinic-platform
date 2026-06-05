@@ -68,7 +68,7 @@ export function CustomerRecord({
           <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex items-center gap-4">
               <div className="grid size-16 place-items-center rounded-2xl border border-border bg-white shadow-line">
-                <img src="/america-first-clinic-logo.jpeg" alt="America First Clinic" className="h-12 w-12 object-contain" />
+                <img src="/go-virtual-health-emblem.png" alt="Go Virtual Health" className="h-12 w-12 object-contain" />
               </div>
               <div>
                 <Badge>Customer record</Badge>

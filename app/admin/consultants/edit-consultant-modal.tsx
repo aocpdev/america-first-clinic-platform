@@ -228,7 +228,7 @@ export function EditConsultantModal({
                   <div className={canManageSellerCommission ? "grid gap-3 sm:grid-cols-[150px_150px_auto]" : "flex justify-end"}>
                     {canManageSellerCommission ? (
                       <>
-                        <Input name="leaderCommissionPercent" type="number" min="0" max="50" step="0.01" defaultValue="25" aria-label="Leader direct share of partner pool percent" />
+                        <Input name="leaderCommissionPercent" type="number" min="0" max="50" step="0.01" defaultValue="50" aria-label="Leader direct share of partner pool percent" />
                         <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue="0" aria-label="Leader team override from partner pool percent" />
                       </>
                     ) : null}

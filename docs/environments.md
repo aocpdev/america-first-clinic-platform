@@ -1,6 +1,6 @@
 # Environments
 
-America First Clinic should use one codebase with separate environments.
+Go Virtual Health should use one codebase with separate environments.
 
 ## Local
 

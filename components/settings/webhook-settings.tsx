@@ -499,7 +499,7 @@ function sampleWebhookPayload(eventType: string, configuredEvents: string[]) {
       name: "Rashad Abdul Hamid",
       email: "rashad@example.com",
       requestedRole: eventType.includes("manager") ? "MANAGER" : eventType.includes("leader") ? "GROUP_LEADER" : "CONSULTANT",
-      partner: "American First Healthcare"
+      partner: "Go Virtual Health"
     }
   };
 

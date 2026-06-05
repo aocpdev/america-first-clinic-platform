@@ -88,9 +88,9 @@ async function main() {
     where: { slug: "america-first-clinic" },
     update: {},
     create: {
-      name: "America First Clinic",
+      name: "Go Virtual Health",
       slug: "america-first-clinic",
-      logoUrl: "/america-first-clinic-logo.jpeg",
+      logoUrl: "/go-virtual-health-logo.jpeg",
       primaryColor: "#073763",
       accentColor: "#DC1F2A"
     }
@@ -150,7 +150,7 @@ async function main() {
         categoryId: category.id,
         title: row.name,
         slug: slugify(row.name),
-        description: `${row.name} offered through America First Clinic's ${row.category} catalog.`,
+        description: `${row.name} offered through Go Virtual Health's ${row.category} catalog.`,
         priceCents,
         internalCostCents,
         marginBps: calculateMarginBps(priceCents, internalCostCents),
@@ -175,7 +175,7 @@ async function main() {
         categoryId: category.id,
         title: row.name,
         slug: slugify(row.name),
-        description: `${row.name} offered through America First Clinic's ${row.category} catalog.`,
+        description: `${row.name} offered through Go Virtual Health's ${row.category} catalog.`,
         priceCents,
         internalCostCents,
         marginBps: calculateMarginBps(priceCents, internalCostCents),
@@ -194,7 +194,7 @@ async function main() {
     });
   }
 
-  console.log(`Imported ${catalogRows.length} America First Clinic products.`);
+  console.log(`Imported ${catalogRows.length} Go Virtual Health products.`);
 }
 
 main()
