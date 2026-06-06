@@ -19,6 +19,7 @@ import {
 } from "@/lib/commissions/margin-split";
 import { companyAdminUserIds, notifyUsers, personDisplayName } from "@/lib/notifications";
 import { normalizePhoneToE164 } from "@/lib/phone";
+import { portalBaseUrl } from "@/lib/urls";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 function formValue(formData: FormData, key: string) {
@@ -44,7 +45,7 @@ function redirectWithError(path: string, error: string): never {
 }
 
 function appUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  return portalBaseUrl();
 }
 
 async function assertUniqueUserContact({

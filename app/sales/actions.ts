@@ -12,6 +12,7 @@ import { appBaseUrl, fallbackOrderPaymentUrl, invoiceShortUrl, paymentShortUrl }
 import type { PaymentProviderCode } from "@/lib/payments/types";
 import { normalizePhoneToE164, phoneForWebhook } from "@/lib/phone";
 import { isCustomerPipelineStage } from "@/lib/sales/pipeline";
+import { publicSiteBaseUrl } from "@/lib/urls";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 const newCustomerSchema = z.object({
@@ -541,12 +542,14 @@ async function createWorkspaceOrder(
   await createMarginCommissionLedger({ prisma, orderId: order.id, commissionMode });
 
   const fallbackInvoiceUrl = orderPaymentUrl(order.id, providerCode);
-  const appUrl = appBaseUrl();
-  const internalOrderUrl = `${appUrl}${orderDetailPath(workspace, order.id)}`;
+  const portalUrl = appBaseUrl();
+  const publicUrl = publicSiteBaseUrl();
+  const internalOrderUrl = `${portalUrl}${orderDetailPath(workspace, order.id)}`;
+  const customerSuccessUrl = `${publicUrl}/checkout/success?orderId=${order.id}`;
   const shortInvoiceUrl = invoiceShortUrl(order.id);
   const shortPaymentUrl = paymentShortUrl(order.id);
   const checkoutSuccessUrl =
-    paymentWorkflow === "collect_payment" ? `${internalOrderUrl}?payment=success` : `${appUrl}/checkout/success?orderId=${order.id}`;
+    paymentWorkflow === "collect_payment" ? `${internalOrderUrl}?payment=success` : customerSuccessUrl;
   const checkoutCancelUrl =
     paymentWorkflow === "collect_payment" ? `${internalOrderUrl}?payment=cancelled` : shortInvoiceUrl;
   const checkoutResult = providerCode === "stripe"
@@ -588,7 +591,7 @@ async function createWorkspaceOrder(
         commissionMode,
         paymentWorkflow,
         internalOrderUrl,
-        customerSuccessUrl: `${appUrl}/checkout/success?orderId=${order.id}`,
+        customerSuccessUrl,
         shippingAddress: shippingAddressData,
         shippingAddressId: persistedShippingAddressId,
         provider: providerCode,

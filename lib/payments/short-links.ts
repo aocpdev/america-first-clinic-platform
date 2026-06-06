@@ -1,7 +1,8 @@
 import type { PaymentProviderCode } from "@/lib/payments/types";
+import { portalBaseUrl, publicSiteBaseUrl } from "@/lib/urls";
 
 export function appBaseUrl() {
-  return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+  return portalBaseUrl();
 }
 
 export function paymentShortCode(orderId: string) {
@@ -9,13 +10,13 @@ export function paymentShortCode(orderId: string) {
 }
 
 export function paymentShortUrl(orderId: string) {
-  return `${appBaseUrl()}/pay/${paymentShortCode(orderId)}`;
+  return `${publicSiteBaseUrl()}/pay/${paymentShortCode(orderId)}`;
 }
 
 export function invoiceShortUrl(orderId: string) {
-  return `${appBaseUrl()}/i/${paymentShortCode(orderId)}`;
+  return `${publicSiteBaseUrl()}/i/${paymentShortCode(orderId)}`;
 }
 
 export function fallbackOrderPaymentUrl(orderId: string, providerCode: PaymentProviderCode) {
-  return `${appBaseUrl()}/checkout?orderId=${orderId}&provider=${providerCode}`;
+  return `${publicSiteBaseUrl()}/checkout?orderId=${orderId}&provider=${providerCode}`;
 }

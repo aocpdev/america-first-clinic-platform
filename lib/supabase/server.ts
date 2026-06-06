@@ -24,7 +24,8 @@ function requireEnv(name: string) {
 }
 
 function supabaseCookieOptions(): CookieOptions {
-  const isProductionUrl = process.env.NEXT_PUBLIC_APP_URL?.startsWith("https://") ?? process.env.NODE_ENV === "production";
+  const runtimeBaseUrl = process.env.NEXT_PUBLIC_PORTAL_URL || process.env.NEXT_PUBLIC_APP_URL;
+  const isProductionUrl = runtimeBaseUrl?.startsWith("https://") ?? process.env.NODE_ENV === "production";
 
   return {
     path: "/",

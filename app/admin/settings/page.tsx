@@ -4,6 +4,7 @@ import { WebhookSettings } from "@/components/settings/webhook-settings";
 import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { stripeEnvironmentStatus } from "@/lib/payments/stripe-config";
 
 export default async function AdminSettingsPage() {
   const user = await requireRole("COMPANY_ADMIN");
@@ -25,7 +26,7 @@ export default async function AdminSettingsPage() {
       <div className="space-y-6">
         <PaymentProviderSettings
           activeProvider={activeProvider}
-          stripeConfigured={Boolean(process.env.STRIPE_SECRET_KEY && process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)}
+          stripeStatus={stripeEnvironmentStatus()}
         />
         <WebhookSettings endpoints={endpoints} scope="admin" />
       </div>

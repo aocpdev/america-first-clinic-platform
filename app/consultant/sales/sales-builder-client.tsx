@@ -832,7 +832,7 @@ export function SalesBuilderClient({
             <div className="border-b border-border p-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Live checkout</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Secure checkout</p>
                   <h2 className="mt-2 text-xl font-semibold tracking-tight text-clinic-ink">Order summary</h2>
                   <p className="mt-1 text-sm font-semibold text-slate-500">
                     {selectedItemCount} item{selectedItemCount === 1 ? "" : "s"} selected

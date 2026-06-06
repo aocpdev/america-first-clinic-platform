@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { getCompanyStripeRuntimeConfig, stripeWebhookConfigs } from "@/lib/payments/stripe-config";
 import { BasePaymentProvider } from "@/lib/payments/providers/base";
 import type {
   ChargeInput,
@@ -10,14 +11,14 @@ import type {
 export class StripeProvider extends BasePaymentProvider {
   code = "stripe" as const;
 
-  private client() {
-    const secretKey = process.env.STRIPE_SECRET_KEY;
+  private client(secretKey?: string | null) {
     if (!secretKey) return null;
     return new Stripe(secretKey);
   }
 
   async createCustomer(input: PaymentCustomerInput) {
-    const stripe = this.client();
+    const config = await getCompanyStripeRuntimeConfig(input.companyId);
+    const stripe = this.client(config.secretKey);
     if (!stripe) {
       return this.placeholder("created", { providerCustomerId: `stripe_customer_${input.customerId}` });
     }
@@ -28,6 +29,7 @@ export class StripeProvider extends BasePaymentProvider {
       metadata: {
         companyId: input.companyId,
         crmCustomerId: input.customerId,
+        stripeMode: config.mode,
         ...(input.metadata ?? {})
       }
     });
@@ -39,7 +41,8 @@ export class StripeProvider extends BasePaymentProvider {
   }
 
   async createCheckoutSession(input: CheckoutSessionInput) {
-    const stripe = this.client();
+    const config = await getCompanyStripeRuntimeConfig(input.companyId);
+    const stripe = this.client(config.secretKey);
     if (!stripe) {
       return this.placeholder("created", {
         providerSessionId: `stripe_session_${input.orderId}`,
@@ -47,12 +50,20 @@ export class StripeProvider extends BasePaymentProvider {
       });
     }
 
+    const metadata: Record<string, string> = {
+      ...(input.metadata ?? {}),
+      companyId: input.companyId,
+      customerId: input.customerId,
+      orderId: input.orderId,
+      stripeMode: config.mode
+    };
+
     const customer = await this.createCustomer({
       companyId: input.companyId,
       customerId: input.customerId,
-      email: input.metadata?.customerEmail ?? "",
-      name: input.metadata?.customerName,
-      metadata: input.metadata
+      email: metadata.customerEmail ?? "",
+      name: metadata.customerName,
+      metadata
     });
 
     const session = await stripe.checkout.sessions.create({
@@ -71,9 +82,9 @@ export class StripeProvider extends BasePaymentProvider {
       })),
       payment_intent_data: {
         setup_future_usage: "off_session",
-        metadata: input.metadata
+        metadata
       },
-      metadata: input.metadata,
+      metadata,
       success_url: input.successUrl,
       cancel_url: input.cancelUrl
     });
@@ -87,7 +98,8 @@ export class StripeProvider extends BasePaymentProvider {
   }
 
   async chargePayment(input: ChargeInput) {
-    const stripe = this.client();
+    const config = await getCompanyStripeRuntimeConfig(input.companyId);
+    const stripe = this.client(config.secretKey);
     if (!stripe) return super.chargePayment(input);
 
     const paymentIntent = await stripe.paymentIntents.create({
@@ -100,6 +112,7 @@ export class StripeProvider extends BasePaymentProvider {
         companyId: input.companyId,
         customerId: input.customerId,
         orderId: input.orderId,
+        stripeMode: config.mode,
         ...(input.metadata ?? {})
       }
     });
@@ -111,7 +124,8 @@ export class StripeProvider extends BasePaymentProvider {
   }
 
   async refundPayment(input: RefundInput) {
-    const stripe = this.client();
+    const config = await getCompanyStripeRuntimeConfig(input.companyId);
+    const stripe = this.client(config.secretKey);
     if (!stripe) return super.refundPayment(input);
 
     const refund = await stripe.refunds.create({
@@ -127,23 +141,37 @@ export class StripeProvider extends BasePaymentProvider {
   }
 
   async verifyWebhook(payload: string, signature: string | null) {
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    const stripe = this.client();
-    if (!stripe || !webhookSecret || !signature) return false;
+    if (!signature) return false;
 
-    try {
-      stripe.webhooks.constructEvent(payload, signature, webhookSecret);
-      return true;
-    } catch {
-      return false;
+    for (const config of stripeWebhookConfigs()) {
+      const stripe = this.client(config.secretKey);
+      if (!stripe || !config.webhookSecret) continue;
+
+      try {
+        stripe.webhooks.constructEvent(payload, signature, config.webhookSecret);
+        return true;
+      } catch {
+        // Keep trying the other environment secret.
+      }
     }
+
+    return false;
   }
 
   constructWebhookEvent(payload: string, signature: string | null) {
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-    const stripe = this.client();
-    if (!stripe || !webhookSecret || !signature) return null;
+    if (!signature) return null;
 
-    return stripe.webhooks.constructEvent(payload, signature, webhookSecret);
+    for (const config of stripeWebhookConfigs()) {
+      const stripe = this.client(config.secretKey);
+      if (!stripe || !config.webhookSecret) continue;
+
+      try {
+        return stripe.webhooks.constructEvent(payload, signature, config.webhookSecret);
+      } catch {
+        // Keep trying the other environment secret.
+      }
+    }
+
+    return null;
   }
 }

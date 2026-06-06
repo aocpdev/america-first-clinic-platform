@@ -48,7 +48,7 @@ export default function TermsOfServicePage() {
         },
         {
           title: "Changes and contact",
-          body: "We may update these terms as our services, policies, payment providers, or legal requirements change. Continued use after an update means you accept the updated terms. Questions can be sent to support@americafirstclinic.com."
+          body: "We may update these terms as our services, policies, payment providers, or legal requirements change. Continued use after an update means you accept the updated terms. Questions can be sent to support@govirtualhealth.com."
         }
       ]}
     />

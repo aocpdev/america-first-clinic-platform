@@ -40,7 +40,7 @@ export default function PrivacyPolicyPage() {
         },
         {
           title: "Contact",
-          body: "Questions about privacy or data handling can be sent to support@americafirstclinic.com. We may update this policy as our platform, vendors, payment providers, healthcare workflows, or legal requirements change."
+          body: "Questions about privacy or data handling can be sent to support@govirtualhealth.com. We may update this policy as our platform, vendors, payment providers, healthcare workflows, or legal requirements change."
         }
       ]}
     />

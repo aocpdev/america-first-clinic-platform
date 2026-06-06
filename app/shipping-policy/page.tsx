@@ -36,7 +36,7 @@ export default function ShippingPolicyPage() {
         },
         {
           title: "Lost, damaged, or delayed packages",
-          body: "If a package appears lost, damaged, or delayed, contact support@americafirstclinic.com with your order number and supporting details. We may work with the carrier or fulfillment partner to review the issue, but replacement or refund eligibility depends on the item type, carrier findings, and applicable policy."
+          body: "If a package appears lost, damaged, or delayed, contact support@govirtualhealth.com with your order number and supporting details. We may work with the carrier or fulfillment partner to review the issue, but replacement or refund eligibility depends on the item type, carrier findings, and applicable policy."
         }
       ]}
     />

@@ -20,7 +20,7 @@ export default function RefundPolicyPage() {
         },
         {
           title: "Cancellations before fulfillment",
-          body: "If an order has not been processed, shipped, dispensed, scheduled, or clinically started, you may request cancellation by contacting support@americafirstclinic.com as soon as possible. Approved cancellations are refunded to the original payment method when available."
+          body: "If an order has not been processed, shipped, dispensed, scheduled, or clinically started, you may request cancellation by contacting support@govirtualhealth.com as soon as possible. Approved cancellations are refunded to the original payment method when available."
         },
         {
           title: "Products and wellness items",
@@ -40,7 +40,7 @@ export default function RefundPolicyPage() {
         },
         {
           title: "How to request a refund",
-          body: "To request a refund or order review, email support@americafirstclinic.com with your name, order number, contact information, reason for the request, and any supporting details such as delivery issues or product condition."
+          body: "To request a refund or order review, email support@govirtualhealth.com with your name, order number, contact information, reason for the request, and any supporting details such as delivery issues or product condition."
         }
       ]}
     />

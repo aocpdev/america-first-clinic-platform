@@ -9,10 +9,11 @@ import { getPaymentProvider } from "@/lib/payments/registry";
 import type { PaymentProviderCode } from "@/lib/payments/types";
 import { phoneForWebhook } from "@/lib/phone";
 import { isOrderPipelineStage, orderPipelineLabel } from "@/lib/sales/pipeline";
+import { publicSiteBaseUrl } from "@/lib/urls";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
-function appUrl() {
-  return (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "");
+function receiptBaseUrl() {
+  return publicSiteBaseUrl();
 }
 
 function personName(person: { firstName: string | null; lastName: string | null; email?: string }) {
@@ -351,7 +352,7 @@ export async function resendReceiptWebhook(formData: FormData) {
     redirect(`${returnPath}?receipt=not_available`);
   }
 
-  const receiptUrl = `${appUrl()}/checkout/success?orderId=${order.id}`;
+  const receiptUrl = `${receiptBaseUrl()}/checkout/success?orderId=${order.id}`;
 
   await dispatchWebhookEvent({
     companyId: order.companyId,

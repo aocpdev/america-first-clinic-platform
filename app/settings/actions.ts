@@ -276,7 +276,7 @@ export async function testWebhookEndpoint(formData: FormData) {
       endpointId: endpoint.id,
       eventType: "webhook.test",
       payload: {
-        source: "america_first_clinic_crm",
+        source: "go_virtual_health_crm",
         message: "This is a test webhook from Go Virtual Health CRM.",
         endpointName: endpoint.name,
         configuredEvents: endpoint.events,
@@ -290,7 +290,7 @@ export async function testWebhookEndpoint(formData: FormData) {
     event: "webhook.test",
     createdAt: new Date().toISOString(),
     data: {
-      source: "america_first_clinic_crm",
+      source: "go_virtual_health_crm",
       message: "This is a test webhook from Go Virtual Health CRM.",
       endpointName: endpoint.name,
       configuredEvents: endpoint.events
@@ -355,7 +355,7 @@ export async function testWebhookConfiguration(formData: FormData) {
     event: "webhook.test",
     createdAt: sentAt,
     data: {
-      source: "america_first_clinic_crm",
+      source: "go_virtual_health_crm",
       message: "This is a test webhook from Go Virtual Health CRM.",
       endpointName: parsed.name.trim(),
       previewEvent: eventType,

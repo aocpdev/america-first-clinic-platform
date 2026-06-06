@@ -362,7 +362,7 @@ function EventCheckboxGrid({
 
 function sampleWebhookPayload(eventType: string, configuredEvents: string[]) {
   const base = {
-    source: "america_first_clinic_crm",
+    source: "go_virtual_health_crm",
     environment: "test",
     configuredEvents,
     phoneE164: "14076246747",
@@ -408,7 +408,7 @@ function sampleWebhookPayload(eventType: string, configuredEvents: string[]) {
         paymentStatus: "PENDING"
       },
       invoice: {
-        shortUrl: "https://www.americafirstclinic.com/i/af2048",
+        shortUrl: "https://govirtualhealth.com/i/af2048",
         provider: "stripe",
         expiresAt: "2026-06-03T14:30:00.000Z"
       }
@@ -422,7 +422,7 @@ function sampleWebhookPayload(eventType: string, configuredEvents: string[]) {
         paymentStatus: "CAPTURED"
       },
       receipt: {
-        shortUrl: "https://www.americafirstclinic.com/receipts/af2048"
+        shortUrl: "https://govirtualhealth.com/receipts/af2048"
       }
     },
     "payment.failed": {
@@ -445,7 +445,7 @@ function sampleWebhookPayload(eventType: string, configuredEvents: string[]) {
         total: 397
       },
       receipt: {
-        shortUrl: "https://www.americafirstclinic.com/receipts/af2048"
+        shortUrl: "https://govirtualhealth.com/receipts/af2048"
       }
     },
     "receipt.resend_requested": {
@@ -455,7 +455,7 @@ function sampleWebhookPayload(eventType: string, configuredEvents: string[]) {
         orderNumber: "AF-2048"
       },
       receipt: {
-        shortUrl: "https://www.americafirstclinic.com/receipts/af2048"
+        shortUrl: "https://govirtualhealth.com/receipts/af2048"
       }
     },
     "shipment.tracking_ready": {
@@ -487,7 +487,7 @@ function sampleWebhookPayload(eventType: string, configuredEvents: string[]) {
       ...base,
       reset: {
         requestedBy: "consultant",
-        resetUrl: "https://www.americafirstclinic.com/reset-password/demo"
+        resetUrl: "https://portal.govirtualhealth.com/reset-password/demo"
       }
     }
   };

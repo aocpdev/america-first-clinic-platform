@@ -3,7 +3,9 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/db/prisma";
 import { companyAdminUserIds, moneyFromCents, notifyUsers, orderRecipientUserIds, personDisplayName } from "@/lib/notifications";
 import { StripeProvider } from "@/lib/payments/providers/stripe-provider";
+import { stripeRuntimeConfigForEvent } from "@/lib/payments/stripe-config";
 import { phoneForWebhook } from "@/lib/phone";
+import { publicSiteBaseUrl } from "@/lib/urls";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 function jsonSafe(value: unknown) {
@@ -14,9 +16,10 @@ async function saveStripePaymentMethod(paymentIntent: Stripe.PaymentIntent) {
   if (!paymentIntent.customer || !paymentIntent.payment_method || typeof paymentIntent.payment_method !== "string") return;
   const customerId = paymentIntent.metadata.customerId;
   const companyId = paymentIntent.metadata.companyId;
-  if (!customerId || !companyId || !process.env.STRIPE_SECRET_KEY) return;
+  const stripeConfig = stripeRuntimeConfigForEvent(paymentIntent.livemode, paymentIntent.metadata.stripeMode);
+  if (!customerId || !companyId || !stripeConfig.secretKey) return;
 
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  const stripe = new Stripe(stripeConfig.secretKey);
   const paymentMethod = await stripe.paymentMethods.retrieve(paymentIntent.payment_method);
   const card = paymentMethod.card;
   if (!card) return;
@@ -144,7 +147,7 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
     customerName: [order.customer.firstName, order.customer.lastName].filter(Boolean).join(" ").trim() || order.customer.email,
     amountCents: order.totalCents,
     currency: "USD",
-    receiptUrl: `${(process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "")}/checkout/success?orderId=${order.id}`
+    receiptUrl: `${publicSiteBaseUrl()}/checkout/success?orderId=${order.id}`
   };
 
   await dispatchWebhookEvent({

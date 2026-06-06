@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPaymentProvider } from "@/lib/payments/registry";
+import { publicSiteBaseUrl } from "@/lib/urls";
 import { orderSchema } from "@/lib/validations/core";
 
 export async function POST(request: Request) {
@@ -11,12 +12,13 @@ export async function POST(request: Request) {
   }
 
   const provider = getPaymentProvider(parsed.data.paymentProviderCode);
+  const publicUrl = publicSiteBaseUrl();
   const result = await provider.createCheckoutSession({
     companyId: "company_pending_context",
     customerId: parsed.data.customerId,
     orderId: "order_pending_database_write",
-    successUrl: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/success`,
-    cancelUrl: `${process.env.NEXT_PUBLIC_APP_URL}/checkout/cancel`,
+    successUrl: `${publicUrl}/checkout/success`,
+    cancelUrl: `${publicUrl}/checkout/cancel`,
     lineItems: [],
     metadata: {
       consultantProfileId: parsed.data.consultantProfileId ?? "",

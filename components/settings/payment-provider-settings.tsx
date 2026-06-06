@@ -3,6 +3,7 @@ import { updatePaymentSettings } from "@/app/settings/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import type { StripeEnvironmentStatus } from "@/lib/payments/stripe-config";
 
 type ProviderSettings = {
   code: string;
@@ -25,15 +26,27 @@ function configValue(config: unknown, key: "saveCards" | "collectInsideCrm" | "s
   return typeof value === "boolean" ? value : fallback;
 }
 
+function statusPill(ready: boolean) {
+  return ready ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800";
+}
+
+function statusLabel(ready: boolean) {
+  return ready ? "Ready" : "Missing";
+}
+
 export function PaymentProviderSettings({
   activeProvider,
-  stripeConfigured
+  stripeStatus
 }: {
   activeProvider: ProviderSettings;
-  stripeConfigured: boolean;
+  stripeStatus: StripeEnvironmentStatus;
 }) {
   const selectedCode = activeProvider?.code ?? "stripe";
   const mode = activeProvider?.mode ?? "test";
+  const activeStripeReady =
+    mode === "live"
+      ? stripeStatus.liveConfigured && stripeStatus.liveWebhookConfigured
+      : stripeStatus.testConfigured && stripeStatus.testWebhookConfigured;
 
   return (
     <Card className="overflow-hidden rounded-3xl">
@@ -46,8 +59,8 @@ export function PaymentProviderSettings({
               Select the active payment rail without coupling orders, commissions, customers, or dashboards to one processor.
             </p>
           </div>
-          <div className="rounded-2xl border border-border bg-clinic-mist px-4 py-3 text-sm font-semibold text-clinic-navy">
-            Stripe keys: {stripeConfigured ? "Configured" : "Missing"}
+          <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${statusPill(activeStripeReady)}`}>
+            Stripe {mode === "live" ? "Live" : "Test"}: {activeStripeReady ? "Ready" : "Needs setup"}
           </div>
         </div>
       </div>
@@ -72,13 +85,47 @@ export function PaymentProviderSettings({
           ))}
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+        <div className="grid gap-4 lg:grid-cols-[340px_1fr]">
           <div className="rounded-3xl border border-border bg-clinic-mist p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Mode</p>
             <select name="mode" defaultValue={mode} className="mt-3 h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm font-semibold text-clinic-ink outline-none">
               <option value="test">Test mode</option>
               <option value="live">Live mode</option>
             </select>
+            <div className="mt-4 grid gap-2">
+              <div className="rounded-2xl border border-border bg-white p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-clinic-ink">Test mode</p>
+                  <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusPill(stripeStatus.testConfigured && stripeStatus.testWebhookConfigured)}`}>
+                    {statusLabel(stripeStatus.testConfigured && stripeStatus.testWebhookConfigured)}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusPill(stripeStatus.testConfigured)}`}>
+                    Keys {statusLabel(stripeStatus.testConfigured)}
+                  </span>
+                  <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusPill(stripeStatus.testWebhookConfigured)}`}>
+                    Webhook {statusLabel(stripeStatus.testWebhookConfigured)}
+                  </span>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-border bg-white p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-clinic-ink">Live mode</p>
+                  <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusPill(stripeStatus.liveConfigured && stripeStatus.liveWebhookConfigured)}`}>
+                    {statusLabel(stripeStatus.liveConfigured && stripeStatus.liveWebhookConfigured)}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusPill(stripeStatus.liveConfigured)}`}>
+                    Keys {statusLabel(stripeStatus.liveConfigured)}
+                  </span>
+                  <span className={`rounded-full border px-3 py-1 text-xs font-bold ${statusPill(stripeStatus.liveWebhookConfigured)}`}>
+                    Webhook {statusLabel(stripeStatus.liveWebhookConfigured)}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="grid gap-3 rounded-3xl border border-border bg-white p-5 md:grid-cols-3">
