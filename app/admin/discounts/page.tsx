@@ -58,29 +58,34 @@ export default async function AdminDiscountsPage() {
 
   return (
     <SidebarShell nav={adminNav} eyebrow="Admin" title="Discounts">
-      <div className="space-y-6">
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Active discounts</p>
-            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{activeCount}</p>
+      <div className="space-y-5">
+        <div className="grid gap-3 md:grid-cols-3">
+          <Card className="rounded-2xl border-white/80 bg-white/90 p-5 shadow-[0_18px_45px_rgba(15,35,58,0.06)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Active discounts</p>
+            <p className="mt-3 text-3xl font-semibold tracking-tight text-clinic-navy">{activeCount}</p>
           </Card>
-          <Card className="p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Total redemptions</p>
-            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{redemptionCount}</p>
+          <Card className="rounded-2xl border-white/80 bg-white/90 p-5 shadow-[0_18px_45px_rgba(15,35,58,0.06)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Total redemptions</p>
+            <p className="mt-3 text-3xl font-semibold tracking-tight text-clinic-navy">{redemptionCount}</p>
           </Card>
-          <Card className="p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Recent discount value</p>
-            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(redeemedCents)}</p>
+          <Card className="rounded-2xl border-white/80 bg-white/90 p-5 shadow-[0_18px_45px_rgba(15,35,58,0.06)]">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Recent discount value</p>
+            <p className="mt-3 text-3xl font-semibold tracking-tight text-clinic-navy">{formatCurrency(redeemedCents)}</p>
           </Card>
         </div>
 
-        <Card className="overflow-visible rounded-3xl">
-          <div className="border-b border-border p-6">
-            <Badge>Profit preview</Badge>
-            <h2 className="mt-3 text-3xl font-semibold text-clinic-ink">Create discount</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-              Select specific products, or leave Products set to All products for a storewide coupon.
-            </p>
+        <Card className="overflow-visible rounded-[1.75rem] border-white/80 bg-white/95 shadow-[0_24px_70px_rgba(15,35,58,0.08)]">
+          <div className="flex flex-col gap-4 border-b border-border/80 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">Profit preview</Badge>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight text-clinic-ink">Create discount</h2>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+                Select products, set the discount, and review the margin impact before publishing.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-border bg-clinic-mist/70 px-4 py-3 text-sm font-medium text-slate-600">
+              Storewide when products stays on <span className="font-semibold text-clinic-ink">All products</span>.
+            </div>
           </div>
           <DiscountForm products={products} />
         </Card>

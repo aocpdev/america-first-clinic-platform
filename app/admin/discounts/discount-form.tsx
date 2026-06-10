@@ -92,6 +92,23 @@ function buildProductProfitPreview({
   });
 }
 
+function PreviewMetric({
+  label,
+  value,
+  tone = "default"
+}: {
+  label: string;
+  value: string;
+  tone?: "default" | "green";
+}) {
+  return (
+    <div className="bg-white px-5 py-4">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+      <p className={`mt-1 text-lg font-semibold ${tone === "green" ? "text-emerald-700" : "text-clinic-ink"}`}>{value}</p>
+    </div>
+  );
+}
+
 export function DiscountForm({
   discount,
   products
@@ -153,155 +170,170 @@ export function DiscountForm({
   }, [affectsCommissions, amount, discount, discountType, productIds, products, valuePercent]);
 
   return (
-    <form action={discount ? updateDiscount : createDiscount} className="grid gap-5 p-5">
+    <form action={discount ? updateDiscount : createDiscount} className="grid gap-6 p-6">
       {discount ? <input type="hidden" name="discountId" value={discount.id} /> : null}
       <input type="hidden" name="ownerProtectedProfit" value="0.00" />
       <input type="hidden" name="minSubtotal" value="0.00" />
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <label>
-          <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Name</span>
-          <Input name="name" defaultValue={discount?.name} placeholder="Summer close" required className="mt-2" />
+      <div className="grid gap-4 xl:grid-cols-[minmax(220px,1.2fr)_minmax(180px,0.9fr)_160px_minmax(180px,0.8fr)]">
+        <label className="min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Name</span>
+          <Input name="name" defaultValue={discount?.name} placeholder="Summer close" required className="mt-2 h-12 rounded-xl bg-white/90" />
         </label>
-        <label>
-          <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Coupon code</span>
-          <Input name="code" defaultValue={discount?.code} placeholder="SAVE50" required className="mt-2 uppercase" />
+        <label className="min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Coupon code</span>
+          <Input name="code" defaultValue={discount?.code} placeholder="SAVE50" required className="mt-2 h-12 rounded-xl bg-white/90 uppercase" />
         </label>
-        <label>
-          <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Type</span>
+        <label className="min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Type</span>
           <select
             name="discountType"
             value={discountType}
             onChange={(event) => setDiscountType(event.target.value)}
-            className="mt-2 h-11 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line"
+            className="mt-2 h-12 w-full rounded-xl border border-input bg-white/90 px-3 text-sm font-semibold text-clinic-ink shadow-line"
           >
             <option value="PERCENT">Percent</option>
             <option value="AMOUNT">Fixed amount</option>
           </select>
         </label>
         {discountType === "PERCENT" ? (
-          <label>
-            <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Discount percent</span>
-            <Input name="valuePercent" value={valuePercent} onChange={(event) => setValuePercent(event.target.value)} placeholder="10" className="mt-2" />
+          <label className="min-w-0">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Discount percent</span>
+            <Input name="valuePercent" value={valuePercent} onChange={(event) => setValuePercent(event.target.value)} placeholder="10" className="mt-2 h-12 rounded-xl bg-white/90" />
             <input type="hidden" name="amount" value={amount} />
           </label>
         ) : (
-          <label>
-            <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Discount amount</span>
-            <Input name="amount" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="50.00" className="mt-2" />
+          <label className="min-w-0">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Discount amount</span>
+            <Input name="amount" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="50.00" className="mt-2 h-12 rounded-xl bg-white/90" />
             <input type="hidden" name="valuePercent" value={valuePercent} />
           </label>
         )}
-        <label>
-          <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Max uses</span>
-          <Input name="maxRedemptions" type="number" min="1" defaultValue={discount?.maxRedemptions ?? ""} className="mt-2" />
-        </label>
-        <label>
-          <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Starts</span>
-          <Input name="startsAt" type="date" defaultValue={dateValue(discount?.startsAt ?? null)} className="mt-2" />
-        </label>
-        <label>
-          <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Ends</span>
-          <Input name="endsAt" type="date" defaultValue={dateValue(discount?.endsAt ?? null)} className="mt-2" />
-        </label>
       </div>
 
-      <div>
-        <DiscountMultiSelect
-          name="productIds"
-          label="Products"
-          allLabel="All products"
-          value={productIds}
-          onChange={setProductIds}
-          options={products.map((product) => ({
-            value: product.id,
-            label: product.title
-          }))}
-        />
-        <span className="mt-1 block text-xs text-slate-500">Choose one or more products, or keep All products selected.</span>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[1fr_440px]">
-        <div className="flex flex-wrap gap-3">
-          <label className="flex items-center gap-3 rounded-xl border border-border bg-clinic-mist px-4 py-3 text-sm font-semibold text-clinic-ink">
-            <input
-              name="affectsCommissions"
-              type="checkbox"
-              checked={affectsCommissions}
-              onChange={(event) => setAffectsCommissions(event.target.checked)}
-            />
-            Discount reduces commission pool
-          </label>
-          <label className="flex items-center gap-3 rounded-xl border border-border bg-clinic-mist px-4 py-3 text-sm font-semibold text-clinic-ink">
-            <input name="active" type="checkbox" defaultChecked={discount?.active ?? true} />
-            Active
-          </label>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_160px_180px_180px]">
+        <div className="min-w-0">
+          <DiscountMultiSelect
+            name="productIds"
+            label="Products"
+            allLabel="All products"
+            value={productIds}
+            onChange={setProductIds}
+            options={products.map((product) => ({
+              value: product.id,
+              label: product.title
+            }))}
+          />
+          <span className="mt-2 block text-xs font-medium text-slate-500">Choose specific products, or keep All products selected.</span>
         </div>
+        <label className="min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Max uses</span>
+          <Input name="maxRedemptions" type="number" min="1" defaultValue={discount?.maxRedemptions ?? ""} className="mt-2 h-12 rounded-xl bg-white/90" />
+        </label>
+        <label className="min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Starts</span>
+          <Input name="startsAt" type="date" defaultValue={dateValue(discount?.startsAt ?? null)} className="mt-2 h-12 rounded-xl bg-white/90" />
+        </label>
+        <label className="min-w-0">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Ends</span>
+          <Input name="endsAt" type="date" defaultValue={dateValue(discount?.endsAt ?? null)} className="mt-2 h-12 rounded-xl bg-white/90" />
+        </label>
+      </div>
 
-        <div className="rounded-2xl border border-border bg-white p-4 shadow-line">
-          <div className="flex items-center gap-2">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Estimated owner profit</p>
-            <span
-              title="Estimated owner profit is product price minus internal product cost minus the discount. The preview uses one unit of each selected product."
-              className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-clinic-mist text-slate-500"
-            >
-              <Info className="h-3.5 w-3.5" />
-            </span>
-          </div>
-          {preview ? (
-            <div className="mt-3 space-y-3">
-              <div className="grid grid-cols-3 gap-2 text-sm">
-                <div className="rounded-xl bg-clinic-mist p-3">
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Discount</p>
-                  <p className="mt-1 font-semibold text-emerald-700">-{formatCurrency(previewTotals.discountCents)}</p>
-                </div>
-                <div className="rounded-xl bg-clinic-mist p-3">
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Cost</p>
-                  <p className="mt-1 font-semibold text-clinic-ink">{formatCurrency(previewTotals.internalCostCents)}</p>
-                </div>
-                <div className="rounded-xl bg-clinic-mist p-3">
-                  <p className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">Profit</p>
-                  <p className="mt-1 font-semibold text-clinic-ink">{formatCurrency(previewTotals.estimatedOwnerProfitCents)}</p>
-                </div>
-              </div>
-
-              <div className="max-h-72 overflow-y-auto rounded-xl border border-border">
-                <table className="w-full min-w-[520px] text-left text-xs">
-                  <thead className="bg-clinic-mist uppercase tracking-[0.12em] text-slate-500">
-                    <tr>
-                      <th className="px-3 py-2">Product</th>
-                      <th className="px-3 py-2 text-right">Price</th>
-                      <th className="px-3 py-2 text-right">Cost</th>
-                      <th className="px-3 py-2 text-right">Discount</th>
-                      <th className="px-3 py-2 text-right">Profit</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border">
-                    {productProfitPreview.map((product) => (
-                      <tr key={product.productId}>
-                        <td className="px-3 py-2 font-semibold text-clinic-ink">{product.title}</td>
-                        <td className="px-3 py-2 text-right text-slate-600">{formatCurrency(product.priceCents)}</td>
-                        <td className="px-3 py-2 text-right text-slate-600">{formatCurrency(product.internalCostCents)}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-emerald-700">-{formatCurrency(product.discountCents)}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-clinic-ink">{formatCurrency(product.estimatedOwnerProfitCents)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              <p className="text-xs leading-5 text-slate-500">
-                Preview assumes one unit per product. Final order profit is recalculated from the actual cart quantities.
-              </p>
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_260px]">
+        <div className="overflow-hidden rounded-2xl border border-border bg-white shadow-line">
+          <div className="flex items-center justify-between gap-4 border-b border-border bg-white px-5 py-4">
+            <div className="flex items-center gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Profit by product</p>
+              <span
+                title="Estimated owner profit is product price minus internal product cost minus the discount. The preview uses one unit of each selected product."
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-clinic-mist text-slate-500"
+              >
+                <Info className="h-3.5 w-3.5" />
+              </span>
             </div>
+            <p className="text-xs font-medium text-slate-500">1 unit preview</p>
+          </div>
+
+          {preview ? (
+            <>
+              <div className="grid gap-px bg-border sm:grid-cols-4">
+                <PreviewMetric label="Revenue" value={formatCurrency(previewTotals.priceCents)} />
+                <PreviewMetric label="Discount" value={`-${formatCurrency(previewTotals.discountCents)}`} tone="green" />
+                <PreviewMetric label="Cost" value={formatCurrency(previewTotals.internalCostCents)} />
+                <PreviewMetric label="Profit" value={formatCurrency(previewTotals.estimatedOwnerProfitCents)} />
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="max-h-80 overflow-y-auto">
+                  <table className="w-full min-w-[720px] text-left text-sm">
+                    <thead className="sticky top-0 z-10 border-b border-border bg-clinic-mist/95 text-[11px] uppercase tracking-[0.16em] text-slate-500 backdrop-blur">
+                      <tr>
+                        <th className="px-5 py-3 font-semibold">Product</th>
+                        <th className="px-4 py-3 text-right font-semibold">Price</th>
+                        <th className="px-4 py-3 text-right font-semibold">Cost</th>
+                        <th className="px-4 py-3 text-right font-semibold">Discount</th>
+                        <th className="px-5 py-3 text-right font-semibold">Profit</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border bg-white">
+                      {productProfitPreview.map((product) => (
+                        <tr key={product.productId} className="transition hover:bg-clinic-mist/40">
+                          <td className="px-5 py-3">
+                            <p className="line-clamp-2 font-semibold leading-5 text-clinic-ink">{product.title}</p>
+                          </td>
+                          <td className="px-4 py-3 text-right font-medium text-slate-600">{formatCurrency(product.priceCents)}</td>
+                          <td className="px-4 py-3 text-right font-medium text-slate-600">{formatCurrency(product.internalCostCents)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-emerald-700">-{formatCurrency(product.discountCents)}</td>
+                          <td className="px-5 py-3 text-right font-semibold text-clinic-ink">{formatCurrency(product.estimatedOwnerProfitCents)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           ) : (
-            <p className="mt-3 text-sm text-slate-500">Select products to preview profit.</p>
+            <p className="p-5 text-sm text-slate-500">Select products to preview profit.</p>
           )}
         </div>
+
+        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-clinic-mist/70 p-4">
+          <div className="space-y-3">
+            <label className="flex items-center justify-between gap-4 rounded-xl border border-border bg-white px-4 py-3 text-sm font-semibold text-clinic-ink shadow-line">
+              <span>Reduce commission pool</span>
+              <span className="relative inline-flex h-6 w-11 items-center">
+                <input
+                  name="affectsCommissions"
+                  type="checkbox"
+                  checked={affectsCommissions}
+                  onChange={(event) => setAffectsCommissions(event.target.checked)}
+                  className="peer sr-only"
+                />
+                <span className="absolute inset-0 rounded-full bg-slate-300 transition peer-checked:bg-clinic-navy" />
+                <span className="absolute left-1 h-4 w-4 rounded-full bg-white shadow-sm transition peer-checked:translate-x-5" />
+              </span>
+            </label>
+            <label className="flex items-center justify-between gap-4 rounded-xl border border-border bg-white px-4 py-3 text-sm font-semibold text-clinic-ink shadow-line">
+              <span>Active</span>
+              <span className="relative inline-flex h-6 w-11 items-center">
+                <input name="active" type="checkbox" defaultChecked={discount?.active ?? true} className="peer sr-only" />
+                <span className="absolute inset-0 rounded-full bg-slate-300 transition peer-checked:bg-clinic-navy" />
+                <span className="absolute left-1 h-4 w-4 rounded-full bg-white shadow-sm transition peer-checked:translate-x-5" />
+              </span>
+            </label>
+          </div>
+          <div className="rounded-xl bg-white p-4 shadow-line">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Formula</p>
+            <p className="mt-2 text-sm font-medium leading-6 text-clinic-ink">Price - cost - discount = estimated profit.</p>
+          </div>
+        </div>
       </div>
 
-      <div className="flex justify-end">
-        <SubmitButton variant="accent" pendingText="Saving discount...">{discount ? "Save discount" : "Create discount"}</SubmitButton>
+      <div className="flex justify-end border-t border-border pt-1">
+        <SubmitButton variant="accent" pendingText="Saving discount..." className="h-12 min-w-44 rounded-xl">
+          {discount ? "Save discount" : "Create discount"}
+        </SubmitButton>
       </div>
     </form>
   );

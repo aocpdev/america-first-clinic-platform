@@ -59,23 +59,23 @@ export function DiscountMultiSelect({
         <input key={value} type="hidden" name={name} value={value} />
       ))}
 
-      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</span>
+      <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</span>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-input bg-white px-3 py-2 text-left text-sm font-semibold text-clinic-ink shadow-line transition hover:bg-clinic-mist focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-input bg-white/90 px-4 py-2 text-left text-sm font-semibold text-clinic-ink shadow-line transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <span className="line-clamp-2">{selectedLabels}</span>
         <ChevronDown className={`h-4 w-4 shrink-0 text-slate-400 transition ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open ? (
-        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-40 overflow-hidden rounded-2xl border border-border bg-white shadow-[0_24px_70px_rgba(15,35,58,0.16)]">
+        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-40 overflow-hidden rounded-2xl border border-border bg-white shadow-[0_24px_70px_rgba(15,35,58,0.16)]">
           <div className="max-h-72 overflow-y-auto p-2">
             <button
               type="button"
               onClick={() => setSelected([])}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
+              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
                 selected.length === 0 ? "bg-clinic-mist text-clinic-navy" : "text-slate-600 hover:bg-clinic-mist"
               }`}
             >
@@ -95,7 +95,7 @@ export function DiscountMultiSelect({
                   key={option.value}
                   type="button"
                   onClick={() => toggleValue(option.value)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition ${
                     checked ? "bg-blue-50 text-clinic-navy" : "text-slate-600 hover:bg-clinic-mist"
                   }`}
                 >
