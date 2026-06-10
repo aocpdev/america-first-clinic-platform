@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ExternalLink, FileText, FileUp, GripVertical, NotebookPen, PackageCheck, Pill, Trash2, X } from "lucide-react";
+import { ExternalLink, FileText, FileUp, GripVertical, NotebookPen, PackageCheck, Pill, ReceiptText, Trash2, X } from "lucide-react";
 import {
   deleteOrderClinicalDocument,
   deleteUnpaidOrder,
@@ -13,8 +13,9 @@ import {
 } from "@/app/pipeline/actions";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
+import { CUSTOMER_PIPELINE_STAGES, orderPipelineLabel, type CustomerPipelineStage } from "@/lib/sales/pipeline";
 import { formatCurrency } from "@/lib/products/catalog";
+import type { QualiphyExam } from "@/lib/qualiphy/exams";
 
 type PipelineOpportunity = {
   id: string;
@@ -36,7 +37,9 @@ type PipelineOpportunity = {
   gfeNotes: string | null;
   gfeDocumentUrl: string | null;
   paymentStatus: string;
+  orderStatus: string;
   clinicalDocuments: CustomerClinicalDocument[];
+  orderHistory: CustomerOrderHistoryItem[];
 };
 
 type CustomerClinicalDocument = {
@@ -50,11 +53,24 @@ type CustomerClinicalDocument = {
   createdAt: string;
 };
 
+type CustomerOrderHistoryItem = {
+  id: string;
+  createdAt: string;
+  orderTotalCents: number;
+  opportunityValueCents: number;
+  paymentStatus: string;
+  orderStatus: string;
+  pipelineStage: string;
+  products: string;
+};
+
 const stageStyles = [
   "bg-[#edf4ff]",
   "bg-[#d8f3ee]",
   "bg-[#e8eef6]",
   "bg-[#eef2ff]",
+  "bg-[#f4edff]",
+  "bg-[#ecfdf5]",
   "bg-[#fff1f2]",
   "bg-[#f7f7fb]",
   "bg-[#e8f8ee]"
@@ -63,6 +79,15 @@ const stageStyles = [
 function formatDate(value: string | null) {
   if (!value) return "No activity yet";
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" }).format(new Date(value));
+}
+
+function formatFullDate(value: string | null) {
+  if (!value) return "No date";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
+function shortOrderId(id: string) {
+  return id.slice(0, 8).toUpperCase();
 }
 
 function initials(name: string | null, email: string) {
@@ -97,22 +122,30 @@ function buildNoteHistory(existing: string | null, note: string) {
 }
 
 function documentLabel(type: "RX" | "GFE") {
-  return type === "RX" ? "RX" : "GFE";
+  return type === "RX" ? "RX" : "Exam";
+}
+
+function isInteractiveTarget(target: EventTarget | null) {
+  return target instanceof HTMLElement && Boolean(target.closest("a,button,input,textarea,select,label,form"));
 }
 
 export function CustomerPipelineBoard({
   customers,
   showConsultant,
   mode = "admin",
-  basePath = "/admin"
+  basePath = "/admin",
+  qualiphyExams = [],
+  qualiphyExamsError = null
 }: {
   customers: PipelineOpportunity[];
   showConsultant?: boolean;
   mode?: "admin" | "partner" | "group_leader" | "consultant";
   basePath?: "/admin" | "/partner" | "/consultant";
+  qualiphyExams?: QualiphyExam[];
+  qualiphyExamsError?: string | null;
 }) {
   const [editing, setEditing] = useState<PipelineOpportunity | null>(null);
-  const [modalTab, setModalTab] = useState<"notes" | "clinical">("notes");
+  const [modalTab, setModalTab] = useState<"notes" | "clinical" | "orders">("orders");
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [pendingMove, setPendingMove] = useState<{ opportunity: PipelineOpportunity; stage: CustomerPipelineStage } | null>(null);
   const [stagePicker, setStagePicker] = useState<PipelineOpportunity | null>(null);
@@ -134,10 +167,9 @@ export function CustomerPipelineBoard({
     if (!canManageStages || opportunity.pipelineStage === stage) return;
 
     const needsConfirmation =
+      stage === "GFE" ||
       (stage === "DEFERRED" && opportunity.paymentStatus === "CAPTURED") ||
-      (stage === "FULFILLMENT" || stage === "SHIPPED") ||
-      (stage === "GFE" && !opportunity.clinicalDocuments.some((document) => document.type === "GFE")) ||
-      (stage === "APPROVAL" && !opportunity.clinicalDocuments.some((document) => document.type === "RX" || document.type === "GFE"));
+      (stage === "FULFILLMENT" || stage === "SHIPPED");
 
     if (needsConfirmation) {
       setPendingMove({ opportunity, stage });
@@ -202,16 +234,34 @@ export function CustomerPipelineBoard({
                       draggable={canManageStages}
                       onDragStart={() => setDraggedId(opportunity.id)}
                       onDragEnd={() => setDraggedId(null)}
-                      className="select-none rounded-2xl border border-border bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        if (isInteractiveTarget(event.target)) return;
+                        setModalTab("orders");
+                        setEditing(opportunity);
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" && event.key !== " ") return;
+                        event.preventDefault();
+                        setModalTab("orders");
+                        setEditing(opportunity);
+                      }}
+                      className="cursor-pointer select-none rounded-2xl border border-border bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg focus:outline-none focus:ring-4 focus:ring-blue-100"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <Link
-                            href={`${basePath}/orders/${opportunity.id}`}
-                            className="block truncate text-base font-semibold text-clinic-ink transition hover:text-clinic-red"
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setModalTab("orders");
+                              setEditing(opportunity);
+                            }}
+                            className="block max-w-full truncate text-left text-base font-semibold text-clinic-ink transition hover:text-clinic-red"
                           >
                             {opportunity.name}
-                          </Link>
+                          </button>
+                          <p className="mt-0.5 truncate text-xs font-semibold text-slate-400">Order #{shortOrderId(opportunity.id)}</p>
                           {showConsultant && opportunity.consultantName ? (
                             <p className="mt-1 truncate text-xs font-semibold uppercase tracking-[0.14em] text-clinic-red">
                               {opportunity.consultantName}
@@ -255,43 +305,6 @@ export function CustomerPipelineBoard({
                         <p className="truncate" title={opportunity.email}>{opportunity.email}</p>
                         <p>{opportunity.phone || "No phone"}</p>
                         <p>{formatDate(opportunity.pipelineUpdatedAt ?? opportunity.createdAt)}</p>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-2 gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setModalTab("notes");
-                            setEditing(opportunity);
-                          }}
-                        >
-                          <NotebookPen className="size-4" />
-                          Notes
-                        </Button>
-                        {canManageInternalDocs ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setModalTab("clinical");
-                              setEditing(opportunity);
-                            }}
-                          >
-                            <Pill className="size-4" />
-                            RX / GFE
-                          </Button>
-                        ) : (
-                          <Link
-                            href={`${basePath}/orders/${opportunity.id}`}
-                            className="inline-flex h-9 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-semibold text-clinic-navy transition hover:bg-clinic-mist"
-                          >
-                            <FileText className="size-4" />
-                            Order
-                          </Link>
-                        )}
                       </div>
 
                       {canManageStages ? (
@@ -344,6 +357,7 @@ export function CustomerPipelineBoard({
           opportunity={editing}
           canManageInternalDocs={canManageInternalDocs}
           initialTab={modalTab}
+          basePath={basePath}
           onClose={() => setEditing(null)}
         />
       ) : null}
@@ -352,6 +366,8 @@ export function CustomerPipelineBoard({
         <StageMoveModal
           opportunity={pendingMove.opportunity}
           stage={pendingMove.stage}
+          qualiphyExams={qualiphyExams}
+          qualiphyExamsError={qualiphyExamsError}
           onClose={() => setPendingMove(null)}
         />
       ) : null}
@@ -374,14 +390,16 @@ function OpportunityModal({
   opportunity,
   canManageInternalDocs,
   initialTab,
+  basePath,
   onClose
 }: {
   opportunity: PipelineOpportunity;
   canManageInternalDocs: boolean;
-  initialTab: "notes" | "clinical";
+  initialTab: "notes" | "clinical" | "orders";
+  basePath: "/admin" | "/partner" | "/consultant";
   onClose: () => void;
 }) {
-  const [tab, setTab] = useState<"notes" | "clinical">(initialTab);
+  const [tab, setTab] = useState<"notes" | "clinical" | "orders">(initialTab);
   const [newNote, setNewNote] = useState("");
   const notes = noteEntries(opportunity.notes);
 
@@ -392,7 +410,9 @@ function OpportunityModal({
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Opportunity</p>
             <h3 className="mt-2 text-xl font-semibold text-clinic-ink sm:text-2xl">{opportunity.name}</h3>
-            <p className="mt-1 text-sm text-slate-500">Manage notes, GFE, and RX records for this order.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Order #{shortOrderId(opportunity.id)} · {orderPipelineLabel(opportunity.pipelineStage)} · {formatCurrency(opportunity.orderTotalCents)}
+            </p>
           </div>
           <button
             type="button"
@@ -404,11 +424,21 @@ function OpportunityModal({
         </div>
 
         <div className="grid min-h-0 flex-1 md:grid-cols-[220px_1fr]">
-          <aside className="grid grid-cols-2 gap-2 border-b border-border bg-clinic-mist p-3 md:block md:border-b-0 md:border-r md:p-4">
+          <aside className="grid grid-cols-3 gap-2 border-b border-border bg-clinic-mist p-3 md:block md:border-b-0 md:border-r md:p-4">
+            <button
+              type="button"
+              onClick={() => setTab("orders")}
+              className={`flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-center text-sm font-semibold transition md:justify-start md:text-left ${
+                tab === "orders" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500 hover:bg-white/70"
+              }`}
+            >
+              <ReceiptText className="size-4" />
+              Orders
+            </button>
             <button
               type="button"
               onClick={() => setTab("notes")}
-              className={`flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-center text-sm font-semibold transition md:justify-start md:text-left ${
+              className={`flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-center text-sm font-semibold transition md:mt-2 md:justify-start md:text-left ${
                 tab === "notes" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500 hover:bg-white/70"
               }`}
             >
@@ -423,12 +453,94 @@ function OpportunityModal({
               }`}
             >
               <Pill className="size-4" />
-              RX / GFE
+              RX / Exam
             </button>
           </aside>
 
           <div className="min-h-0 overflow-y-auto p-4 sm:p-6">
-            {tab === "notes" ? (
+            {tab === "orders" ? (
+              <div className="space-y-5">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Customer order history</p>
+                  <h4 className="mt-2 text-2xl font-semibold text-clinic-ink">Purchases for {opportunity.name}</h4>
+                  <p className="mt-2 text-sm text-slate-500">
+                    Each purchase is tracked as its own opportunity. The highlighted row is the order for this card.
+                  </p>
+                </div>
+
+                <div className="rounded-3xl border border-clinic-blue bg-blue-50 p-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">This opportunity</p>
+                      <p className="mt-1 text-lg font-semibold text-clinic-ink">Order #{shortOrderId(opportunity.id)}</p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {formatFullDate(opportunity.createdAt)} · {orderPipelineLabel(opportunity.pipelineStage)} · {opportunity.paymentStatus.replaceAll("_", " ")}
+                      </p>
+                    </div>
+                    <Link
+                      href={`${basePath}/orders/${opportunity.id}`}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-clinic-navy px-4 text-sm font-semibold text-white transition hover:bg-clinic-blue"
+                    >
+                      <FileText className="size-4" />
+                      Open order
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  {opportunity.orderHistory.map((order) => {
+                    const isCurrent = order.id === opportunity.id;
+                    return (
+                      <div
+                        key={order.id}
+                        className={`rounded-2xl border p-4 shadow-line ${
+                          isCurrent ? "border-clinic-blue bg-blue-50" : "border-border bg-white"
+                        }`}
+                      >
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-semibold text-clinic-ink">Order #{shortOrderId(order.id)}</p>
+                              {isCurrent ? (
+                                <span className="rounded-full bg-clinic-navy px-3 py-1 text-xs font-bold text-white">This opportunity</span>
+                              ) : null}
+                              <span className="rounded-full border border-border bg-white px-3 py-1 text-xs font-bold text-clinic-navy">
+                                {orderPipelineLabel(order.pipelineStage)}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-slate-500">{formatFullDate(order.createdAt)}</p>
+                            <p className="mt-2 truncate text-sm text-slate-600" title={order.products}>{order.products || "No products listed"}</p>
+                          </div>
+                          <div className="grid shrink-0 grid-cols-2 gap-2 sm:min-w-64">
+                            <div className="rounded-2xl bg-clinic-mist px-3 py-2">
+                              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Total</p>
+                              <p className="mt-1 font-semibold text-clinic-navy">{formatCurrency(order.orderTotalCents)}</p>
+                            </div>
+                            <div className="rounded-2xl bg-emerald-50 px-3 py-2">
+                              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Value</p>
+                              <p className="mt-1 font-semibold text-emerald-700">{formatCurrency(order.opportunityValueCents)}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-500">
+                          <span>{order.paymentStatus.replaceAll("_", " ")}</span>
+                          <span>·</span>
+                          <span>{order.orderStatus.replaceAll("_", " ")}</span>
+                          {!isCurrent ? (
+                            <>
+                              <span>·</span>
+                              <Link href={`${basePath}/orders/${order.id}`} className="text-clinic-red transition hover:text-clinic-navy">
+                                Open order
+                              </Link>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : tab === "notes" ? (
               <form action={updateOrderOpportunityDetails} className="space-y-5">
                 <input type="hidden" name="orderId" value={opportunity.id} />
                 <input type="hidden" name="orderNotes" value={buildNoteHistory(opportunity.notes, newNote)} />
@@ -467,7 +579,7 @@ function OpportunityModal({
               <div className="space-y-5">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Clinical workflow</p>
-                  <h4 className="mt-2 text-2xl font-semibold text-clinic-ink">RX / GFE documents</h4>
+                  <h4 className="mt-2 text-2xl font-semibold text-clinic-ink">RX / Exam documents</h4>
                   {!canManageInternalDocs ? (
                     <p className="mt-2 text-sm text-slate-500">Clinical document details are managed by the admin team.</p>
                   ) : null}
@@ -482,7 +594,7 @@ function OpportunityModal({
                         </div>
                         <div>
                           <p className="text-lg font-semibold text-clinic-ink">Upload clinical document</p>
-                          <p className="mt-1 text-sm leading-6 text-slate-500">Add RX or GFE files to this customer record and attach them to this opportunity.</p>
+                          <p className="mt-1 text-sm leading-6 text-slate-500">Add RX or Exam files to this customer record and attach them to this opportunity.</p>
                         </div>
                       </div>
                     </div>
@@ -534,7 +646,7 @@ function OpportunityModal({
                           ))
                         ) : (
                           <div className="rounded-2xl border border-dashed border-border bg-clinic-mist p-5 text-sm text-slate-500">
-                            No RX or GFE documents yet. Upload the first document above.
+                            No RX or Exam documents yet. Upload the first document above.
                           </div>
                         )}
                       </div>
@@ -542,7 +654,7 @@ function OpportunityModal({
                   </div>
                 ) : (
                   <div className="rounded-2xl border border-border bg-clinic-mist p-5 text-sm text-slate-500">
-                    RX and GFE documents are hidden from this role.
+                    RX and Exam documents are hidden from this role.
                   </div>
                 )}
               </div>
@@ -566,7 +678,7 @@ function UploadClinicalDocumentForm({ orderId }: { orderId: string }) {
             className="mt-2 h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
             defaultValue="GFE"
           >
-            <option value="GFE">GFE</option>
+            <option value="GFE">Exam</option>
             <option value="RX">RX</option>
           </select>
         </label>
@@ -574,7 +686,7 @@ function UploadClinicalDocumentForm({ orderId }: { orderId: string }) {
           <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Document name</span>
           <input
             name="documentTitle"
-            placeholder="Example: Initial GFE, Semaglutide RX"
+            placeholder="Example: Initial Exam, Semaglutide RX"
             className="mt-2 h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
           />
         </label>
@@ -666,18 +778,31 @@ function StagePickerModal({
 function StageMoveModal({
   opportunity,
   stage,
+  qualiphyExams,
+  qualiphyExamsError,
   onClose
 }: {
   opportunity: PipelineOpportunity;
   stage: CustomerPipelineStage;
+  qualiphyExams: QualiphyExam[];
+  qualiphyExamsError: string | null;
   onClose: () => void;
 }) {
   const stageLabel = CUSTOMER_PIPELINE_STAGES.find((item) => item.value === stage)?.label ?? stage;
   const needsRefund = stage === "DEFERRED" && opportunity.paymentStatus === "CAPTURED";
   const needsTracking = stage === "FULFILLMENT" || stage === "SHIPPED";
-  const needsGfeConfirmation = stage === "GFE" && !opportunity.clinicalDocuments.some((document) => document.type === "GFE");
-  const needsApprovalConfirmation =
-    stage === "APPROVAL" && !opportunity.clinicalDocuments.some((document) => document.type === "RX" || document.type === "GFE");
+  const showsQualiphyChoice = stage === "GFE";
+  const [qualiphyMode, setQualiphyMode] = useState<"skip" | "send">("skip");
+  const [selectedExamId, setSelectedExamId] = useState("");
+  const [examSearch, setExamSearch] = useState("");
+  const selectedExam = qualiphyExams.find((exam) => exam.id.toString() === selectedExamId) ?? null;
+  const filteredExams = useMemo(() => {
+    const query = examSearch.trim().toLowerCase();
+    if (!query) return qualiphyExams.slice(0, 20);
+    return qualiphyExams
+      .filter((exam) => `${exam.title} ${exam.id}`.toLowerCase().includes(query))
+      .slice(0, 30);
+  }, [examSearch, qualiphyExams]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end bg-slate-950/35 p-0 backdrop-blur-sm sm:items-center sm:p-4">
@@ -733,12 +858,142 @@ function StageMoveModal({
             </div>
           ) : null}
 
-          {needsGfeConfirmation || needsApprovalConfirmation ? (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
-              <p className="text-sm font-semibold text-amber-800">
-                {needsGfeConfirmation ? "No GFE document is attached yet." : "No RX or GFE document is attached yet."}
-              </p>
-              <p className="mt-1 text-xs leading-5 text-amber-700">You can still move this opportunity now and add the document later from the RX / GFE modal.</p>
+          {showsQualiphyChoice ? (
+            <div className="rounded-3xl border border-border bg-white p-4 shadow-line">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Qualiphy Exam</p>
+                  <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Choose how to handle this exam</h4>
+                  <p className="mt-1 text-sm leading-6 text-slate-500">
+                    Select an exam type before moving this opportunity into the Exam stage, or keep it internal without sending to Qualiphy.
+                  </p>
+                </div>
+                <span className="w-fit rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-bold text-clinic-navy">
+                  {qualiphyExams.length} exams
+                </span>
+              </div>
+
+              {qualiphyExamsError ? (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  Qualiphy exams could not be loaded: {qualiphyExamsError}
+                </div>
+              ) : null}
+
+              <div className="mt-4 grid gap-3">
+                <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-clinic-mist p-4 transition hover:bg-blue-50">
+                  <input
+                    type="radio"
+                    name="qualiphyExamMode"
+                    value="skip"
+                    checked={qualiphyMode === "skip"}
+                    onChange={() => setQualiphyMode("skip")}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-clinic-ink">Do not send to Qualiphy</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-500">Move to Exam and manage the clinical workflow inside this portal.</span>
+                  </span>
+                </label>
+
+                <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-border bg-clinic-mist p-4 transition hover:bg-blue-50">
+                  <input
+                    type="radio"
+                    name="qualiphyExamMode"
+                    value="send"
+                    checked={qualiphyMode === "send"}
+                    disabled={!qualiphyExams.length}
+                    onChange={() => setQualiphyMode("send")}
+                    className="mt-1"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-clinic-ink">Send to Qualiphy</span>
+                    <span className="mt-1 block text-xs leading-5 text-slate-500">Choose the exam template that should be used for this customer.</span>
+                  </span>
+                </label>
+
+                {qualiphyMode === "send" ? (
+                  <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+                    <input type="hidden" name="qualiphyExamId" value={selectedExamId} />
+                    <label className="block">
+                      <span className="text-xs font-bold uppercase tracking-[0.14em] text-clinic-navy">Find exam</span>
+                      <input
+                        value={examSearch}
+                        onChange={(event) => setExamSearch(event.target.value)}
+                        placeholder="Search by exam name or ID"
+                        className="mt-2 h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm font-semibold text-clinic-ink outline-none transition placeholder:text-slate-400 focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
+                      />
+                    </label>
+
+                    {selectedExam ? (
+                      <div className="mt-3 rounded-2xl border border-clinic-blue bg-white p-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="text-xs font-bold uppercase tracking-[0.14em] text-clinic-navy">Selected exam</p>
+                            <p className="mt-1 text-sm font-semibold leading-5 text-clinic-ink">{selectedExam.title}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedExamId("")}
+                            className="h-9 rounded-xl border border-border px-3 text-xs font-semibold text-slate-600 transition hover:bg-clinic-mist"
+                          >
+                            Change
+                          </button>
+                        </div>
+                        <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-3">
+                          <div className="rounded-xl bg-clinic-mist px-3 py-2">
+                            <p className="font-bold uppercase tracking-[0.12em] text-slate-400">Exam ID</p>
+                            <p className="mt-1 font-semibold text-clinic-ink">{selectedExam.id}</p>
+                          </div>
+                          <div className="rounded-xl bg-clinic-mist px-3 py-2">
+                            <p className="font-bold uppercase tracking-[0.12em] text-slate-400">Type</p>
+                            <p className="mt-1 font-semibold text-clinic-ink">{selectedExam.rxType === 2 ? "RX" : "Exam"}</p>
+                          </div>
+                          <div className="rounded-xl bg-clinic-mist px-3 py-2">
+                            <p className="font-bold uppercase tracking-[0.12em] text-slate-400">Attachments</p>
+                            <p className="mt-1 font-semibold text-clinic-ink">{selectedExam.attachmentsRequired ?? "N/A"}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="mt-3 max-h-64 overflow-y-auto rounded-2xl border border-border bg-white p-2">
+                      {filteredExams.length ? (
+                        filteredExams.map((exam) => (
+                          <button
+                            key={exam.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedExamId(exam.id.toString());
+                              setExamSearch(exam.title);
+                            }}
+                            className="flex w-full items-start justify-between gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-clinic-mist focus:bg-blue-50 focus:outline-none"
+                          >
+                            <span className="min-w-0">
+                              <span className="block text-sm font-semibold leading-5 text-clinic-ink">{exam.title}</span>
+                              <span className="mt-1 block text-xs text-slate-500">
+                                ID {exam.id} · {exam.rxType === 2 ? "RX" : "Exam"} · {exam.attachmentsRequired ?? "N/A"} attachment(s)
+                              </span>
+                            </span>
+                            {selectedExamId === exam.id.toString() ? (
+                              <span className="shrink-0 rounded-full bg-clinic-navy px-2.5 py-1 text-xs font-bold text-white">Selected</span>
+                            ) : null}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-4 text-sm text-slate-500">No Qualiphy exams match that search.</div>
+                      )}
+                    </div>
+
+                    <p className="mt-2 text-xs leading-5 text-slate-500">
+                      Showing {filteredExams.length} of {qualiphyExams.length}. Use search to narrow the list.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+
+              <input type="hidden" name="qualiphyExamTitle" value={selectedExam?.title ?? ""} />
+              <input type="hidden" name="qualiphyExamRxType" value={selectedExam?.rxType?.toString() ?? ""} />
+              <input type="hidden" name="qualiphyExamAttachmentsRequired" value={selectedExam?.attachmentsRequired?.toString() ?? ""} />
             </div>
           ) : null}
         </div>

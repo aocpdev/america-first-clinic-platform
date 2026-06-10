@@ -38,7 +38,7 @@ export default async function PartnerSalesPage({
   });
   const effectivePartnerProfileId = partnerProfile?.id ?? groupLeaderProfile?.partnerProfileId ?? null;
 
-  const [customers, products, orders] = effectivePartnerProfileId
+  const [customers, products, orders, discounts] = effectivePartnerProfileId
     ? await Promise.all([
         prisma.customer.findMany({
           where: {
@@ -73,35 +73,39 @@ export default async function PartnerSalesPage({
           orderBy: [{ category: { name: "asc" } }, { title: "asc" }]
         }),
         prisma.order.findMany({
-        where: {
-          OR: [
-            partnerProfile ? { partnerProfileId: partnerProfile.id } : { groupLeaderProfileId: groupLeaderProfile!.id },
-            partnerProfile
-              ? { consultantProfile: { partnerProfileId: partnerProfile.id } }
-              : { consultantProfile: { groupLeaderProfileId: groupLeaderProfile!.id } }
-          ]
-        },
-        include: {
-          customer: true,
-          consultantProfile: {
-            include: { user: true }
+          where: {
+            OR: [
+              partnerProfile ? { partnerProfileId: partnerProfile.id } : { groupLeaderProfileId: groupLeaderProfile!.id },
+              partnerProfile
+                ? { consultantProfile: { partnerProfileId: partnerProfile.id } }
+                : { consultantProfile: { groupLeaderProfileId: groupLeaderProfile!.id } }
+            ]
           },
-          items: {
-            include: {
-              product: {
-                select: { title: true }
+          include: {
+            customer: true,
+            consultantProfile: {
+              include: { user: true }
+            },
+            items: {
+              include: {
+                product: {
+                  select: { title: true }
+                }
               }
+            },
+            commissionSplits: {
+              where: partnerProfile ? { partnerProfileId: partnerProfile.id } : { groupLeaderProfileId: groupLeaderProfile!.id }
             }
           },
-          commissionSplits: {
-            where: partnerProfile ? { partnerProfileId: partnerProfile.id } : { groupLeaderProfileId: groupLeaderProfile!.id }
-          }
-        },
-        orderBy: { createdAt: "desc" },
-        take: 100
+          orderBy: { createdAt: "desc" },
+          take: 100
+        }),
+        prisma.discount.findMany({
+          where: { companyId: user.companyId!, active: true },
+          orderBy: { createdAt: "desc" }
         })
       ])
-    : [[], [], []];
+    : [[], [], [], []];
 
   const totalRevenueCents = orders.reduce((sum, order) => sum + order.totalCents, 0);
   const partnerProfitCents = orders.reduce(
@@ -149,6 +153,7 @@ export default async function PartnerSalesPage({
               description: product.description,
               categoryName: product.category.name,
               priceCents: product.priceCents,
+              internalCostCents: product.internalCostCents,
               estimatedCommissionCents: commissionPoolPerUnit(
                 product.priceCents,
                 product.internalCostCents,
@@ -160,6 +165,24 @@ export default async function PartnerSalesPage({
               supportsRecurring: product.supportsRecurring,
               supportsSubscription: product.supportsSubscription,
               salesGuide: extractProductSalesGuide(product.metadata)
+            }))}
+            discounts={discounts.map((discount) => ({
+              id: discount.id,
+              name: discount.name,
+              code: discount.code,
+              discountType: discount.discountType,
+              valueBps: discount.valueBps,
+              amountCents: discount.amountCents,
+              minSubtotalCents: discount.minSubtotalCents,
+              ownerProtectedProfitCents: discount.ownerProtectedProfitCents,
+              affectsCommissions: discount.affectsCommissions,
+              productIds: discount.productIds,
+              categoryNames: discount.categoryNames,
+              startsAt: discount.startsAt?.toISOString() ?? null,
+              endsAt: discount.endsAt?.toISOString() ?? null,
+              maxRedemptions: discount.maxRedemptions,
+              redemptionCount: discount.redemptionCount,
+              active: discount.active
             }))}
             canCreateOrders={Boolean(effectivePartnerProfileId)}
             createOrderAction={createPartnerOrder}

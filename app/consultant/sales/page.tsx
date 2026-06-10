@@ -45,7 +45,7 @@ export default async function ConsultantSalesPage({
     );
   }
 
-  const [consultantProfile, customers, products] = await Promise.all([
+  const [consultantProfile, customers, products, discounts] = await Promise.all([
     prisma.consultantProfile.findUnique({
       where: { id: consultantProfileId },
       include: { partnerProfile: true, groupLeaderProfile: true }
@@ -76,6 +76,10 @@ export default async function ConsultantSalesPage({
         }
       },
       orderBy: [{ category: { name: "asc" } }, { title: "asc" }]
+    }),
+    prisma.discount.findMany({
+      where: { companyId, active: true },
+      orderBy: { createdAt: "desc" }
     })
   ]);
 
@@ -108,6 +112,7 @@ export default async function ConsultantSalesPage({
           description: product.description,
           categoryName: product.category.name,
           priceCents: product.priceCents,
+          internalCostCents: product.internalCostCents,
           estimatedCommissionCents: consultantCommissionPerUnit(
             product.priceCents,
             product.internalCostCents,
@@ -120,6 +125,24 @@ export default async function ConsultantSalesPage({
           supportsRecurring: product.supportsRecurring,
           supportsSubscription: product.supportsSubscription,
           salesGuide: extractProductSalesGuide(product.metadata)
+        }))}
+        discounts={discounts.map((discount) => ({
+          id: discount.id,
+          name: discount.name,
+          code: discount.code,
+          discountType: discount.discountType,
+          valueBps: discount.valueBps,
+          amountCents: discount.amountCents,
+          minSubtotalCents: discount.minSubtotalCents,
+          ownerProtectedProfitCents: discount.ownerProtectedProfitCents,
+          affectsCommissions: discount.affectsCommissions,
+          productIds: discount.productIds,
+          categoryNames: discount.categoryNames,
+          startsAt: discount.startsAt?.toISOString() ?? null,
+          endsAt: discount.endsAt?.toISOString() ?? null,
+          maxRedemptions: discount.maxRedemptions,
+          redemptionCount: discount.redemptionCount,
+          active: discount.active
         }))}
         canCreateOrders={canCreateOrders}
         createOrderAction={createConsultantOrder}

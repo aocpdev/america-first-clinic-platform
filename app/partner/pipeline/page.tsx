@@ -28,6 +28,10 @@ function splitAmount(order: OrderListRecord, role: "PARTNER" | "GROUP_LEADER") {
     .reduce((sum, split) => sum + split.amountCents, 0);
 }
 
+function orderProducts(order: OrderListRecord) {
+  return order.items.map((item) => `${item.quantity}x ${item.product.title}`).join(", ");
+}
+
 export default async function PartnerPipelinePage() {
   const user = await requirePartner();
   const isGroupLeader = user.role === "GROUP_LEADER";
@@ -98,7 +102,20 @@ export default async function PartnerPipelinePage() {
             gfeNotes: null,
             gfeDocumentUrl: null,
             paymentStatus: order.paymentStatus,
-            clinicalDocuments: []
+            orderStatus: order.orderStatus,
+            clinicalDocuments: [],
+            orderHistory: orders
+              .filter((historyOrder) => historyOrder.customerId === order.customerId)
+              .map((historyOrder) => ({
+                id: historyOrder.id,
+                createdAt: historyOrder.createdAt.toISOString(),
+                orderTotalCents: historyOrder.totalCents,
+                opportunityValueCents: isGroupLeader ? splitAmount(historyOrder, "GROUP_LEADER") : splitAmount(historyOrder, "PARTNER"),
+                paymentStatus: historyOrder.paymentStatus,
+                orderStatus: historyOrder.orderStatus,
+                pipelineStage: historyOrder.orderPipelineStage,
+                products: orderProducts(historyOrder)
+              }))
           }))}
           showConsultant
           mode={isGroupLeader ? "group_leader" : "partner"}

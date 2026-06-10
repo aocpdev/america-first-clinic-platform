@@ -176,6 +176,8 @@ model Company {
   webhookEndpoints    WebhookEndpoint[]
   webhookDeliveries   WebhookDelivery[]
   customerDocuments   CustomerDocument[]
+  discounts           Discount[]
+  discountRedemptions DiscountRedemption[]
   rewardLevels        RewardLevel[]
   rewards             Reward[]
   rewardCampaigns     RewardCampaign[]
@@ -474,6 +476,7 @@ model Order {
   commissionSplits           CommissionSplit[]
   paymentTransactions        PaymentTransaction[]
   subscriptions              Subscription[]
+  discountRedemptions        DiscountRedemption[]
   createdAt                  DateTime             @default(now())
   updatedAt                  DateTime             @updatedAt
 
@@ -483,6 +486,56 @@ model Order {
   @@index([managerProfileId])
   @@index([groupLeaderProfileId])
   @@index([companyId, orderPipelineStage])
+}
+
+model Discount {
+  id                        String               @id @default(uuid()) @db.Uuid
+  companyId                 String               @db.Uuid
+  company                   Company              @relation(fields: [companyId], references: [id])
+  name                      String
+  code                      String
+  discountType              String
+  valueBps                  Int                  @default(0)
+  amountCents               Int                  @default(0)
+  minSubtotalCents          Int                  @default(0)
+  ownerProtectedProfitCents Int                  @default(0)
+  affectsCommissions        Boolean              @default(true)
+  productIds                String[]             @default([])
+  categoryNames             String[]             @default([])
+  startsAt                  DateTime?
+  endsAt                    DateTime?
+  maxRedemptions            Int?
+  redemptionCount           Int                  @default(0)
+  active                    Boolean              @default(true)
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+  redemptions               DiscountRedemption[]
+
+  @@unique([companyId, code])
+  @@index([companyId, active])
+}
+
+model DiscountRedemption {
+  id                        String    @id @default(uuid()) @db.Uuid
+  companyId                 String    @db.Uuid
+  company                   Company   @relation(fields: [companyId], references: [id])
+  discountId                String?   @db.Uuid
+  discount                  Discount? @relation(fields: [discountId], references: [id], onDelete: SetNull)
+  orderId                   String    @db.Uuid
+  order                     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  codeSnapshot              String
+  nameSnapshot              String
+  discountTypeSnapshot      String
+  discountCents             Int
+  subtotalCents             Int
+  totalCents                Int
+  ownerProtectedProfitCents Int
+  commissionableMarginCents Int
+  createdAt                 DateTime  @default(now())
+
+  @@unique([orderId])
+  @@index([companyId, codeSnapshot])
+  @@index([discountId])
 }
 
 model CustomerDocument {

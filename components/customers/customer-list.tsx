@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { CreateCustomerButton } from "@/components/customers/customer-crud";
 import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type RecordFiltersState } from "@/components/filters/record-filters";
 import { formatPhoneForDisplay } from "@/lib/phone";
+import { orderPipelineLabel } from "@/lib/sales/pipeline";
 import { currency } from "@/lib/utils";
 
 type CustomerRow = {
@@ -31,11 +32,6 @@ function basePathForMode(mode: "admin" | "partner" | "consultant") {
   return "/partner";
 }
 
-function uniqueOptions(values: string[], fallback: string) {
-  const unique = Array.from(new Set(values.filter(Boolean)));
-  return [{ label: fallback, value: "ALL" }, ...unique.map((value) => ({ label: value.replaceAll("_", " "), value }))];
-}
-
 function applyCustomerFilters(customers: CustomerRow[], filters?: RecordFiltersState) {
   const normalized = normalizeFilters(filters);
 
@@ -44,7 +40,7 @@ function applyCustomerFilters(customers: CustomerRow[], filters?: RecordFiltersS
       customer.name,
       customer.email,
       customer.phone,
-      customer.pipelineStage,
+      orderPipelineLabel(customer.pipelineStage),
       customer.consultantName,
       customer.leaderName,
       customer.partnerName
@@ -91,7 +87,17 @@ export function CustomerList({
         filters={filters ?? {}}
         resetHref={`${basePath}/customers`}
         selects={[
-          { name: "stage", label: "Pipeline", options: uniqueOptions(customers.map((customer) => customer.pipelineStage), "All pipeline stages") }
+          {
+            name: "stage",
+            label: "Pipeline",
+            options: [
+              { label: "All pipeline stages", value: "ALL" },
+              ...Array.from(new Set(customers.map((customer) => customer.pipelineStage).filter(Boolean))).map((value) => ({
+                label: orderPipelineLabel(value),
+                value
+              }))
+            ]
+          }
         ]}
       />
 
@@ -134,7 +140,7 @@ export function CustomerList({
                     <p className="mt-1 text-xs">{customer.leaderName}</p>
                     {mode === "admin" ? <p className="mt-1 text-xs">{customer.partnerName}</p> : null}
                   </td>
-                  <td className="px-6 py-5"><Badge>{customer.pipelineStage.replaceAll("_", " ")}</Badge></td>
+                  <td className="px-6 py-5"><Badge>{orderPipelineLabel(customer.pipelineStage)}</Badge></td>
                   <td className="px-6 py-5 font-semibold text-clinic-ink">{customer.ordersCount}</td>
                   <td className="px-6 py-5 font-semibold text-clinic-navy">{currency(customer.revenueCents / 100)}</td>
                   <td className="px-6 py-5 text-slate-600">{dateLabel(customer.lastOrderAt)}</td>

@@ -23,6 +23,10 @@ function splitAmount(order: OrderListRecord, role: "CONSULTANT") {
     .reduce((sum, split) => sum + split.amountCents, 0);
 }
 
+function orderProducts(order: OrderListRecord) {
+  return order.items.map((item) => `${item.quantity}x ${item.product.title}`).join(", ");
+}
+
 export default async function ConsultantPipelinePage() {
   const user = await requireApprovedConsultant();
   const companyId = user.companyId;
@@ -71,7 +75,20 @@ export default async function ConsultantPipelinePage() {
           gfeNotes: null,
           gfeDocumentUrl: null,
           paymentStatus: order.paymentStatus,
-          clinicalDocuments: []
+          orderStatus: order.orderStatus,
+          clinicalDocuments: [],
+          orderHistory: orders
+            .filter((historyOrder) => historyOrder.customerId === order.customerId)
+            .map((historyOrder) => ({
+              id: historyOrder.id,
+              createdAt: historyOrder.createdAt.toISOString(),
+              orderTotalCents: historyOrder.totalCents,
+              opportunityValueCents: splitAmount(historyOrder, "CONSULTANT"),
+              paymentStatus: historyOrder.paymentStatus,
+              orderStatus: historyOrder.orderStatus,
+              pipelineStage: historyOrder.orderPipelineStage,
+              products: orderProducts(historyOrder)
+            }))
         }))}
         mode="consultant"
         basePath="/consultant"

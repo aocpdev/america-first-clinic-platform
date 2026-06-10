@@ -1,8 +1,10 @@
 export const CUSTOMER_PIPELINE_STAGES = [
   { value: "AWAITING_PAYMENT", label: "Awaiting Payment" },
   { value: "NEW_SALE", label: "New Sale" },
-  { value: "GFE", label: "GFE" },
+  { value: "GFE", label: "Exam" },
+  { value: "MEDICAL_REVIEW", label: "Medical Review" },
   { value: "APPROVAL", label: "Approval" },
+  { value: "PRESCRIPTION_CONFIRMED", label: "Prescription Confirmed" },
   { value: "DEFERRED", label: "Deferred" },
   { value: "FULFILLMENT", label: "Fulfillment" },
   { value: "SHIPPED", label: "Shipped" }
@@ -27,8 +29,13 @@ export const ORDER_PIPELINE_STAGES = [
   },
   {
     value: "GFE",
-    label: "GFE",
-    description: "Good Faith Exam or intake review is in progress."
+    label: "Exam",
+    description: "Clinical exam or intake review is in progress."
+  },
+  {
+    value: "MEDICAL_REVIEW",
+    label: "Medical Review",
+    description: "The exam was deferred to a medical director or is pending clinical review."
   },
   {
     value: "APPROVAL",
@@ -36,9 +43,14 @@ export const ORDER_PIPELINE_STAGES = [
     description: "The order has been clinically approved. Prescription records stay admin-only."
   },
   {
+    value: "PRESCRIPTION_CONFIRMED",
+    label: "Prescription Confirmed",
+    description: "Qualiphy confirmed the prescription or treatment order."
+  },
+  {
     value: "FULFILLMENT",
     label: "Fulfillment",
-    description: "The approved order is being prepared for shipment."
+    description: "Tracking has been received and the order is being fulfilled."
   },
   {
     value: "SHIPPED",

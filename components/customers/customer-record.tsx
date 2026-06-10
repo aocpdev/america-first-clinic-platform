@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { DeleteCustomerButton, EditCustomerButton } from "@/components/customers/customer-crud";
 import { formatPhoneForDisplay } from "@/lib/phone";
+import { orderPipelineLabel } from "@/lib/sales/pipeline";
 import { currency } from "@/lib/utils";
 import type { OrderListRecord } from "@/lib/orders/queries";
 
@@ -23,6 +24,20 @@ type CustomerRecordData = {
   leaderName: string | null;
   partnerName: string | null;
   orders: OrderListRecord[];
+  addresses: {
+    id: string;
+    label: string | null;
+    line1: string;
+    line2: string | null;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+    isDefault: boolean;
+    lastUsedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
+  }[];
 };
 
 function customerName(customer: CustomerRecordData) {
@@ -91,7 +106,7 @@ export function CustomerRecord({
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Orders</p>
                 </div>
                 <div className="rounded-2xl bg-white px-4 py-3 shadow-line">
-                  <p className="text-2xl font-semibold text-clinic-red">{customer.pipelineStage.replaceAll("_", " ")}</p>
+                  <p className="text-2xl font-semibold text-clinic-red">{orderPipelineLabel(customer.pipelineStage)}</p>
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Pipeline</p>
                 </div>
               </div>

@@ -4,7 +4,8 @@ import { Card } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
-import { orderListInclude } from "@/lib/orders/queries";
+import { orderListInclude, type OrderListRecord } from "@/lib/orders/queries";
+import { getQualiphyExamList } from "@/lib/qualiphy/exams";
 import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
 
 function normalizeStage(stage: string): CustomerPipelineStage {
@@ -14,6 +15,10 @@ function normalizeStage(stage: string): CustomerPipelineStage {
 function personName(person: { firstName: string | null; lastName: string | null; email?: string }) {
   const name = [person.firstName, person.lastName].filter(Boolean).join(" ").trim();
   return name || person.email || "Unassigned";
+}
+
+function orderProducts(order: OrderListRecord) {
+  return order.items.map((item) => `${item.quantity}x ${item.product.title}`).join(", ");
 }
 
 export default async function AdminPipelinePage() {
@@ -35,6 +40,7 @@ export default async function AdminPipelinePage() {
     include: orderListInclude,
     orderBy: [{ orderPipelineUpdatedAt: "desc" }, { createdAt: "desc" }]
   });
+  const qualiphyExamList = await getQualiphyExamList();
 
   return (
     <SidebarShell nav={adminNav} eyebrow="Company admin" title="Pipeline">
@@ -61,6 +67,7 @@ export default async function AdminPipelinePage() {
             gfeNotes: order.gfeNotes,
             gfeDocumentUrl: order.gfeDocumentUrl,
             paymentStatus: order.paymentStatus,
+            orderStatus: order.orderStatus,
             clinicalDocuments: order.clinicalDocuments.map((document) => ({
               id: document.id,
               type: document.type,
@@ -70,12 +77,26 @@ export default async function AdminPipelinePage() {
               mimeType: document.mimeType,
               sizeBytes: document.sizeBytes,
               createdAt: document.createdAt.toISOString()
-            }))
+            })),
+            orderHistory: orders
+              .filter((historyOrder) => historyOrder.customerId === order.customerId)
+              .map((historyOrder) => ({
+                id: historyOrder.id,
+                createdAt: historyOrder.createdAt.toISOString(),
+                orderTotalCents: historyOrder.totalCents,
+                opportunityValueCents: historyOrder.grossMarginCents,
+                paymentStatus: historyOrder.paymentStatus,
+                orderStatus: historyOrder.orderStatus,
+                pipelineStage: historyOrder.orderPipelineStage,
+                products: orderProducts(historyOrder)
+              }))
           };
         })}
         mode="admin"
         basePath="/admin"
         showConsultant
+        qualiphyExams={qualiphyExamList.exams}
+        qualiphyExamsError={qualiphyExamList.error}
       />
     </SidebarShell>
   );

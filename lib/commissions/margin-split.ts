@@ -20,6 +20,8 @@ export function calculateMarginCommissionSplit({
   groupLeaderShareBps = 0,
   managerShareBps = 0,
   consultantShareBps,
+  ownerProtectedProfitCents = 0,
+  commissionableMarginCents,
   leaderOverrideFromConsultantShare = false,
   managerOverrideFromLeaderShare = false
 }: {
@@ -31,14 +33,20 @@ export function calculateMarginCommissionSplit({
   managerShareBps?: number;
   groupLeaderShareBps?: number;
   consultantShareBps?: number;
+  ownerProtectedProfitCents?: number;
+  commissionableMarginCents?: number;
   leaderOverrideFromConsultantShare?: boolean;
   managerOverrideFromLeaderShare?: boolean;
 }) {
   const grossMarginCents = Math.max(0, subtotalCents - internalCostCents);
+  const effectiveCommissionableMarginCents = Math.max(
+    0,
+    commissionableMarginCents ?? grossMarginCents - ownerProtectedProfitCents
+  );
   const effectivePoolBps = partnerPoolBps ?? poolBps;
   const effectiveManagerShareBps = clampGroupLeaderPoolShareBps(managerShareBps);
   const effectiveGroupLeaderShareBps = clampGroupLeaderPoolShareBps(groupLeaderShareBps);
-  const commissionPoolCents = Math.round((grossMarginCents * effectivePoolBps) / 10000);
+  const commissionPoolCents = Math.round((effectiveCommissionableMarginCents * effectivePoolBps) / 10000);
   const legacyPartnerAmountCents = Math.round((commissionPoolCents * partnerSplitBps) / 10000);
   const usesLegacyConsultantSplit =
     partnerPoolBps == null && consultantShareBps == null && groupLeaderShareBps === 0 && managerShareBps === 0;
@@ -68,6 +76,8 @@ export function calculateMarginCommissionSplit({
 
   return {
     grossMarginCents,
+    ownerProtectedProfitCents,
+    commissionableMarginCents: effectiveCommissionableMarginCents,
     commissionPoolCents,
     partnerAmountCents,
     managerAmountCents,
@@ -146,6 +156,18 @@ export async function createMarginCommissionLedger({
     (total, item) => total + item.product.internalCostCents * item.quantity,
     0
   );
+  const metadata =
+    order.referralMetadata && typeof order.referralMetadata === "object" && !Array.isArray(order.referralMetadata)
+      ? (order.referralMetadata as Record<string, unknown>)
+      : {};
+  const discountMetadata =
+    metadata.discount && typeof metadata.discount === "object" && !Array.isArray(metadata.discount)
+      ? (metadata.discount as Record<string, unknown>)
+      : {};
+  const ownerProtectedProfitCents =
+    typeof discountMetadata.ownerProtectedProfitCents === "number" ? discountMetadata.ownerProtectedProfitCents : 0;
+  const commissionableMarginCents =
+    typeof discountMetadata.commissionableMarginCents === "number" ? discountMetadata.commissionableMarginCents : undefined;
   const isConsultantSale = commissionMode === "CONSULTANT_PARTNER_SPLIT";
   const isManagerDirectSale = commissionMode === "MANAGER_DIRECT";
   const isGroupLeaderDirectSale = commissionMode === "GROUP_LEADER_DIRECT";
@@ -164,8 +186,10 @@ export async function createMarginCommissionLedger({
     : undefined;
 
   const split = calculateMarginCommissionSplit({
-    subtotalCents: order.subtotalCents,
+    subtotalCents: order.totalCents,
     internalCostCents,
+    ownerProtectedProfitCents,
+    commissionableMarginCents,
     partnerPoolBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" || commissionMode === "GROUP_LEADER_DIRECT" || commissionMode === "MANAGER_DIRECT" ? partnerProfile?.commissionBps : undefined,
     managerShareBps,
     groupLeaderShareBps,

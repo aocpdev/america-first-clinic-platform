@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Edit3, Link2, Plus, Power, Send, X } from "lucide-react";
+import { Clipboard, Edit3, Link2, Plus, Power, Send, ShieldCheck, X } from "lucide-react";
 import {
   createAdminWebhookEndpoint,
   createPartnerWebhookEndpoint,
@@ -32,6 +32,10 @@ const events = [
   { value: "payment.failed", label: "Payment failed", group: "Payments", description: "A payment attempt fails or is declined." },
   { value: "receipt.ready", label: "Receipt ready", group: "Payments", description: "A paid order has a receipt available." },
   { value: "receipt.resend_requested", label: "Receipt resend requested", group: "Payments", description: "A CRM user asks to resend a receipt." },
+  { value: "qualiphy.exam_invite_sent", label: "Qualiphy invite sent", group: "Clinical", description: "An exam invite was created and a meeting URL is available." },
+  { value: "qualiphy.consultation_complete", label: "Consultation complete", group: "Clinical", description: "Qualiphy returned the exam outcome and pipeline stage." },
+  { value: "qualiphy.prescription_confirmed", label: "Prescription confirmed", group: "Clinical", description: "Qualiphy confirmed an Rx treatment order." },
+  { value: "qualiphy.prescription_tracking", label: "Prescription tracking", group: "Clinical", description: "Qualiphy sent pharmacy shipment tracking." },
   { value: "shipment.tracking_ready", label: "Tracking ready", group: "Fulfillment", description: "A carrier and tracking code are saved." },
   { value: "seller.registration.submitted", label: "Seller registration submitted", group: "Team access", description: "A seller applies under a partner or leader." },
   { value: "leader.registration.submitted", label: "Leader registration submitted", group: "Team access", description: "A group leader applies under a partner or manager." },
@@ -52,10 +56,12 @@ const events = [
 
 export function WebhookSettings({
   endpoints,
-  scope
+  scope,
+  qualiphyWebhookUrl
 }: {
   endpoints: WebhookEndpointRow[];
   scope: "admin" | "partner";
+  qualiphyWebhookUrl?: string;
 }) {
   const createAction = scope === "admin" ? createAdminWebhookEndpoint : createPartnerWebhookEndpoint;
   const [editingEndpoint, setEditingEndpoint] = useState<WebhookEndpointRow | null>(null);
@@ -72,20 +78,55 @@ export function WebhookSettings({
       </div>
 
       <div className="grid gap-6 p-6 xl:grid-cols-[360px_1fr]">
-        <div className="rounded-3xl border border-border bg-clinic-mist p-5">
-          <div className="flex items-center gap-3">
-            <div className="grid size-11 place-items-center rounded-2xl bg-white text-clinic-navy shadow-line">
-              <Link2 className="size-5" />
+        <div className="space-y-4">
+          {qualiphyWebhookUrl ? (
+            <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5">
+              <div className="flex items-center gap-3">
+                <div className="grid size-11 place-items-center rounded-2xl bg-white text-clinic-navy shadow-line">
+                  <ShieldCheck className="size-5" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-clinic-ink">Qualiphy inbound webhook</h3>
+                  <p className="text-sm text-slate-500">Use this URL in Qualiphy or exam invites.</p>
+                </div>
+              </div>
+              <div className="mt-4 rounded-2xl border border-blue-100 bg-white p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Webhook URL</p>
+                <div className="mt-2 flex min-w-0 items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded-xl bg-clinic-mist px-3 py-2 text-xs font-semibold text-clinic-navy">
+                    {qualiphyWebhookUrl}
+                  </code>
+                  <button
+                    type="button"
+                    onClick={() => navigator.clipboard?.writeText(qualiphyWebhookUrl)}
+                    className="grid size-10 shrink-0 place-items-center rounded-xl border border-border text-clinic-navy transition hover:bg-clinic-mist"
+                    aria-label="Copy Qualiphy webhook URL"
+                  >
+                    <Clipboard className="size-4" />
+                  </button>
+                </div>
+              </div>
+              <p className="mt-3 text-xs leading-5 text-slate-600">
+                Qualiphy posts consultation, prescription, and tracking results here. Outbound clinical events below can forward those updates to GHL.
+              </p>
             </div>
-            <div>
-              <h3 className="text-xl font-semibold text-clinic-ink">Add endpoint</h3>
-              <p className="text-sm text-slate-500">Create, test, and preview a workflow payload.</p>
+          ) : null}
+
+          <div className="rounded-3xl border border-border bg-clinic-mist p-5">
+            <div className="flex items-center gap-3">
+              <div className="grid size-11 place-items-center rounded-2xl bg-white text-clinic-navy shadow-line">
+                <Link2 className="size-5" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-clinic-ink">Add endpoint</h3>
+                <p className="text-sm text-slate-500">Create, test, and preview a workflow payload.</p>
+              </div>
             </div>
+            <Button type="button" variant="accent" className="mt-5 w-full" onClick={() => setCreatingEndpoint(true)}>
+              <Plus className="size-4" />
+              Create webhook
+            </Button>
           </div>
-          <Button type="button" variant="accent" className="mt-5 w-full" onClick={() => setCreatingEndpoint(true)}>
-            <Plus className="size-4" />
-            Create webhook
-          </Button>
         </div>
 
         <section className="rounded-3xl border border-border bg-white p-5">
@@ -468,6 +509,60 @@ function sampleWebhookPayload(eventType: string, configuredEvents: string[]) {
         carrier: "UPS",
         trackingCode: "1Z999AA10123456784",
         trackingUrl: "https://www.ups.com/track?tracknum=1Z999AA10123456784"
+      }
+    },
+    "qualiphy.exam_invite_sent": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048",
+        stage: "Exam"
+      },
+      qualiphy: {
+        examId: 3390,
+        examTitle: "Weight Loss GLP-1 Monthly Follow Up",
+        patientExamId: 152019,
+        meetingUrl: "https://app.qualiphy.me/meeting/demo"
+      }
+    },
+    "qualiphy.consultation_complete": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048",
+        stage: "Approval"
+      },
+      qualiphy: {
+        event: 1,
+        examStatus: "Approved",
+        patientExamId: 152019,
+        examUrl: "https://cdn.qualiphy.me/pdfs/demo.pdf"
+      }
+    },
+    "qualiphy.prescription_confirmed": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048",
+        stage: "Prescription Confirmed"
+      },
+      qualiphy: {
+        event: 2,
+        rxStatus: "Pharmacy Confirmed",
+        patientExamId: 152019
+      }
+    },
+    "qualiphy.prescription_tracking": {
+      ...base,
+      order: {
+        id: "ord_demo_2048",
+        orderNumber: "AF-2048",
+        stage: "Fulfillment"
+      },
+      qualiphy: {
+        event: 3,
+        patientExamId: 152019,
+        trackingNumber: "1Z999AA10123456784"
       }
     },
     "commission.generated": {

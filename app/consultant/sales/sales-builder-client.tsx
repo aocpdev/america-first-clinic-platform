@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { calculateDiscountApplication, isDiscountActive, normalizeDiscountCode } from "@/lib/discounts/calculations";
+import { US_STATE_OPTIONS } from "@/lib/locations/us-states";
 import { formatPhoneForDisplay } from "@/lib/phone";
 import { formatCurrency } from "@/lib/products/catalog";
 
@@ -37,6 +39,7 @@ type ProductOption = {
   description: string;
   categoryName: string;
   priceCents: number;
+  internalCostCents: number;
   estimatedCommissionCents: number;
   imageUrl: string | null;
   imageAlt: string | null;
@@ -50,9 +53,29 @@ type ProductOption = {
   };
 };
 
+type DiscountOption = {
+  id: string;
+  name: string;
+  code: string;
+  discountType: string;
+  valueBps: number;
+  amountCents: number;
+  minSubtotalCents: number;
+  ownerProtectedProfitCents: number;
+  affectsCommissions: boolean;
+  productIds: string[];
+  categoryNames: string[];
+  startsAt: string | null;
+  endsAt: string | null;
+  maxRedemptions: number | null;
+  redemptionCount: number;
+  active: boolean;
+};
+
 type SalesBuilderClientProps = {
   customers: CustomerOption[];
   products: ProductOption[];
+  discounts?: DiscountOption[];
   canCreateOrders: boolean;
   setupMessage?: string;
   createdOrderId?: string;
@@ -72,8 +95,11 @@ const errorCopy: Record<string, string> = {
   invalid_customer: "Customer information is incomplete.",
   duplicate_customer_contact: "This email or phone already belongs to another customer. Select the existing customer before creating the order.",
   customer_not_assigned: "That customer is not assigned to your consultant account.",
+  customer_qualiphy_required: "This customer needs first name, last name, phone, date of birth, birth sex, and state before creating an order.",
   invalid_products: "One or more selected products are no longer active.",
-  invalid_shipping_address: "Shipping address is required before collecting payment or sending an invoice."
+  invalid_shipping_address: "Shipping address is required before collecting payment or sending an invoice.",
+  invalid_discount: "That discount code is not active or does not exist.",
+  discount_not_applicable: "That discount does not apply to the selected products or cannot protect owner profit."
 };
 
 const priceRanges = [
@@ -98,6 +124,7 @@ type SalesDraft = {
     quantities: Record<string, number>;
     customerOpen: boolean;
     shippingOpen: boolean;
+    couponCode: string;
   };
   fields: Record<string, string>;
 };
@@ -150,6 +177,7 @@ function ProductGuideBlock({ title, items }: { title: string; items: string[] })
 export function SalesBuilderClient({
   customers,
   products,
+  discounts = [],
   canCreateOrders,
   setupMessage,
   createdOrderId,
@@ -175,6 +203,7 @@ export function SalesBuilderClient({
   const [customerOpen, setCustomerOpen] = useState(true);
   const [shippingOpen, setShippingOpen] = useState(true);
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [couponCode, setCouponCode] = useState("");
 
   const categories = useMemo(() => {
     return ["All", ...Array.from(new Set(products.map((product) => product.categoryName))).sort()];
@@ -206,6 +235,45 @@ export function SalesBuilderClient({
     (sum, line) => sum + line.product.estimatedCommissionCents * line.quantity,
     0
   );
+  const appliedDiscount = useMemo(() => {
+    const code = normalizeDiscountCode(couponCode);
+    if (!code || selectedLines.length === 0) return null;
+
+    const discount = discounts.find((item) => normalizeDiscountCode(item.code) === code);
+    if (!discount) return null;
+
+    const discountForCalculation = {
+      ...discount,
+      startsAt: discount.startsAt ? new Date(discount.startsAt) : null,
+      endsAt: discount.endsAt ? new Date(discount.endsAt) : null
+    };
+
+    if (!isDiscountActive(discountForCalculation)) return null;
+
+    return calculateDiscountApplication(
+      discountForCalculation,
+      selectedLines.map((line) => ({
+        productId: line.product.id,
+        categoryName: line.product.categoryName,
+        priceCents: line.product.priceCents,
+        internalCostCents: line.product.internalCostCents,
+        quantity: line.quantity
+      }))
+    );
+  }, [couponCode, discounts, selectedLines]);
+  const discountCents = appliedDiscount?.discountCents ?? 0;
+  const orderTotalCents = appliedDiscount?.totalCents ?? subtotalCents;
+  const originalGrossMarginCents = selectedLines.reduce(
+    (sum, line) => sum + Math.max(0, line.product.priceCents - line.product.internalCostCents) * line.quantity,
+    0
+  );
+  const commissionScale =
+    appliedDiscount && originalGrossMarginCents > 0
+      ? Math.min(1, appliedDiscount.commissionableMarginCents / originalGrossMarginCents)
+      : 1;
+  const adjustedCommissionCents = Math.max(0, Math.round(consultantCommissionCents * commissionScale));
+  const couponEntered = normalizeDiscountCode(couponCode).length > 0;
+  const couponInvalid = couponEntered && !appliedDiscount;
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId);
   const selectedShippingAddress = selectedCustomer?.addresses.find((address) => address.id === selectedShippingAddressId) ?? null;
   const selectedProduct = products.find((product) => product.id === selectedProductId);
@@ -268,6 +336,7 @@ export function SalesBuilderClient({
       setQuantities(draft.state.quantities);
       setCustomerOpen(draft.state.customerOpen);
       setShippingOpen(draft.state.shippingOpen);
+      setCouponCode(draft.state.couponCode ?? "");
 
       window.requestAnimationFrame(() => {
         const form = formRef.current;
@@ -320,7 +389,8 @@ export function SalesBuilderClient({
         priceRange,
         quantities,
         customerOpen,
-        shippingOpen
+        shippingOpen,
+        couponCode
       },
       fields
     };
@@ -561,23 +631,23 @@ export function SalesBuilderClient({
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">First name</label>
-                    <Input name="firstName" placeholder="First name" className="mt-2" />
+                    <Input name="firstName" placeholder="First name" className="mt-2" required />
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Last name</label>
-                    <Input name="lastName" placeholder="Last name" className="mt-2" />
+                    <Input name="lastName" placeholder="Last name" className="mt-2" required />
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Email</label>
-                    <Input name="email" type="email" placeholder="customer@email.com" className="mt-2" />
+                    <Input name="email" type="email" placeholder="customer@email.com" className="mt-2" required />
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Phone</label>
-                    <PhoneInput name="phone" className="mt-2" />
+                    <PhoneInput name="phone" className="mt-2" required />
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Date of birth</label>
-                    <Input name="dateOfBirth" type="date" className="mt-2" />
+                    <Input name="dateOfBirth" type="date" className="mt-2" required />
                   </div>
                   <div>
                     <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Birth sex</label>
@@ -585,6 +655,7 @@ export function SalesBuilderClient({
                       name="birthSex"
                       className="mt-2 h-11 w-full rounded-lg border border-input bg-white px-3 text-sm font-semibold text-clinic-ink shadow-line transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       defaultValue=""
+                      required
                     >
                       <option value="" disabled>Select birth sex</option>
                       <option value="MALE">Male</option>
@@ -706,7 +777,7 @@ export function SalesBuilderClient({
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 1</label>
-                  <Input name="shippingAddressLine1" placeholder="Street address" className="mt-2" />
+                  <Input name="shippingAddressLine1" placeholder="Street address" className="mt-2" required />
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 2</label>
@@ -714,19 +785,33 @@ export function SalesBuilderClient({
                 </div>
                 <div>
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">City</label>
-                  <Input name="shippingCity" placeholder="City" className="mt-2" />
+                  <Input name="shippingCity" placeholder="City" className="mt-2" required />
                 </div>
                 <div>
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">State</label>
-                  <Input name="shippingState" placeholder="State" className="mt-2" />
+                  <select
+                    name="shippingState"
+                    defaultValue=""
+                    className="mt-2 flex h-11 w-full min-w-0 rounded-lg border border-input bg-white px-3 py-2 text-sm text-clinic-ink shadow-line transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    required
+                  >
+                    <option value="" disabled>
+                      Select state
+                    </option>
+                    {US_STATE_OPTIONS.map((state) => (
+                      <option key={state.value} value={state.value}>
+                        {state.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">ZIP code</label>
-                  <Input name="shippingPostalCode" placeholder="ZIP code" className="mt-2" />
+                  <Input name="shippingPostalCode" placeholder="ZIP code" className="mt-2" required />
                 </div>
                 <div>
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Country</label>
-                  <Input name="shippingCountry" defaultValue="US" placeholder="Country" className="mt-2" />
+                  <Input name="shippingCountry" defaultValue="US" placeholder="Country" className="mt-2" required />
                 </div>
               </div>
             </div>
@@ -850,11 +935,14 @@ export function SalesBuilderClient({
                     <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Order total</p>
                     <p className="text-xs font-semibold text-slate-500">Live</p>
                   </div>
-                  <p className="mt-2 text-4xl font-semibold tracking-tight text-clinic-navy">{formatCurrency(subtotalCents)}</p>
+                  <p className="mt-2 text-4xl font-semibold tracking-tight text-clinic-navy">{formatCurrency(orderTotalCents)}</p>
+                  {discountCents > 0 ? (
+                    <p className="mt-1 text-xs font-bold text-emerald-700">Discount applied: -{formatCurrency(discountCents)}</p>
+                  ) : null}
                 </div>
                 <div className="rounded-3xl bg-emerald-50 px-4 py-4">
                   <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">{commissionLabel}</p>
-                  <p className="mt-2 text-3xl font-semibold tracking-tight text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
+                  <p className="mt-2 text-3xl font-semibold tracking-tight text-emerald-800">{formatCurrency(adjustedCommissionCents)}</p>
                 </div>
               </div>
             </div>
@@ -874,11 +962,48 @@ export function SalesBuilderClient({
                 <p className="rounded-xl bg-clinic-mist p-4 text-sm text-slate-500">Select products to build the order.</p>
               )}
 
+              <div className="rounded-2xl border border-border bg-clinic-mist p-3">
+                <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Discount code</label>
+                <Input
+                  name="couponCode"
+                  value={couponCode}
+                  onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                  placeholder="Enter coupon"
+                  className="mt-2 bg-white uppercase"
+                />
+                {couponInvalid ? (
+                  <p className="mt-2 text-xs font-semibold text-red-700">This code is not active for the selected items.</p>
+                ) : appliedDiscount ? (
+                  <div className="mt-2 grid gap-1 text-xs font-semibold text-emerald-800">
+                    <span>{appliedDiscount.discount.name}: -{formatCurrency(appliedDiscount.discountCents)}</span>
+                    <span>Owner protected profit: {formatCurrency(appliedDiscount.ownerProtectedProfitCents)}</span>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs font-semibold text-slate-500">Optional. Discounts are validated when the order is created.</p>
+                )}
+              </div>
+
               <div className="space-y-3 border-t border-border pt-5 text-sm">
                 <div className="flex justify-between">
                   <span className="text-slate-500">Subtotal</span>
                   <span className="font-semibold text-clinic-ink">{formatCurrency(subtotalCents)}</span>
                 </div>
+                {discountCents > 0 ? (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Discount</span>
+                    <span className="font-semibold text-emerald-700">-{formatCurrency(discountCents)}</span>
+                  </div>
+                ) : null}
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Total</span>
+                  <span className="font-semibold text-clinic-ink">{formatCurrency(orderTotalCents)}</span>
+                </div>
+                {appliedDiscount ? (
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Commissionable margin</span>
+                    <span className="font-semibold text-clinic-ink">{formatCurrency(appliedDiscount.commissionableMarginCents)}</span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between">
                   <span className="text-slate-500">Payment status</span>
                   <span className="font-semibold text-clinic-ink">Pending</span>
@@ -946,15 +1071,15 @@ export function SalesBuilderClient({
         </div>
       </form>
 
-      <div className="fixed inset-x-0 bottom-[calc(4.85rem+env(safe-area-inset-bottom))] z-40 border-t border-white/70 bg-white/92 p-3 shadow-[0_-18px_50px_rgba(7,55,99,0.12)] backdrop-blur-xl lg:left-72 xl:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/70 bg-white/92 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-18px_50px_rgba(7,55,99,0.12)] backdrop-blur-xl lg:left-72 xl:hidden">
         <div className="mx-auto grid max-w-5xl grid-cols-2 items-center gap-2 sm:grid-cols-[1fr_1fr_auto]">
           <div className="min-w-0 rounded-2xl bg-clinic-mist px-3 py-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Total</p>
-            <p className="truncate text-lg font-semibold text-clinic-navy">{formatCurrency(subtotalCents)}</p>
+            <p className="truncate text-lg font-semibold text-clinic-navy">{formatCurrency(orderTotalCents)}</p>
           </div>
           <div className="min-w-0 rounded-2xl bg-emerald-50 px-3 py-2">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Commission</p>
-            <p className="truncate text-lg font-semibold text-emerald-800">{formatCurrency(consultantCommissionCents)}</p>
+            <p className="truncate text-lg font-semibold text-emerald-800">{formatCurrency(adjustedCommissionCents)}</p>
           </div>
           <div className="hidden rounded-2xl border border-border bg-white px-3 py-2 text-center sm:block">
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Items</p>

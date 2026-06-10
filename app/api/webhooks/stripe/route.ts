@@ -125,8 +125,8 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
       })),
       ...adminIds.map((userId) => ({
         userId,
-        title: "New sale ready for GFE",
-        body: `${customerName} paid ${moneyFromCents(order.totalCents)}. Start the GFE workflow.`,
+        title: "New sale ready for Exam",
+        body: `${customerName} paid ${moneyFromCents(order.totalCents)}. Start the Exam workflow.`,
         metadata: {
           orderId: order.id,
           customerId: order.customerId,

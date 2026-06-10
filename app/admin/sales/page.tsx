@@ -35,7 +35,7 @@ export default async function AdminSalesPage({
     );
   }
 
-  const [customers, products] = await Promise.all([
+  const [customers, products, discounts] = await Promise.all([
     prisma.customer.findMany({
       where: { companyId: user.companyId },
       include: {
@@ -59,6 +59,10 @@ export default async function AdminSalesPage({
         }
       },
       orderBy: [{ category: { name: "asc" } }, { title: "asc" }]
+    }),
+    prisma.discount.findMany({
+      where: { companyId: user.companyId, active: true },
+      orderBy: { createdAt: "desc" }
     })
   ]);
 
@@ -89,12 +93,31 @@ export default async function AdminSalesPage({
           description: product.description,
           categoryName: product.category.name,
           priceCents: product.priceCents,
+          internalCostCents: product.internalCostCents,
           estimatedCommissionCents: grossMarginPerUnit(product.priceCents, product.internalCostCents),
           imageUrl: product.images[0]?.url ?? null,
           imageAlt: product.images[0]?.alt ?? null,
           supportsRecurring: product.supportsRecurring,
           supportsSubscription: product.supportsSubscription,
           salesGuide: extractProductSalesGuide(product.metadata)
+        }))}
+        discounts={discounts.map((discount) => ({
+          id: discount.id,
+          name: discount.name,
+          code: discount.code,
+          discountType: discount.discountType,
+          valueBps: discount.valueBps,
+          amountCents: discount.amountCents,
+          minSubtotalCents: discount.minSubtotalCents,
+          ownerProtectedProfitCents: discount.ownerProtectedProfitCents,
+          affectsCommissions: discount.affectsCommissions,
+          productIds: discount.productIds,
+          categoryNames: discount.categoryNames,
+          startsAt: discount.startsAt?.toISOString() ?? null,
+          endsAt: discount.endsAt?.toISOString() ?? null,
+          maxRedemptions: discount.maxRedemptions,
+          redemptionCount: discount.redemptionCount,
+          active: discount.active
         }))}
         canCreateOrders
         createOrderAction={createAdminOrder}

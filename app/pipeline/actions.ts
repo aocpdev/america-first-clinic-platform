@@ -7,8 +7,11 @@ import { prisma } from "@/lib/db/prisma";
 import { getPaymentProvider } from "@/lib/payments/registry";
 import type { PaymentProviderCode } from "@/lib/payments/types";
 import { phoneForWebhook } from "@/lib/phone";
+import type { QualiphyPatientExam } from "@/lib/qualiphy/invites";
+import { sendQualiphyExamInvite } from "@/lib/qualiphy/invites";
 import { isCustomerPipelineStage, isOrderPipelineStage, orderPipelineLabel } from "@/lib/sales/pipeline";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import { publicSiteBaseUrl } from "@/lib/urls";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 function value(formData: FormData, key: string) {
@@ -39,6 +42,51 @@ function carrierTrackingUrl(carrier: string | null, trackingCode: string | null)
 function jsonSafe(value: unknown) {
   return JSON.parse(JSON.stringify(value));
 }
+
+function objectMetadata(metadata: unknown) {
+  return metadata && typeof metadata === "object" && !Array.isArray(metadata) ? { ...(metadata as Record<string, unknown>) } : {};
+}
+
+function metadataRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function formatDateOnly(value: Date | null | undefined) {
+  return value ? value.toISOString().slice(0, 10) : "";
+}
+
+function genderForQualiphy(value: string | null | undefined) {
+  if (value === "MALE") return 1;
+  if (value === "FEMALE") return 2;
+  if (value === "PREFER_NOT_TO_SAY") return 3;
+  return undefined;
+}
+
+function stringField(record: Record<string, unknown> | null, key: string) {
+  const value = record?.[key];
+  return typeof value === "string" ? value.trim() : "";
+}
+
+type QualiphySelection = {
+  mode: "SEND" | "SKIP";
+  selectedAt: string;
+  selectedByUserId: string;
+  exam: {
+    id: number;
+    title: string;
+    rxType: number | null;
+    attachmentsRequired: number | null;
+  } | null;
+  invite?: {
+    sentAt: string;
+    webhookUrl: string;
+    meetingUrl: string | null;
+    meetingUuid: string | null;
+    patientExams: QualiphyPatientExam[];
+    patientExamId: string | number | null;
+    status: "PENDING";
+  };
+};
 
 async function ensureClinicalDocumentsBucket() {
   const supabase = createSupabaseAdminClient();
@@ -82,7 +130,13 @@ async function accessibleOrder(user: Awaited<ReturnType<typeof requireUser>>, or
             : {})
     },
     include: {
-      customer: true,
+      customer: {
+        include: {
+          addresses: {
+            orderBy: [{ isDefault: "desc" }, { lastUsedAt: "desc" }, { createdAt: "desc" }]
+          }
+        }
+      },
       consultantProfile: true,
       paymentTransactions: {
         where: { status: "CAPTURED", providerTransactionId: { not: null } },
@@ -392,7 +446,95 @@ export async function updatePipelineOrderStage(formData: FormData) {
   const shippingCarrier = value(formData, "shippingCarrier");
   const shippingTrackingCode = value(formData, "shippingTrackingCode");
   const allowWithoutTracking = value(formData, "allowFulfillmentWithoutTracking") === "true";
+  const qualiphyExamMode = value(formData, "qualiphyExamMode");
+  const qualiphyExamId = value(formData, "qualiphyExamId");
+  const qualiphyExamTitle = value(formData, "qualiphyExamTitle");
+  const qualiphyExamRxType = value(formData, "qualiphyExamRxType");
+  const qualiphyExamAttachmentsRequired = value(formData, "qualiphyExamAttachmentsRequired");
   const now = new Date();
+  const metadata = objectMetadata(order.referralMetadata);
+  const shippingMetadata = metadataRecord(metadata.shippingAddress);
+  const fallbackAddress = order.customer.addresses[0] ?? null;
+  const patientState = stringField(shippingMetadata, "state") || fallbackAddress?.state || "";
+  const patientPhone = phoneForWebhook(order.customer.phone);
+  const patientDob = formatDateOnly(order.customer.dateOfBirth);
+
+  let qualiphySelection: QualiphySelection | null =
+    requestedStage === "GFE"
+      ? {
+          mode: qualiphyExamMode === "send" ? "SEND" : "SKIP",
+          selectedAt: now.toISOString(),
+          selectedByUserId: user.id,
+          exam:
+            qualiphyExamMode === "send"
+              ? {
+                  id: Number(qualiphyExamId),
+                  title: qualiphyExamTitle,
+                  rxType: qualiphyExamRxType ? Number(qualiphyExamRxType) : null,
+                  attachmentsRequired: qualiphyExamAttachmentsRequired ? Number(qualiphyExamAttachmentsRequired) : null
+                }
+              : null
+        }
+      : null;
+
+  if (requestedStage === "GFE" && qualiphyExamMode !== "skip" && qualiphyExamMode !== "send") {
+    redirect(`${returnPath}?stage=qualiphy_choice_required`);
+  }
+
+  if (requestedStage === "GFE" && qualiphyExamMode === "send" && (!qualiphyExamId || !qualiphyExamTitle || Number.isNaN(Number(qualiphyExamId)))) {
+    redirect(`${returnPath}?stage=qualiphy_exam_required`);
+  }
+
+  if (requestedStage === "GFE" && qualiphyExamMode === "send") {
+    if (!order.customer.firstName || !order.customer.lastName || !patientDob || !patientPhone || !patientState) {
+      redirect(`${returnPath}?stage=qualiphy_patient_required`);
+    }
+
+    try {
+      const invite = await sendQualiphyExamInvite({
+        examId: Number(qualiphyExamId),
+        firstName: order.customer.firstName,
+        lastName: order.customer.lastName,
+        email: order.customer.email,
+        dob: patientDob,
+        phoneNumber: patientPhone,
+        state: patientState,
+        teleState: patientState,
+        webhookUrl: `${publicSiteBaseUrl()}/api/webhooks/qualiphy`,
+        gender: genderForQualiphy(order.customer.birthSex),
+        additionalData: {
+          orderId: order.id,
+          customerId: order.customerId,
+          companyId: order.companyId,
+          source: "go_virtual_health_crm"
+        },
+        addressLine1: stringField(shippingMetadata, "line1") || fallbackAddress?.line1,
+        addressLine2: stringField(shippingMetadata, "line2") || fallbackAddress?.line2,
+        city: stringField(shippingMetadata, "city") || fallbackAddress?.city,
+        zipCode: stringField(shippingMetadata, "postalCode") || fallbackAddress?.postalCode,
+        shippingAddressLine1: stringField(shippingMetadata, "line1") || fallbackAddress?.line1,
+        shippingAddressLine2: stringField(shippingMetadata, "line2") || fallbackAddress?.line2,
+        shippingCity: stringField(shippingMetadata, "city") || fallbackAddress?.city,
+        shippingState: patientState,
+        shippingZipCode: stringField(shippingMetadata, "postalCode") || fallbackAddress?.postalCode
+      });
+
+      qualiphySelection = {
+        ...qualiphySelection!,
+        invite: {
+          sentAt: now.toISOString(),
+          webhookUrl: `${publicSiteBaseUrl()}/api/webhooks/qualiphy`,
+          meetingUrl: invite.meetingUrl,
+          meetingUuid: invite.meetingUuid,
+          patientExams: invite.patientExams,
+          patientExamId: invite.patientExams[0]?.patientExamId ?? null,
+          status: "PENDING"
+        }
+      };
+    } catch (error) {
+      redirect(`${returnPath}?stage=qualiphy_send_failed`);
+    }
+  }
 
   if ((requestedStage === "FULFILLMENT" || requestedStage === "SHIPPED") && !shippingTrackingCode && !order.shippingTrackingCode && !allowWithoutTracking) {
     redirect(`${returnPath}?stage=tracking_required`);
@@ -462,6 +604,14 @@ export async function updatePipelineOrderStage(formData: FormData) {
           : {}),
         ...(requestedStage === "DEFERRED"
           ? { commissionStatus: "REJECTED" }
+          : {}),
+        ...(qualiphySelection
+          ? {
+              referralMetadata: {
+                ...metadata,
+                qualiphy: qualiphySelection
+              }
+            }
           : {})
       }
     }),
@@ -507,7 +657,8 @@ export async function updatePipelineOrderStage(formData: FormData) {
           stage: requestedStage,
           label: orderPipelineLabel(requestedStage),
           trackingCode: nextTrackingCode,
-          carrier: nextCarrier
+          carrier: nextCarrier,
+          qualiphy: qualiphySelection
         }
       }
     })
@@ -528,6 +679,38 @@ export async function updatePipelineOrderStage(formData: FormData) {
         carrier: nextCarrier,
         trackingCode: nextTrackingCode,
         trackingUrl: carrierTrackingUrl(nextCarrier, nextTrackingCode)
+      }
+    });
+  }
+
+  if (qualiphySelection?.mode === "SEND" && "invite" in qualiphySelection) {
+    const invite = qualiphySelection.invite as {
+      meetingUrl?: string | null;
+      meetingUuid?: string | null;
+      patientExamId?: string | number | null;
+      patientExams?: unknown;
+    };
+
+    await dispatchWebhookEvent({
+      companyId: order.companyId,
+      partnerProfileId: order.partnerProfileId ?? order.consultantProfile?.partnerProfileId,
+      eventType: "qualiphy.exam_invite_sent",
+      payload: {
+        orderId: order.id,
+        customerId: order.customerId,
+        customerName: personName(order.customer),
+        customerEmail: order.customer.email,
+        customerPhone: phoneForWebhook(order.customer.phone),
+        stage: requestedStage,
+        exam: {
+          id: Number(qualiphyExamId),
+          title: qualiphyExamTitle,
+          rxType: qualiphyExamRxType ? Number(qualiphyExamRxType) : null
+        },
+        meetingUrl: invite.meetingUrl ?? null,
+        meetingUuid: invite.meetingUuid ?? null,
+        patientExamId: invite.patientExamId ?? null,
+        patientExams: invite.patientExams ?? []
       }
     });
   }

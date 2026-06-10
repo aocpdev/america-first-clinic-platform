@@ -7,28 +7,39 @@ import { z } from "zod";
 import { requireApprovedConsultant, requirePartner, requireRole } from "@/lib/auth/current-user";
 import { createMarginCommissionLedger } from "@/lib/commissions/margin-split";
 import { prisma } from "@/lib/db/prisma";
+import { calculateDiscountApplication, isDiscountActive, normalizeDiscountCode } from "@/lib/discounts/calculations";
 import { getPaymentProvider } from "@/lib/payments/registry";
 import { appBaseUrl, fallbackOrderPaymentUrl, invoiceShortUrl, paymentShortUrl } from "@/lib/payments/short-links";
 import type { PaymentProviderCode } from "@/lib/payments/types";
 import { normalizePhoneToE164, phoneForWebhook } from "@/lib/phone";
+import { isUsStateCode } from "@/lib/locations/us-states";
 import { isCustomerPipelineStage } from "@/lib/sales/pipeline";
 import { publicSiteBaseUrl } from "@/lib/urls";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 const newCustomerSchema = z.object({
   firstName: z.string().trim().min(1),
-  lastName: z.string().trim().optional(),
+  lastName: z.string().trim().min(1),
   email: z.string().trim().email(),
-  phone: z.string().trim().optional().transform((value) => normalizePhoneToE164(value)),
-  dateOfBirth: z.string().trim().optional(),
-  birthSex: z.enum(["MALE", "FEMALE", "PREFER_NOT_TO_SAY"]).optional()
+  phone: z
+    .string()
+    .trim()
+    .min(1)
+    .transform((value) => normalizePhoneToE164(value))
+    .refine((value) => Boolean(value), "Phone is required"),
+  dateOfBirth: z.string().trim().min(1),
+  birthSex: z.enum(["MALE", "FEMALE", "PREFER_NOT_TO_SAY"])
 });
 
 const shippingAddressSchema = z.object({
   line1: z.string().trim().min(1),
   line2: z.string().trim().optional(),
   city: z.string().trim().min(1),
-  state: z.string().trim().min(1),
+  state: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((value) => isUsStateCode(value), "Select a valid state"),
   postalCode: z.string().trim().min(1),
   country: z.string().trim().min(1).default("US")
 });
@@ -42,6 +53,10 @@ function optionalDate(value?: string) {
   if (!value) return null;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function hasQualiphyRequiredCustomerData(customer: { firstName: string | null; lastName: string | null; phone: string | null; dateOfBirth: Date | null; birthSex: string | null }) {
+  return Boolean(customer.firstName && customer.lastName && customer.phone && customer.dateOfBirth && customer.birthSex);
 }
 
 function selectedProductQuantities(formData: FormData) {
@@ -220,6 +235,7 @@ async function createWorkspaceOrder(
   const selectedShippingAddressId = formString(formData, "shippingAddressId");
   const makeShippingAddressDefault = formString(formData, "shippingAddressDefault") === "true";
   const selectedItems = selectedProductQuantities(formData);
+  const couponCode = normalizeDiscountCode(formString(formData, "couponCode"));
   const providerCode = await activePaymentProviderCode(companyId);
 
   if (selectedItems.length === 0) {
@@ -229,6 +245,19 @@ async function createWorkspaceOrder(
   let customerId = formString(formData, "customerId");
 
   if (customerMode === "new") {
+    const shippingPreflight = shippingAddressSchema.safeParse({
+      line1: formData.get("shippingAddressLine1"),
+      line2: formData.get("shippingAddressLine2"),
+      city: formData.get("shippingCity"),
+      state: formData.get("shippingState"),
+      postalCode: formData.get("shippingPostalCode"),
+      country: formData.get("shippingCountry") || "US"
+    });
+
+    if (!shippingPreflight.success) {
+      redirect(`${redirectBasePath}?error=invalid_shipping_address`);
+    }
+
     const parsed = newCustomerSchema.safeParse({
       firstName: formData.get("firstName"),
       lastName: formData.get("lastName"),
@@ -379,6 +408,10 @@ async function createWorkspaceOrder(
     redirect(`${redirectBasePath}?error=customer_not_assigned`);
   }
 
+  if (!hasQualiphyRequiredCustomerData(customer)) {
+    redirect(`${redirectBasePath}?error=customer_qualiphy_required`);
+  }
+
   await prisma.customer.update({
     where: { id: customer.id },
     data: {
@@ -400,6 +433,10 @@ async function createWorkspaceOrder(
     });
 
     if (!savedAddress) {
+      redirect(`${redirectBasePath}?error=invalid_shipping_address`);
+    }
+
+    if (!isUsStateCode(savedAddress.state)) {
       redirect(`${redirectBasePath}?error=invalid_shipping_address`);
     }
 
@@ -468,7 +505,8 @@ async function createWorkspaceOrder(
       id: { in: productIds },
       companyId,
       active: true
-    }
+    },
+    include: { category: true }
   });
   const productMap = new Map(products.map((product) => [product.id, product]));
 
@@ -480,6 +518,55 @@ async function createWorkspaceOrder(
     const product = productMap.get(item.productId);
     return sum + (product?.priceCents ?? 0) * item.quantity;
   }, 0);
+  const discountLines = selectedItems.map((item) => {
+    const product = productMap.get(item.productId)!;
+    return {
+      productId: product.id,
+      categoryName: product.category.name,
+      priceCents: product.priceCents,
+      internalCostCents: product.internalCostCents,
+      quantity: item.quantity
+    };
+  });
+  const discount = couponCode
+    ? await prisma.discount.findUnique({
+        where: {
+          companyId_code: {
+            companyId,
+            code: couponCode
+          }
+        }
+      })
+    : null;
+
+  if (couponCode && (!discount || !isDiscountActive(discount))) {
+    redirect(`${redirectBasePath}?error=invalid_discount`);
+  }
+
+  const appliedDiscount = discount ? calculateDiscountApplication(discount, discountLines) : null;
+
+  if (couponCode && (!appliedDiscount || appliedDiscount.discountCents <= 0)) {
+    redirect(`${redirectBasePath}?error=discount_not_applicable`);
+  }
+
+  const discountCents = appliedDiscount?.discountCents ?? 0;
+  const totalCents = appliedDiscount?.totalCents ?? subtotalCents;
+  const discountMetadata = appliedDiscount
+    ? {
+        discountId: discount!.id,
+        code: discount!.code,
+        name: discount!.name,
+        discountType: discount!.discountType,
+        discountCents,
+        requestedDiscountCents: appliedDiscount.requestedDiscountCents,
+        subtotalCents,
+        totalCents,
+        ownerProtectedProfitCents: appliedDiscount.ownerProtectedProfitCents,
+        commissionableMarginCents: appliedDiscount.commissionableMarginCents,
+        eligibleSubtotalCents: appliedDiscount.eligibleSubtotalCents,
+        affectsCommissions: discount!.affectsCommissions
+      }
+    : null;
 
   const commissionMode =
     workspace === "consultant"
@@ -501,7 +588,8 @@ async function createWorkspaceOrder(
       managerProfileId: workspace === "consultant" || workspace === "manager" || workspace === "group_leader" ? managerProfileId : null,
       groupLeaderProfileId: workspace === "consultant" || workspace === "group_leader" ? groupLeaderProfileId : null,
       subtotalCents,
-      totalCents: subtotalCents,
+      discountCents,
+      totalCents,
       paymentProviderCode: providerCode,
       paymentStatus: "PENDING",
       orderStatus: "PENDING",
@@ -517,10 +605,11 @@ async function createWorkspaceOrder(
         paymentWorkflow,
         shippingAddress: shippingAddressData,
         shippingAddressId: persistedShippingAddressId,
+        discount: discountMetadata,
         provider: providerCode,
         paymentProvider: {
           integration: paymentWorkflow === "collect_payment" ? "hosted_elements" : "checkout_session",
-          amountCents: subtotalCents,
+          amountCents: totalCents,
           paymentUrl: orderPaymentUrl("ORDER_ID_PLACEHOLDER", providerCode),
           webhookRoute: `/api/webhooks/${providerCode === "authorize_net" ? "authorize-net" : providerCode}`
         }
@@ -538,6 +627,30 @@ async function createWorkspaceOrder(
       }
     }
   });
+
+  if (appliedDiscount) {
+    await prisma.$transaction([
+      prisma.discountRedemption.create({
+        data: {
+          companyId,
+          discountId: discount!.id,
+          orderId: order.id,
+          codeSnapshot: discount!.code,
+          nameSnapshot: discount!.name,
+          discountTypeSnapshot: discount!.discountType,
+          discountCents,
+          subtotalCents,
+          totalCents,
+          ownerProtectedProfitCents: appliedDiscount.ownerProtectedProfitCents,
+          commissionableMarginCents: appliedDiscount.commissionableMarginCents
+        }
+      }),
+      prisma.discount.update({
+        where: { id: discount!.id },
+        data: { redemptionCount: { increment: 1 } }
+      })
+    ]);
+  }
 
   await createMarginCommissionLedger({ prisma, orderId: order.id, commissionMode });
 
@@ -559,14 +672,22 @@ async function createWorkspaceOrder(
         orderId: order.id,
         successUrl: checkoutSuccessUrl,
         cancelUrl: checkoutCancelUrl,
-        lineItems: selectedItems.map((item) => {
-          const product = productMap.get(item.productId)!;
-          return {
-            name: product.title,
-            quantity: item.quantity,
-            unitAmount: { amount: product.priceCents, currency: "USD" as const }
-          };
-        }),
+        lineItems: discountCents > 0
+          ? [
+              {
+                name: `Order ${order.id.slice(0, 8)} after discount`,
+                quantity: 1,
+                unitAmount: { amount: totalCents, currency: "USD" as const }
+              }
+            ]
+          : selectedItems.map((item) => {
+              const product = productMap.get(item.productId)!;
+              return {
+                name: product.title,
+                quantity: item.quantity,
+                unitAmount: { amount: product.priceCents, currency: "USD" as const }
+              };
+            }),
         metadata: {
           companyId,
           orderId: order.id,
@@ -574,7 +695,9 @@ async function createWorkspaceOrder(
           customerEmail: customer.email,
           customerName: [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim() || customer.email,
           workspace,
-          commissionMode
+          commissionMode,
+          couponCode: appliedDiscount ? discount!.code : "",
+          discountCents: String(discountCents)
         }
       })
     : null;
@@ -594,10 +717,11 @@ async function createWorkspaceOrder(
         customerSuccessUrl,
         shippingAddress: shippingAddressData,
         shippingAddressId: persistedShippingAddressId,
+        discount: discountMetadata,
         provider: providerCode,
         paymentProvider: {
           integration: paymentWorkflow === "collect_payment" ? "hosted_elements" : "checkout_session",
-          amountCents: subtotalCents,
+          amountCents: totalCents,
           paymentUrl: invoiceUrl,
           shortPaymentUrl,
           paymentRedirectUrl: shortPaymentUrl,
@@ -617,7 +741,7 @@ async function createWorkspaceOrder(
         orderId: order.id,
         providerCode,
         providerTransactionId: checkoutResult.providerSessionId,
-        amountCents: subtotalCents,
+        amountCents: totalCents,
         status: "PENDING",
         eventType: "checkout.session.created",
         rawEvent: checkoutResult.raw === undefined ? undefined : JSON.parse(JSON.stringify(checkoutResult.raw))
@@ -634,7 +758,10 @@ async function createWorkspaceOrder(
       metadata: {
         orderId: order.id,
         pipelineStage,
-        totalCents: subtotalCents,
+        subtotalCents,
+        discountCents,
+        totalCents,
+        discount: discountMetadata,
         commissionMode,
         paymentWorkflow,
         provider: providerCode,
@@ -653,7 +780,7 @@ async function createWorkspaceOrder(
       actorUserId,
       customer,
       orderId: order.id,
-      totalCents: subtotalCents,
+      totalCents,
       invoiceUrl,
       providerCode,
       providerSessionId: checkoutResult?.providerSessionId,

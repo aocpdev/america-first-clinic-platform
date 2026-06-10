@@ -97,7 +97,17 @@ export function OrdersTable({
         resetHref={resetPath(mode)}
         selects={[
           { name: "payment", label: "Payment", options: uniqueOptions(orders.map((order) => order.paymentStatus), "All payments") },
-          { name: "stage", label: "Stage", options: uniqueOptions(orders.map((order) => order.orderPipelineStage), "All stages") },
+          {
+            name: "stage",
+            label: "Stage",
+            options: [
+              { label: "All stages", value: "ALL" },
+              ...Array.from(new Set(orders.map((order) => order.orderPipelineStage).filter(Boolean))).map((value) => ({
+                label: orderPipelineLabel(value),
+                value
+              }))
+            ]
+          },
           { name: "status", label: "Commission", options: uniqueOptions(orders.map((order) => order.commissionStatus), "All commissions") }
         ]}
       />

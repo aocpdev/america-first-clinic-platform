@@ -5,21 +5,40 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireApprovedConsultant, requirePartner, requireRole, requireUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
+import { isUsStateCode } from "@/lib/locations/us-states";
 import { normalizePhoneToE164 } from "@/lib/phone";
 import { isCustomerPipelineStage } from "@/lib/sales/pipeline";
 
 const customerSchema = z.object({
   customerId: z.string().uuid().optional(),
   firstName: z.string().trim().min(1),
-  lastName: z.string().trim().optional(),
+  lastName: z.string().trim().min(1),
   email: z.string().trim().email(),
-  phone: z.string().trim().optional().transform((value) => normalizePhoneToE164(value)),
-  dateOfBirth: z.string().trim().optional(),
-  birthSex: z.enum(["", "MALE", "FEMALE", "PREFER_NOT_TO_SAY"]).optional(),
+  phone: z
+    .string()
+    .trim()
+    .min(1)
+    .transform((value) => normalizePhoneToE164(value))
+    .refine((value) => Boolean(value), "Phone is required"),
+  dateOfBirth: z.string().trim().min(1),
+  birthSex: z.enum(["MALE", "FEMALE", "PREFER_NOT_TO_SAY"]),
   pipelineStage: z.string().trim().optional(),
   tags: z.string().trim().optional(),
   notes: z.string().trim().optional(),
   returnTo: z.string().trim().optional()
+});
+
+const customerAddressSchema = z.object({
+  line1: z.string().trim().min(1),
+  line2: z.string().trim().optional(),
+  city: z.string().trim().min(1),
+  state: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((value) => isUsStateCode(value), "Select a valid state"),
+  postalCode: z.string().trim().min(1),
+  country: z.string().trim().min(1).default("US")
 });
 
 function formValue(formData: FormData, key: string) {
@@ -38,6 +57,17 @@ function tagsFromInput(value?: string) {
     .split(",")
     .map((tag) => tag.trim())
     .filter(Boolean);
+}
+
+function parseCustomerAddress(formData: FormData) {
+  return customerAddressSchema.parse({
+    line1: formValue(formData, "addressLine1"),
+    line2: formValue(formData, "addressLine2"),
+    city: formValue(formData, "city"),
+    state: formValue(formData, "state"),
+    postalCode: formValue(formData, "postalCode"),
+    country: formValue(formData, "country") || "US"
+  });
 }
 
 function roleBasePath(role: string) {
@@ -163,6 +193,7 @@ export async function createCustomer(formData: FormData) {
     notes: formValue(formData, "notes"),
     returnTo: formValue(formData, "returnTo")
   });
+  const address = parseCustomerAddress(formData);
   const email = parsed.email.toLowerCase();
   const pipelineStage = parsed.pipelineStage && isCustomerPipelineStage(parsed.pipelineStage) ? parsed.pipelineStage : "AWAITING_PAYMENT";
 
@@ -173,15 +204,28 @@ export async function createCustomer(formData: FormData) {
       companyId: scope.companyId,
       ...scope.createData,
       firstName: parsed.firstName,
-      lastName: parsed.lastName || null,
+      lastName: parsed.lastName,
       email,
       phone: parsed.phone,
       dateOfBirth: optionalDate(parsed.dateOfBirth),
-      birthSex: parsed.birthSex || null,
+      birthSex: parsed.birthSex,
       pipelineStage,
       pipelineUpdatedAt: new Date(),
       tags: tagsFromInput(parsed.tags),
-      notes: parsed.notes || null
+      notes: parsed.notes || null,
+      addresses: {
+        create: {
+          label: "Default",
+          line1: address.line1,
+          line2: address.line2 || null,
+          city: address.city,
+          state: address.state,
+          postalCode: address.postalCode,
+          country: address.country,
+          isDefault: true,
+          lastUsedAt: new Date()
+        }
+      }
     }
   });
 
@@ -204,11 +248,16 @@ export async function updateCustomer(formData: FormData) {
     notes: formValue(formData, "notes"),
     returnTo: formValue(formData, "returnTo")
   });
+  const address = parseCustomerAddress(formData);
 
   if (!parsed.customerId) redirect(`${scope.basePath}?error=missing_customer`);
   const existing = await prisma.customer.findFirst({
     where: { id: parsed.customerId, ...scope.where },
-    select: { id: true }
+    include: {
+      addresses: {
+        orderBy: [{ isDefault: "desc" }, { lastUsedAt: "desc" }, { createdAt: "desc" }]
+      }
+    }
   });
   if (!existing) redirect(`${scope.basePath}?error=customer_not_found`);
 
@@ -217,21 +266,58 @@ export async function updateCustomer(formData: FormData) {
 
   await assertEmailAvailable(scope.companyId, email, parsed.customerId);
   await assertPhoneAvailable(scope.companyId, parsed.phone, parsed.customerId);
-  await prisma.customer.update({
-    where: { id: parsed.customerId },
-    data: {
-      firstName: parsed.firstName,
-      lastName: parsed.lastName || null,
-      email,
-      phone: parsed.phone,
-      dateOfBirth: optionalDate(parsed.dateOfBirth),
-      birthSex: parsed.birthSex || null,
-      pipelineStage,
-      pipelineUpdatedAt: new Date(),
-      tags: tagsFromInput(parsed.tags),
-      notes: parsed.notes || null
-    }
-  });
+  const defaultAddress = existing.addresses.find((item) => item.isDefault) ?? existing.addresses[0] ?? null;
+
+  await prisma.$transaction([
+    prisma.customer.update({
+      where: { id: parsed.customerId },
+      data: {
+        firstName: parsed.firstName,
+        lastName: parsed.lastName,
+        email,
+        phone: parsed.phone,
+        dateOfBirth: optionalDate(parsed.dateOfBirth),
+        birthSex: parsed.birthSex,
+        pipelineStage,
+        pipelineUpdatedAt: new Date(),
+        tags: tagsFromInput(parsed.tags),
+        notes: parsed.notes || null
+      }
+    }),
+    prisma.customerAddress.updateMany({
+      where: { customerId: parsed.customerId },
+      data: { isDefault: false }
+    }),
+    defaultAddress
+      ? prisma.customerAddress.update({
+          where: { id: defaultAddress.id },
+          data: {
+            label: defaultAddress.label || "Default",
+            line1: address.line1,
+            line2: address.line2 || null,
+            city: address.city,
+            state: address.state,
+            postalCode: address.postalCode,
+            country: address.country,
+            isDefault: true,
+            lastUsedAt: new Date()
+          }
+        })
+      : prisma.customerAddress.create({
+          data: {
+            customerId: parsed.customerId,
+            label: "Default",
+            line1: address.line1,
+            line2: address.line2 || null,
+            city: address.city,
+            state: address.state,
+            postalCode: address.postalCode,
+            country: address.country,
+            isDefault: true,
+            lastUsedAt: new Date()
+          }
+        })
+  ]);
 
   const returnTo = cleanReturnTo(parsed.returnTo, `${scope.basePath}/${parsed.customerId}`);
   revalidatePath(scope.basePath);

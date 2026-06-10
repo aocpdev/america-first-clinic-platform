@@ -14,6 +14,9 @@ export const customerRecordInclude = {
   orders: {
     include: orderListInclude,
     orderBy: { createdAt: "desc" }
+  },
+  addresses: {
+    orderBy: [{ isDefault: "desc" }, { lastUsedAt: "desc" }, { createdAt: "desc" }]
   }
 } satisfies Prisma.CustomerInclude;
 
@@ -69,7 +72,8 @@ export function mapCustomerRecord(customer: CustomerRecordPayload) {
     consultantName: customer.consultantProfile ? personName(customer.consultantProfile.user) : null,
     leaderName: groupLeaderProfile?.displayName ?? (groupLeaderProfile ? personName(groupLeaderProfile.user) : null),
     partnerName: partnerProfile?.companyName ?? partnerProfile?.displayName ?? (partnerProfile ? personName(partnerProfile.user) : null),
-    orders: customer.orders
+    orders: customer.orders,
+    addresses: customer.addresses
   };
 }
 

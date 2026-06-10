@@ -126,7 +126,14 @@ export async function updateOrderPipelineStage(formData: FormData) {
     nextData.orderStatus = "PENDING";
   }
 
-  if (requestedStage === "NEW_SALE" || requestedStage === "GFE" || requestedStage === "APPROVAL" || requestedStage === "FULFILLMENT") {
+  if (
+    requestedStage === "NEW_SALE" ||
+    requestedStage === "GFE" ||
+    requestedStage === "MEDICAL_REVIEW" ||
+    requestedStage === "APPROVAL" ||
+    requestedStage === "PRESCRIPTION_CONFIRMED" ||
+    requestedStage === "FULFILLMENT"
+  ) {
     nextData.orderStatus = "PROCESSING";
   }
 

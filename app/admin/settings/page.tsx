@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { stripeEnvironmentStatus } from "@/lib/payments/stripe-config";
+import { publicSiteBaseUrl } from "@/lib/urls";
 
 export default async function AdminSettingsPage() {
   const user = await requireRole("COMPANY_ADMIN");
@@ -28,7 +29,11 @@ export default async function AdminSettingsPage() {
           activeProvider={activeProvider}
           stripeStatus={stripeEnvironmentStatus()}
         />
-        <WebhookSettings endpoints={endpoints} scope="admin" />
+        <WebhookSettings
+          endpoints={endpoints}
+          scope="admin"
+          qualiphyWebhookUrl={`${publicSiteBaseUrl()}/api/webhooks/qualiphy`}
+        />
       </div>
     </SidebarShell>
   );

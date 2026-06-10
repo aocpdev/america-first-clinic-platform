@@ -4,6 +4,7 @@ export const adminNav = [
   { href: "/admin/pipeline", label: "Pipeline" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/products", label: "Products" },
+  { href: "/admin/discounts", label: "Discounts" },
   { href: "/admin/customers", label: "Customers" },
   { href: "/admin/consultants", label: "Consultants" },
   { href: "/admin/commissions", label: "Commissions" },
