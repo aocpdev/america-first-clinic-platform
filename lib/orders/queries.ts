@@ -63,6 +63,8 @@ export function mapOrderRows(orders: OrderListRecord[]) {
       orderStatus: order.orderStatus,
       orderPipelineStage: order.orderPipelineStage,
       commissionStatus: order.commissionStatus,
+      shippingCarrier: order.shippingCarrier,
+      shippingTrackingCode: order.shippingTrackingCode,
       createdAt: new Intl.DateTimeFormat("en-US", {
         month: "short",
         day: "numeric",

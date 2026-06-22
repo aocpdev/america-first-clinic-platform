@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { AdminDeleteTestOrderButton } from "@/components/orders/admin-delete-test-order-button";
 import Link from "next/link";
 import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type RecordFiltersState } from "@/components/filters/record-filters";
+import { carrierLabel, carrierTrackingUrl } from "@/lib/orders/tracking";
 import { orderPipelineLabel } from "@/lib/sales/pipeline";
 import { currency } from "@/lib/utils";
 
@@ -28,6 +29,8 @@ export type OrderRow = {
   orderStatus: string;
   orderPipelineStage: string;
   commissionStatus: string;
+  shippingCarrier: string | null;
+  shippingTrackingCode: string | null;
   createdAt: string;
   customerId: string;
 };
@@ -73,7 +76,9 @@ function applyOrderFilters(orders: OrderRow[], filters?: RecordFiltersState) {
       order.products,
       order.paymentStatus,
       order.commissionStatus,
-      orderPipelineLabel(order.orderPipelineStage)
+      orderPipelineLabel(order.orderPipelineStage),
+      order.shippingTrackingCode,
+      carrierLabel(order.shippingCarrier)
     ]) &&
     matchesSelect(order.paymentStatus, normalized.payment) &&
     matchesSelect(order.orderPipelineStage, normalized.stage) &&
@@ -98,6 +103,18 @@ export function OrdersTable({
   const showConsultantFinancials = mode === "consultant";
   const showAdminActions = mode === "admin";
   const basePath = mode === "admin" ? "/admin" : mode === "manager" ? "/manager" : mode === "consultant" ? "/consultant" : "/partner";
+  const columnCount =
+    2 +
+    (mode !== "consultant" ? 1 : 0) +
+    (showAdminFinancials || showPartnerFinancials || showManagerFinancials ? 1 : 0) +
+    (showAdminFinancials ? 1 : 0) +
+    7 +
+    (showAdminFinancials ? 2 : 0) +
+    (showAdminFinancials || showPartnerFinancials ? 1 : 0) +
+    (showAdminFinancials || showPartnerFinancials || showManagerFinancials ? 1 : 0) +
+    (showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials ? 1 : 0) +
+    (showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials || showConsultantFinancials ? 1 : 0) +
+    (showAdminActions ? 1 : 0);
 
   return (
     <div className="space-y-6">
@@ -144,6 +161,7 @@ export function OrdersTable({
               {(showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials || showConsultantFinancials) ? <th className="px-5 py-3">Consultant commission</th> : null}
               <th className="px-5 py-3">Payment</th>
               <th className="px-5 py-3">Step</th>
+              <th className="px-5 py-3">Tracking</th>
               <th className="px-5 py-3">Commission</th>
               <th className="px-5 py-3">Created</th>
               {showAdminActions ? <th className="px-5 py-3">Actions</th> : null}
@@ -179,6 +197,28 @@ export function OrdersTable({
                 {(showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials || showConsultantFinancials) ? <td className="px-5 py-4 font-semibold text-clinic-red">{money(order.consultantCommissionCents)}</td> : null}
                 <td className="px-5 py-4"><Badge>{order.paymentStatus}</Badge></td>
                 <td className="px-5 py-4"><Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{orderPipelineLabel(order.orderPipelineStage)}</Badge></td>
+                <td className="px-5 py-4">
+                  {order.shippingTrackingCode ? (
+                    carrierTrackingUrl(order.shippingCarrier, order.shippingTrackingCode) ? (
+                      <a
+                        href={carrierTrackingUrl(order.shippingCarrier, order.shippingTrackingCode) ?? undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex max-w-48 flex-col rounded-2xl bg-blue-50 px-3 py-2 text-xs font-semibold text-clinic-navy transition hover:bg-clinic-mist"
+                      >
+                        <span>{carrierLabel(order.shippingCarrier)}</span>
+                        <span className="truncate underline decoration-blue-200 underline-offset-4">{order.shippingTrackingCode}</span>
+                      </a>
+                    ) : (
+                      <div className="max-w-48 rounded-2xl bg-clinic-mist px-3 py-2 text-xs font-semibold text-clinic-ink">
+                        <span className="block">{carrierLabel(order.shippingCarrier)}</span>
+                        <span className="block truncate">{order.shippingTrackingCode}</span>
+                      </div>
+                    )
+                  ) : (
+                    <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Pending</span>
+                  )}
+                </td>
                 <td className="px-5 py-4"><Badge>{order.commissionStatus}</Badge></td>
                 <td className="px-5 py-4 text-slate-600">{order.createdAt}</td>
                 {showAdminActions ? (
@@ -194,7 +234,7 @@ export function OrdersTable({
             ))}
             {rows.length === 0 ? (
               <tr>
-                <td className="px-5 py-10 text-center text-slate-500" colSpan={showAdminActions ? 17 : 16}>No orders found for this workspace yet.</td>
+                <td className="px-5 py-10 text-center text-slate-500" colSpan={columnCount}>No orders found for this workspace yet.</td>
               </tr>
             ) : null}
           </tbody>
