@@ -21,8 +21,24 @@ const reportOrderInclude = {
   customer: true,
   partnerProfile: { include: { user: true } },
   managerProfile: { include: { user: true } },
-  groupLeaderProfile: { include: { user: true } },
-  consultantProfile: { include: { user: true } },
+  groupLeaderProfile: {
+    include: {
+      user: true,
+      managerProfile: { include: { user: true } }
+    }
+  },
+  consultantProfile: {
+    include: {
+      user: true,
+      managerProfile: { include: { user: true } },
+      groupLeaderProfile: {
+        include: {
+          user: true,
+          managerProfile: { include: { user: true } }
+        }
+      }
+    }
+  },
   items: { include: { product: { select: { title: true, sku: true } } } },
   commissionSplits: true
 } satisfies Prisma.OrderInclude;
@@ -131,6 +147,62 @@ function splitForRole(order: ReportOrder, input: ReportInput) {
     .reduce((sum, split) => sum + split.amountCents, 0);
 }
 
+function managerForOrder(order: ReportOrder) {
+  const profile = order.managerProfile ?? order.groupLeaderProfile?.managerProfile ?? order.consultantProfile?.managerProfile ?? order.consultantProfile?.groupLeaderProfile?.managerProfile ?? null;
+  if (!profile) return null;
+  return { id: profile.id, name: profile.displayName || personName(profile.user), role: "Manager" };
+}
+
+function leaderForOrder(order: ReportOrder) {
+  const profile = order.groupLeaderProfile ?? order.consultantProfile?.groupLeaderProfile ?? null;
+  if (!profile) return null;
+  return { id: profile.id, name: profile.displayName || personName(profile.user), role: "Leader" };
+}
+
+function sellerForOrder(order: ReportOrder) {
+  const profile = order.consultantProfile ?? null;
+  if (!profile) return null;
+  return { id: profile.id, name: personName(profile.user), role: "Seller" };
+}
+
+type PerformanceEntity = {
+  id: string;
+  name: string;
+  role: string;
+};
+
+type PerformanceAccumulator = PerformanceEntity & {
+  orders: number;
+  revenueCents: number;
+  earningsCents: number;
+  lastSaleAt: Date | null;
+};
+
+function addPerformanceRow(
+  map: Map<string, PerformanceAccumulator>,
+  entity: PerformanceEntity | null,
+  order: ReportOrder,
+  earningsCents: number
+) {
+  if (!entity) return;
+  const key = `${entity.role}:${entity.id}`;
+  const current = map.get(key) ?? { ...entity, orders: 0, revenueCents: 0, earningsCents: 0, lastSaleAt: null };
+  current.orders += 1;
+  current.revenueCents += order.totalCents;
+  current.earningsCents += earningsCents;
+  current.lastSaleAt = !current.lastSaleAt || order.createdAt > current.lastSaleAt ? order.createdAt : current.lastSaleAt;
+  map.set(key, current);
+}
+
+function performanceRows(map: Map<string, PerformanceAccumulator>) {
+  return Array.from(map.values())
+    .map((row) => ({
+      ...row,
+      averageOrderCents: row.orders ? Math.round(row.revenueCents / row.orders) : 0
+    }))
+    .sort((a, b) => b.revenueCents - a.revenueCents);
+}
+
 function monthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
@@ -175,21 +247,29 @@ export async function getReportData(input: ReportInput) {
 
   const productMap = new Map<string, { title: string; sku: string; quantity: number; revenueCents: number }>();
   const teamMap = new Map<string, { name: string; role: string; orders: number; revenueCents: number; earningsCents: number }>();
+  const managerMap = new Map<string, PerformanceAccumulator>();
+  const leaderMap = new Map<string, PerformanceAccumulator>();
+  const sellerMap = new Map<string, PerformanceAccumulator>();
   const bucketMap = new Map(recentMonthBuckets().map((bucket) => [bucket.key, bucket]));
 
   for (const order of orders) {
+    const orderEarningsCents = splitForRole(order, input);
     const bucket = bucketMap.get(monthKey(order.createdAt));
     if (bucket) {
       bucket.revenue += order.totalCents / 100;
-      bucket.earnings += splitForRole(order, input) / 100;
+      bucket.earnings += orderEarningsCents / 100;
     }
 
     const seller = originator(order);
     const teamCurrent = teamMap.get(`${seller.role}:${seller.name}`) ?? { ...seller, orders: 0, revenueCents: 0, earningsCents: 0 };
     teamCurrent.orders += 1;
     teamCurrent.revenueCents += order.totalCents;
-    teamCurrent.earningsCents += splitForRole(order, input);
+    teamCurrent.earningsCents += orderEarningsCents;
     teamMap.set(`${seller.role}:${seller.name}`, teamCurrent);
+
+    addPerformanceRow(managerMap, managerForOrder(order), order, orderEarningsCents);
+    addPerformanceRow(leaderMap, leaderForOrder(order), order, orderEarningsCents);
+    addPerformanceRow(sellerMap, sellerForOrder(order), order, orderEarningsCents);
 
     for (const item of order.items) {
       const current = productMap.get(item.productId) ?? { title: item.product.title, sku: item.product.sku, quantity: 0, revenueCents: 0 };
@@ -201,6 +281,9 @@ export async function getReportData(input: ReportInput) {
 
   const productRows = Array.from(productMap.values()).sort((a, b) => b.revenueCents - a.revenueCents);
   const teamRows = Array.from(teamMap.values()).sort((a, b) => b.revenueCents - a.revenueCents);
+  const managerRows = performanceRows(managerMap);
+  const leaderRows = performanceRows(leaderMap);
+  const sellerRows = performanceRows(sellerMap);
   const orderRows = orders.map((order) => {
     const seller = originator(order);
     return {
@@ -227,6 +310,9 @@ export async function getReportData(input: ReportInput) {
     topProducts: productRows.slice(0, 8),
     teamRows: teamRows.slice(0, 12),
     recentOrders: orderRows.slice(0, 12),
+    managerRows,
+    leaderRows,
+    sellerRows,
     exportProducts: productRows,
     exportTeamRows: teamRows,
     exportOrders: orderRows

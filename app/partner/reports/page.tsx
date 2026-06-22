@@ -7,14 +7,19 @@ import { parseDashboardDateRange } from "@/lib/dashboard/date-range";
 import { prisma } from "@/lib/db/prisma";
 import { getReportData } from "@/lib/reports/queries";
 
+function comparisonView(value?: string) {
+  return value === "leaders" || value === "sellers" || value === "managers" ? value : "managers";
+}
+
 export default async function PartnerReportsPage({
   searchParams
 }: {
-  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ range?: string; from?: string; to?: string; compare?: string }>;
 }) {
   const user = await requirePartner();
   const params = await searchParams;
   const range = parseDashboardDateRange(params);
+  const compare = comparisonView(params.compare);
   const isGroupLeader = user.role === "GROUP_LEADER";
   const nav = isGroupLeader ? groupLeaderNav : partnerNav;
   const [partnerProfile, groupLeaderProfile] = await Promise.all([
@@ -50,6 +55,8 @@ export default async function PartnerReportsPage({
         range={range}
         resetHref="/partner/reports"
         exportBaseHref="/api/reports/export"
+        comparisonView={compare}
+        comparisonBaseHref="/partner/reports"
         earningsLabel={leader ? "Leader earnings" : "Partner earnings"}
         directLabel={leader ? "Leader direct revenue" : "Partner direct revenue"}
         scopeDescription={leader

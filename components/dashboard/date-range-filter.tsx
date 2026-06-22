@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 type DashboardDateRangeFilterProps = {
   range: DashboardDateRange;
   resetHref: string;
+  hiddenParams?: Record<string, string | undefined>;
 };
 
 const presets = [
@@ -19,7 +20,7 @@ const presets = [
   { label: "Custom", value: "custom" }
 ];
 
-export function DashboardDateRangeFilter({ range, resetHref }: DashboardDateRangeFilterProps) {
+export function DashboardDateRangeFilter({ range, resetHref, hiddenParams = {} }: DashboardDateRangeFilterProps) {
   const isCustom = range.preset === "custom";
   const hasCustomDates = Boolean(range.fromInput || range.toInput);
 
@@ -48,6 +49,9 @@ export function DashboardDateRangeFilter({ range, resetHref }: DashboardDateRang
       </div>
 
       <form className="grid gap-3 border-t border-border bg-clinic-mist/45 p-4 md:grid-cols-[minmax(220px,280px)_repeat(2,minmax(170px,220px))_auto]">
+        {Object.entries(hiddenParams).map(([key, value]) => (
+          value ? <input key={key} type="hidden" name={key} value={value} /> : null
+        ))}
         <label className="block">
           <span className="sr-only">Date range</span>
           <select
