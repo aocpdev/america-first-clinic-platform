@@ -62,6 +62,7 @@ export default async function ConsultantPipelinePage() {
           name: customerName(order.customer),
           email: order.customer.email,
           phone: order.customer.phone,
+          dateOfBirth: order.customer.dateOfBirth?.toISOString() ?? null,
           consultantName: [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email,
           consultantAvatarUrl: user.avatarUrl,
           pipelineStage: normalizeStage(order.orderPipelineStage),
@@ -84,6 +85,7 @@ export default async function ConsultantPipelinePage() {
             .map((historyOrder) => ({
               id: historyOrder.id,
               createdAt: historyOrder.createdAt.toISOString(),
+              customerDateOfBirth: historyOrder.customer.dateOfBirth?.toISOString() ?? null,
               orderTotalCents: historyOrder.totalCents,
               opportunityValueCents: splitAmount(historyOrder, "CONSULTANT"),
               paymentStatus: historyOrder.paymentStatus,

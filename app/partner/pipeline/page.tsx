@@ -89,6 +89,7 @@ export default async function PartnerPipelinePage() {
             name: customerName(order.customer),
             email: order.customer.email,
             phone: order.customer.phone,
+            dateOfBirth: order.customer.dateOfBirth?.toISOString() ?? null,
             consultantName: consultantName(order.consultantProfile) ?? (order.partnerProfile ? consultantName(order.partnerProfile) : null),
             consultantAvatarUrl: order.consultantProfile?.user.avatarUrl ?? order.partnerProfile?.user.avatarUrl ?? null,
             pipelineStage: normalizeStage(order.orderPipelineStage),
@@ -111,6 +112,7 @@ export default async function PartnerPipelinePage() {
               .map((historyOrder) => ({
                 id: historyOrder.id,
                 createdAt: historyOrder.createdAt.toISOString(),
+                customerDateOfBirth: historyOrder.customer.dateOfBirth?.toISOString() ?? null,
                 orderTotalCents: historyOrder.totalCents,
                 opportunityValueCents: isGroupLeader ? splitAmount(historyOrder, "GROUP_LEADER") : splitAmount(historyOrder, "PARTNER"),
                 paymentStatus: historyOrder.paymentStatus,

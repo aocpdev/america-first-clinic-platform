@@ -12,6 +12,7 @@ export type OrderRow = {
   id: string;
   customerName: string;
   customerEmail: string;
+  customerDateOfBirth: Date | null;
   consultantName: string | null;
   leaderName: string | null;
   partnerName: string | null;
@@ -39,6 +40,11 @@ function shortId(id: string) {
   return id.slice(0, 8).toUpperCase();
 }
 
+function birthDateLabel(value: Date | null) {
+  if (!value) return "DOB not provided";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(value);
+}
+
 function resetPath(mode: OrdersTableMode) {
   if (mode === "admin") return "/admin/orders";
   if (mode === "manager") return "/manager/orders";
@@ -60,6 +66,7 @@ function applyOrderFilters(orders: OrderRow[], filters?: RecordFiltersState) {
       shortId(order.id),
       order.customerName,
       order.customerEmail,
+      birthDateLabel(order.customerDateOfBirth),
       order.consultantName,
       order.leaderName,
       order.partnerName,
@@ -155,6 +162,7 @@ export function OrdersTable({
                     {order.customerName}
                   </Link>
                   <p className="mt-1 text-xs text-slate-500">{order.customerEmail}</p>
+                  <p className="mt-1 text-xs font-semibold text-clinic-ink">{birthDateLabel(order.customerDateOfBirth)}</p>
                 </td>
                 {mode !== "consultant" ? <td className="px-5 py-4 text-slate-600">{order.consultantName ?? "Direct sale"}</td> : null}
                 {showAdminFinancials || showPartnerFinancials || showManagerFinancials ? <td className="px-5 py-4 text-slate-600">{order.leaderName ?? "No leader"}</td> : null}

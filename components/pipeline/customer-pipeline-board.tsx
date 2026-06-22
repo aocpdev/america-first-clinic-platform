@@ -23,6 +23,7 @@ type PipelineOpportunity = {
   name: string;
   email: string;
   phone: string | null;
+  dateOfBirth: string | null;
   consultantName: string | null;
   consultantAvatarUrl: string | null;
   pipelineStage: CustomerPipelineStage;
@@ -57,6 +58,7 @@ type CustomerClinicalDocument = {
 type CustomerOrderHistoryItem = {
   id: string;
   createdAt: string;
+  customerDateOfBirth: string | null;
   orderTotalCents: number;
   opportunityValueCents: number;
   paymentStatus: string;
@@ -86,6 +88,11 @@ function formatDate(value: string | null) {
 function formatFullDate(value: string | null) {
   if (!value) return "No date";
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(new Date(value));
+}
+
+function formatBirthDate(value: string | null) {
+  if (!value) return "DOB not provided";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(value));
 }
 
 function shortOrderId(id: string) {
@@ -306,6 +313,7 @@ export function CustomerPipelineBoard({
                       <div className="mt-3 space-y-1 text-xs text-slate-500">
                         <p className="truncate" title={opportunity.email}>{opportunity.email}</p>
                         <p>{opportunity.phone || "No phone"}</p>
+                        <p className="font-semibold text-clinic-ink">DOB {formatBirthDate(opportunity.dateOfBirth)}</p>
                         <div className="flex items-start gap-1.5 rounded-xl bg-clinic-mist px-2.5 py-2 text-slate-600">
                           <MapPin className="mt-0.5 size-3.5 shrink-0 text-clinic-navy" />
                           <p className="line-clamp-2" title={opportunity.shippingAddress ?? undefined}>
@@ -474,6 +482,17 @@ function OpportunityModal({
                   <p className="mt-2 text-sm text-slate-500">
                     Each purchase is tracked as its own opportunity. The highlighted row is the order for this card.
                   </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-border bg-clinic-mist px-4 py-3">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Date of birth</p>
+                      <p className="mt-1 font-semibold text-clinic-ink">{formatBirthDate(opportunity.dateOfBirth)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-border bg-clinic-mist px-4 py-3 sm:col-span-2">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Contact</p>
+                      <p className="mt-1 truncate font-semibold text-clinic-ink" title={opportunity.email}>{opportunity.email}</p>
+                      <p className="mt-1 text-sm text-slate-600">{opportunity.phone || "No phone"}</p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="rounded-3xl border border-clinic-blue bg-blue-50 p-4">
@@ -521,6 +540,7 @@ function OpportunityModal({
                               </span>
                             </div>
                             <p className="mt-2 text-sm text-slate-500">{formatFullDate(order.createdAt)}</p>
+                            <p className="mt-1 text-sm font-semibold text-clinic-ink">DOB {formatBirthDate(order.customerDateOfBirth)}</p>
                             <p className="mt-2 truncate text-sm text-slate-600" title={order.products}>{order.products || "No products listed"}</p>
                             <div className="mt-3 flex items-start gap-2 rounded-2xl bg-clinic-mist px-3 py-2 text-sm font-semibold text-slate-600">
                               <MapPin className="mt-0.5 size-4 shrink-0 text-clinic-navy" />

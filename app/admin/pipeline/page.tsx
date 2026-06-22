@@ -54,6 +54,7 @@ export default async function AdminPipelinePage() {
             name: personName(order.customer),
             email: order.customer.email,
             phone: order.customer.phone,
+            dateOfBirth: order.customer.dateOfBirth?.toISOString() ?? null,
             notes: order.orderNotes,
             pipelineStage: normalizeStage(order.orderPipelineStage),
             pipelineUpdatedAt: order.orderPipelineUpdatedAt?.toISOString() ?? null,
@@ -85,6 +86,7 @@ export default async function AdminPipelinePage() {
               .map((historyOrder) => ({
                 id: historyOrder.id,
                 createdAt: historyOrder.createdAt.toISOString(),
+                customerDateOfBirth: historyOrder.customer.dateOfBirth?.toISOString() ?? null,
                 orderTotalCents: historyOrder.totalCents,
                 opportunityValueCents: historyOrder.grossMarginCents,
                 paymentStatus: historyOrder.paymentStatus,

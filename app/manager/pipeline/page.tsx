@@ -68,6 +68,7 @@ export default async function ManagerPipelinePage() {
           name: customerName(order.customer),
           email: order.customer.email,
           phone: order.customer.phone,
+          dateOfBirth: order.customer.dateOfBirth?.toISOString() ?? null,
           consultantName: order.consultantProfile ? personName(order.consultantProfile.user) : order.groupLeaderProfile ? personName(order.groupLeaderProfile.user) : "Manager direct",
           consultantAvatarUrl: order.consultantProfile?.user.avatarUrl ?? order.groupLeaderProfile?.user.avatarUrl ?? user.avatarUrl,
           pipelineStage: normalizeStage(order.orderPipelineStage),
@@ -90,6 +91,7 @@ export default async function ManagerPipelinePage() {
             .map((historyOrder) => ({
               id: historyOrder.id,
               createdAt: historyOrder.createdAt.toISOString(),
+              customerDateOfBirth: historyOrder.customer.dateOfBirth?.toISOString() ?? null,
               orderTotalCents: historyOrder.totalCents,
               opportunityValueCents: splitAmount(historyOrder),
               paymentStatus: historyOrder.paymentStatus,

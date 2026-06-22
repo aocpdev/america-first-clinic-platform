@@ -28,6 +28,11 @@ function shortId(id: string) {
   return id.slice(0, 8).toUpperCase();
 }
 
+function birthDateLabel(value: Date | null) {
+  if (!value) return "Not provided";
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(value);
+}
+
 function paymentProviderMetadata(order: OrderListRecord) {
   const metadata = order.referralMetadata;
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
@@ -169,6 +174,10 @@ export function OrderDocument({
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Phone</p>
                 <p className="mt-1">{order.customer.phone ?? "Not provided"}</p>
+              </div>
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Date of birth</p>
+                <p className="mt-1">{birthDateLabel(order.customer.dateOfBirth)}</p>
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Status</p>
