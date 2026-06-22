@@ -3,6 +3,7 @@ import type { Prisma } from "@prisma/client";
 export const orderListInclude = {
   customer: true,
   partnerProfile: { include: { user: true } },
+  managerProfile: { include: { user: true } },
   groupLeaderProfile: { include: { user: true } },
   consultantProfile: {
     include: {

@@ -22,6 +22,24 @@ function orderProducts(order: OrderListRecord) {
   return order.items.map((item) => `${item.quantity}x ${item.product.title}`).join(", ");
 }
 
+function orderMetadata(order: OrderListRecord) {
+  const metadata = order.referralMetadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  return metadata as Record<string, unknown>;
+}
+
+function orderOriginator(order: OrderListRecord) {
+  const commissionMode = orderMetadata(order)?.commissionMode;
+
+  if (commissionMode === "CONSULTANT_PARTNER_SPLIT") return order.consultantProfile?.user ?? null;
+  if (commissionMode === "GROUP_LEADER_DIRECT") return order.groupLeaderProfile?.user ?? null;
+  if (commissionMode === "MANAGER_DIRECT") return order.managerProfile?.user ?? null;
+  if (commissionMode === "PARTNER_DIRECT") return order.partnerProfile?.user ?? null;
+  if (commissionMode === "ADMIN_DIRECT") return null;
+
+  return order.consultantProfile?.user ?? order.groupLeaderProfile?.user ?? order.managerProfile?.user ?? order.partnerProfile?.user ?? null;
+}
+
 export default async function AdminPipelinePage() {
   const user = await requireRole("COMPANY_ADMIN");
 
@@ -47,7 +65,7 @@ export default async function AdminPipelinePage() {
     <SidebarShell nav={adminNav} eyebrow="Company admin" title="Pipeline">
       <CustomerPipelineBoard
         customers={orders.map((order) => {
-          const ownerUser = order.consultantProfile?.user ?? order.partnerProfile?.user ?? null;
+          const ownerUser = orderOriginator(order);
           return {
             id: order.id,
             customerId: order.customerId,
