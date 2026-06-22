@@ -30,7 +30,7 @@ function personName(person: { firstName: string | null; lastName: string | null;
   return [person.firstName, person.lastName].filter(Boolean).join(" ").trim() || person.email || "Unassigned";
 }
 
-function splitAmount(order: OrderListRecord, role: "PARTNER" | "GROUP_LEADER" | "CONSULTANT") {
+function splitAmount(order: OrderListRecord, role: "PARTNER" | "MANAGER" | "GROUP_LEADER" | "CONSULTANT") {
   return order.commissionSplits
     .filter((split) => split.participantRole === role)
     .reduce((sum, split) => sum + split.amountCents, 0);

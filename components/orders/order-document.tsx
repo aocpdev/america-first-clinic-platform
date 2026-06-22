@@ -2,6 +2,7 @@ import { resendReceiptWebhook } from "@/app/orders/actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { AdminDeleteTestOrderButton } from "@/components/orders/admin-delete-test-order-button";
 import { OrderStageForm } from "@/components/orders/order-stage-form";
 import { ORDER_PROGRESS_STAGES, orderPipelineDescription, orderPipelineLabel } from "@/lib/sales/pipeline";
 import { currency } from "@/lib/utils";
@@ -328,6 +329,27 @@ export function OrderDocument({
                 </a>
               ) : null}
               {order.prescriptionNotes ? <p className="mt-3 text-sm leading-6 text-slate-600">{order.prescriptionNotes}</p> : null}
+            </div>
+          ) : null}
+
+          {mode === "admin" && !isReceipt ? (
+            <div className="rounded-3xl border border-red-100 bg-red-50 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-700">Admin cleanup</p>
+              <h3 className="mt-2 text-lg font-semibold text-clinic-ink">Test order removal</h3>
+              {isCaptured ? (
+                <p className="mt-2 text-sm leading-6 text-red-700">
+                  This order has a captured payment. Refund or void the payment before deleting it from the system.
+                </p>
+              ) : (
+                <>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Use this only for unpaid, failed, or internal test orders.
+                  </p>
+                  <div className="mt-4">
+                    <AdminDeleteTestOrderButton orderId={order.id} />
+                  </div>
+                </>
+              )}
             </div>
           ) : null}
         </aside>

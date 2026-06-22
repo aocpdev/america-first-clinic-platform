@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { AdminDeleteTestOrderButton } from "@/components/orders/admin-delete-test-order-button";
 import Link from "next/link";
 import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type RecordFiltersState } from "@/components/filters/record-filters";
 import { orderPipelineLabel } from "@/lib/sales/pipeline";
@@ -88,6 +89,7 @@ export function OrdersTable({
   const showManagerFinancials = mode === "manager";
   const showLeaderFinancials = mode === "group_leader";
   const showConsultantFinancials = mode === "consultant";
+  const showAdminActions = mode === "admin";
   const basePath = mode === "admin" ? "/admin" : mode === "manager" ? "/manager" : mode === "consultant" ? "/consultant" : "/partner";
 
   return (
@@ -137,6 +139,7 @@ export function OrdersTable({
               <th className="px-5 py-3">Step</th>
               <th className="px-5 py-3">Commission</th>
               <th className="px-5 py-3">Created</th>
+              {showAdminActions ? <th className="px-5 py-3">Actions</th> : null}
             </tr>
           </thead>
           <tbody className="divide-y divide-border bg-white">
@@ -170,11 +173,20 @@ export function OrdersTable({
                 <td className="px-5 py-4"><Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{orderPipelineLabel(order.orderPipelineStage)}</Badge></td>
                 <td className="px-5 py-4"><Badge>{order.commissionStatus}</Badge></td>
                 <td className="px-5 py-4 text-slate-600">{order.createdAt}</td>
+                {showAdminActions ? (
+                  <td className="px-5 py-4">
+                    {order.paymentStatus === "CAPTURED" ? (
+                      <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Captured</span>
+                    ) : (
+                      <AdminDeleteTestOrderButton orderId={order.id} compact />
+                    )}
+                  </td>
+                ) : null}
               </tr>
             ))}
             {rows.length === 0 ? (
               <tr>
-                <td className="px-5 py-10 text-center text-slate-500" colSpan={16}>No orders found for this workspace yet.</td>
+                <td className="px-5 py-10 text-center text-slate-500" colSpan={showAdminActions ? 17 : 16}>No orders found for this workspace yet.</td>
               </tr>
             ) : null}
           </tbody>

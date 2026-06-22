@@ -11,12 +11,13 @@ export default async function AdminOrderDetailPage({
   searchParams
 }: {
   params: Promise<{ orderId: string }>;
-  searchParams?: Promise<{ payment?: string; receipt?: string }>;
+  searchParams?: Promise<{ payment?: string; receipt?: string; delete?: string }>;
 }) {
   const { orderId } = await params;
   const query = await searchParams;
   const paymentStatus = query?.payment;
   const receiptStatus = query?.receipt;
+  const deleteStatus = query?.delete;
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: orderListInclude
@@ -36,6 +37,11 @@ export default async function AdminOrderDetailPage({
         {receiptStatus === "sent" ? (
           <div className="rounded-[24px] border border-blue-200 bg-blue-50 px-6 py-5 text-lg font-black text-clinic-navy">
             Receipt resend webhook was queued.
+          </div>
+        ) : null}
+        {deleteStatus === "captured" ? (
+          <div className="rounded-[24px] border border-red-200 bg-red-50 px-6 py-5 text-lg font-black text-red-800">
+            Captured orders cannot be deleted here. Refund or void the payment before removing a real captured order.
           </div>
         ) : null}
         <OrderDocument order={order} mode="admin" variant="internal" />

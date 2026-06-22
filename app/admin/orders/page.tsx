@@ -7,8 +7,21 @@ import { prisma } from "@/lib/db/prisma";
 import { mapOrderRows, orderListInclude } from "@/lib/orders/queries";
 import { currency } from "@/lib/utils";
 
-export default async function AdminOrdersPage({ searchParams }: { searchParams: Promise<RecordFiltersState> }) {
+type AdminOrdersSearchParams = RecordFiltersState & {
+  deleted?: string;
+  delete?: string;
+};
+
+function deleteMessage(code?: string) {
+  if (code === "captured") return "Captured orders cannot be deleted here. Refund or void the payment before removing a real captured order.";
+  if (code === "not_found") return "That order was not found or is no longer available.";
+  if (code === "not_allowed") return "Only admins can delete test orders.";
+  return null;
+}
+
+export default async function AdminOrdersPage({ searchParams }: { searchParams: Promise<AdminOrdersSearchParams> }) {
   const filters = await searchParams;
+  const deleteError = deleteMessage(filters.delete);
   const orders = await prisma.order.findMany({
     include: orderListInclude,
     orderBy: { createdAt: "desc" },
@@ -22,6 +35,16 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
   return (
     <SidebarShell nav={adminNav} eyebrow="Admin" title="Orders">
       <div className="space-y-6">
+        {filters.deleted ? (
+          <Card className="border-emerald-100 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+            Test order #{filters.deleted} was deleted successfully.
+          </Card>
+        ) : null}
+        {deleteError ? (
+          <Card className="border-red-100 bg-red-50 p-4 text-sm font-semibold text-red-700">
+            {deleteError}
+          </Card>
+        ) : null}
         <div className="grid gap-4 md:grid-cols-3">
           <Card className="p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Total revenue</p>

@@ -22,6 +22,7 @@ function personName(person: { firstName: string | null; lastName: string | null;
 
 function returnPathForRole(role: string, orderId: string) {
   if (role === "CONSULTANT") return `/consultant/orders/${orderId}`;
+  if (role === "MANAGER") return `/manager/orders/${orderId}`;
   if (role === "PARTNER" || role === "GROUP_LEADER") return `/partner/orders/${orderId}`;
   return `/admin/orders/${orderId}`;
 }
@@ -67,6 +68,15 @@ async function ensureOrderAccess(user: Awaited<ReturnType<typeof requireUser>>, 
                   { consultantProfile: { groupLeaderProfileId: user.groupLeaderProfile?.id ?? "__no_access__" } }
                 ]
               }
+            : user.role === "MANAGER"
+              ? {
+                  OR: [
+                    { managerProfileId: user.managerProfile?.id ?? "__no_access__" },
+                    { groupLeaderProfile: { managerProfileId: user.managerProfile?.id ?? "__no_access__" } },
+                    { consultantProfile: { managerProfileId: user.managerProfile?.id ?? "__no_access__" } },
+                    { consultantProfile: { groupLeaderProfile: { managerProfileId: user.managerProfile?.id ?? "__no_access__" } } }
+                  ]
+                }
             : {})
     },
     include: {
@@ -81,6 +91,67 @@ async function ensureOrderAccess(user: Awaited<ReturnType<typeof requireUser>>, 
       }
     }
   });
+}
+
+export async function deleteAdminTestOrder(formData: FormData) {
+  const user = await requireUser();
+  const orderId = String(formData.get("orderId") || "");
+
+  if (!orderId || !user.companyId || (user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN")) {
+    redirect("/admin/orders?delete=not_allowed");
+  }
+
+  const order = await prisma.order.findFirst({
+    where: {
+      id: orderId,
+      companyId: user.companyId
+    },
+    include: {
+      customer: true
+    }
+  });
+
+  if (!order) {
+    redirect("/admin/orders?delete=not_found");
+  }
+
+  if (order.paymentStatus === "CAPTURED") {
+    redirect(`/admin/orders/${order.id}?delete=captured`);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.customerDocument.updateMany({
+      where: { orderId: order.id },
+      data: { orderId: null }
+    });
+    await tx.subscription.deleteMany({ where: { orderId: order.id } });
+    await tx.discountRedemption.deleteMany({ where: { orderId: order.id } });
+    await tx.commissionSplit.deleteMany({ where: { orderId: order.id } });
+    await tx.commission.deleteMany({ where: { orderId: order.id } });
+    await tx.paymentTransaction.deleteMany({ where: { orderId: order.id } });
+    await tx.orderItem.deleteMany({ where: { orderId: order.id } });
+    await tx.order.delete({ where: { id: order.id } });
+    await tx.activityLog.create({
+      data: {
+        companyId: order.companyId,
+        userId: user.id,
+        customerId: order.customerId,
+        action: "ADMIN_TEST_ORDER_DELETED",
+        metadata: {
+          orderId: order.id,
+          customerEmail: order.customer.email,
+          totalCents: order.totalCents,
+          paymentStatus: order.paymentStatus,
+          orderStatus: order.orderStatus
+        }
+      }
+    });
+  });
+
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin/pipeline");
+  revalidatePath("/admin/dashboard");
+  redirect(`/admin/orders?deleted=${order.id.slice(0, 8).toUpperCase()}`);
 }
 
 export async function updateOrderPipelineStage(formData: FormData) {
