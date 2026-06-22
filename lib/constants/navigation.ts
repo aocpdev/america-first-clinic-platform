@@ -45,15 +45,15 @@ export const partnerNav = [
 
 export const managerNav = [
   { href: "/manager/dashboard", label: "Dashboard" },
-  { href: "/partner/sales", label: "Sales" },
-  { href: "/partner/orders", label: "Orders" },
-  { href: "/partner/pipeline", label: "Pipeline" },
-  { href: "/partner/customers", label: "Customers" },
   { href: "/manager/team", label: "Team" },
-  { href: "/partner/products", label: "Products" },
-  { href: "/partner/commissions", label: "Commissions" },
-  { href: "/partner/payouts", label: "Payouts" },
-  { href: "/partner/rewards", label: "Rewards" },
+  { href: "/manager/sales", label: "Sales" },
+  { href: "/manager/orders", label: "Orders" },
+  { href: "/manager/pipeline", label: "Pipeline" },
+  { href: "/manager/customers", label: "Customers" },
+  { href: "/manager/products", label: "Products" },
+  { href: "/manager/commissions", label: "Commissions" },
+  { href: "/manager/payouts", label: "Payouts" },
+  { href: "/manager/rewards", label: "Rewards" },
   { href: "/manager/reports", label: "Reports" },
   { href: "/manager/profile", label: "Profile" }
 ];

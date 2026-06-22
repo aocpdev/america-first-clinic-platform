@@ -1,0 +1,108 @@
+import { CustomerPipelineBoard } from "@/components/pipeline/customer-pipeline-board";
+import { SidebarShell } from "@/components/layout/sidebar-shell";
+import { Card } from "@/components/ui/card";
+import { requireManager } from "@/lib/auth/current-user";
+import { managerNav } from "@/lib/constants/navigation";
+import { prisma } from "@/lib/db/prisma";
+import { orderListInclude, type OrderListRecord } from "@/lib/orders/queries";
+import { formatOrderShippingAddress, orderShippingAddress } from "@/lib/orders/shipping-address";
+import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
+
+function customerName(customer: { firstName: string | null; lastName: string | null; email: string }) {
+  return [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim() || customer.email;
+}
+
+function personName(person: { firstName: string | null; lastName: string | null; email: string }) {
+  return [person.firstName, person.lastName].filter(Boolean).join(" ").trim() || person.email;
+}
+
+function normalizeStage(stage: string): CustomerPipelineStage {
+  return CUSTOMER_PIPELINE_STAGES.some((item) => item.value === stage) ? (stage as CustomerPipelineStage) : "AWAITING_PAYMENT";
+}
+
+function splitAmount(order: OrderListRecord) {
+  return order.commissionSplits
+    .filter((split) => split.participantRole === "MANAGER")
+    .reduce((sum, split) => sum + split.amountCents, 0);
+}
+
+function orderProducts(order: OrderListRecord) {
+  return order.items.map((item) => `${item.quantity}x ${item.product.title}`).join(", ");
+}
+
+export default async function ManagerPipelinePage() {
+  const user = await requireManager();
+  const managerProfile = await prisma.managerProfile.findUnique({ where: { userId: user.id } });
+
+  if (!user.companyId || !managerProfile) {
+    return (
+      <SidebarShell nav={managerNav} eyebrow="Manager" title="Pipeline">
+        <Card className="p-6">
+          <h2 className="text-xl font-semibold text-clinic-ink">Manager profile not configured</h2>
+          <p className="mt-2 text-slate-600">A partner or admin must assign your manager profile before pipeline visibility is available.</p>
+        </Card>
+      </SidebarShell>
+    );
+  }
+
+  const orders = await prisma.order.findMany({
+    where: {
+      companyId: user.companyId,
+      OR: [
+        { managerProfileId: managerProfile.id },
+        { groupLeaderProfile: { managerProfileId: managerProfile.id } },
+        { consultantProfile: { managerProfileId: managerProfile.id } },
+        { consultantProfile: { groupLeaderProfile: { managerProfileId: managerProfile.id } } }
+      ]
+    },
+    include: orderListInclude,
+    orderBy: [{ orderPipelineUpdatedAt: "desc" }, { createdAt: "desc" }]
+  });
+
+  return (
+    <SidebarShell nav={managerNav} eyebrow="Manager" title="Sales pipeline">
+      <CustomerPipelineBoard
+        customers={orders.map((order) => ({
+          id: order.id,
+          customerId: order.customerId,
+          name: customerName(order.customer),
+          email: order.customer.email,
+          phone: order.customer.phone,
+          consultantName: order.consultantProfile ? personName(order.consultantProfile.user) : order.groupLeaderProfile ? personName(order.groupLeaderProfile.user) : "Manager direct",
+          consultantAvatarUrl: order.consultantProfile?.user.avatarUrl ?? order.groupLeaderProfile?.user.avatarUrl ?? user.avatarUrl,
+          pipelineStage: normalizeStage(order.orderPipelineStage),
+          pipelineUpdatedAt: order.orderPipelineUpdatedAt?.toISOString() ?? null,
+          orderTotalCents: order.totalCents,
+          opportunityValueCents: splitAmount(order),
+          adminMarginCents: order.grossMarginCents,
+          shippingAddress: formatOrderShippingAddress(orderShippingAddress(order.referralMetadata)),
+          createdAt: order.createdAt.toISOString(),
+          notes: order.orderNotes,
+          rxNotes: null,
+          rxDocumentUrl: null,
+          gfeNotes: null,
+          gfeDocumentUrl: null,
+          paymentStatus: order.paymentStatus,
+          orderStatus: order.orderStatus,
+          clinicalDocuments: [],
+          orderHistory: orders
+            .filter((historyOrder) => historyOrder.customerId === order.customerId)
+            .map((historyOrder) => ({
+              id: historyOrder.id,
+              createdAt: historyOrder.createdAt.toISOString(),
+              orderTotalCents: historyOrder.totalCents,
+              opportunityValueCents: splitAmount(historyOrder),
+              paymentStatus: historyOrder.paymentStatus,
+              orderStatus: historyOrder.orderStatus,
+              pipelineStage: historyOrder.orderPipelineStage,
+              shippingAddress: formatOrderShippingAddress(orderShippingAddress(historyOrder.referralMetadata)),
+              products: orderProducts(historyOrder)
+            }))
+        }))}
+        showConsultant
+        mode="manager"
+        basePath="/manager"
+      />
+    </SidebarShell>
+  );
+}

@@ -7,7 +7,7 @@ import { ORDER_PROGRESS_STAGES, orderPipelineDescription, orderPipelineLabel } f
 import { currency } from "@/lib/utils";
 import type { OrderListRecord } from "@/lib/orders/queries";
 
-type DocumentMode = "admin" | "partner" | "group_leader" | "consultant";
+type DocumentMode = "admin" | "partner" | "manager" | "group_leader" | "consultant";
 
 function money(cents: number) {
   return currency(cents / 100);
@@ -17,7 +17,7 @@ function personName(person: { firstName: string | null; lastName: string | null;
   return [person.firstName, person.lastName].filter(Boolean).join(" ").trim() || person.email || "Unassigned";
 }
 
-function splitAmount(order: OrderListRecord, role: "PARTNER" | "GROUP_LEADER" | "CONSULTANT") {
+function splitAmount(order: OrderListRecord, role: "PARTNER" | "MANAGER" | "GROUP_LEADER" | "CONSULTANT") {
   return order.commissionSplits
     .filter((split) => split.participantRole === role)
     .reduce((sum, split) => sum + split.amountCents, 0);
@@ -54,10 +54,12 @@ export function OrderDocument({
   const partner = order.partnerProfile ?? order.consultantProfile?.partnerProfile ?? null;
   const leader = order.groupLeaderProfile ?? order.consultantProfile?.groupLeaderProfile ?? null;
   const partnerProfitCents = splitAmount(order, "PARTNER");
+  const managerProfitCents = splitAmount(order, "MANAGER");
   const leaderProfitCents = splitAmount(order, "GROUP_LEADER");
   const consultantCommissionCents = splitAmount(order, "CONSULTANT");
   const canSeePartnerProfit = mode === "admin" || mode === "partner";
-  const canSeeLeaderProfit = mode === "admin" || mode === "partner" || mode === "group_leader";
+  const canSeeManagerProfit = mode === "admin" || mode === "partner" || mode === "manager";
+  const canSeeLeaderProfit = mode === "admin" || mode === "partner" || mode === "manager" || mode === "group_leader";
   const canSeeConsultantCommission = !isReceipt;
   const paymentMetadata = paymentProviderMetadata(order);
   const metadata = referralMetadata(order);
@@ -282,6 +284,7 @@ export function OrderDocument({
                   </>
                 ) : null}
                 {!isAdminDirectSale && canSeePartnerProfit ? <div className="flex justify-between"><span className="text-slate-500">Partner profit</span><span className="font-semibold text-clinic-navy">{money(partnerProfitCents)}</span></div> : null}
+                {!isAdminDirectSale && canSeeManagerProfit ? <div className="flex justify-between"><span className="text-slate-500">Manager earnings</span><span className="font-semibold text-clinic-navy">{money(managerProfitCents)}</span></div> : null}
                 {!isAdminDirectSale && canSeeLeaderProfit ? <div className="flex justify-between"><span className="text-slate-500">Leader profit</span><span className="font-semibold text-clinic-navy">{money(leaderProfitCents)}</span></div> : null}
                 {!isAdminDirectSale && canSeeConsultantCommission ? <div className="flex justify-between"><span className="text-slate-500">Consultant commission</span><span className="font-semibold text-clinic-red">{money(consultantCommissionCents)}</span></div> : null}
                 <div className="border-t border-border pt-3">

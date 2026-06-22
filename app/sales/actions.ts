@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { requireApprovedConsultant, requirePartner, requireRole } from "@/lib/auth/current-user";
+import { requireApprovedConsultant, requireManager, requirePartner, requireRole } from "@/lib/auth/current-user";
 import { createMarginCommissionLedger } from "@/lib/commissions/margin-split";
 import { prisma } from "@/lib/db/prisma";
 import { calculateDiscountApplication, isDiscountActive, normalizeDiscountCode } from "@/lib/discounts/calculations";
@@ -797,6 +797,10 @@ async function createWorkspaceOrder(
   revalidatePath("/partner/commissions");
   revalidatePath("/partner/pipeline");
   revalidatePath("/manager/dashboard");
+  revalidatePath("/manager/sales");
+  revalidatePath("/manager/orders");
+  revalidatePath("/manager/pipeline");
+  revalidatePath("/manager/commissions");
   revalidatePath("/manager/reports");
   revalidatePath("/consultant/sales");
   revalidatePath("/consultant/commissions");
@@ -849,6 +853,24 @@ export async function createPartnerOrder(formData: FormData) {
     partnerProfileId: partnerProfile?.id ?? groupLeaderProfile!.partnerProfileId,
     groupLeaderProfileId: groupLeaderProfile?.id ?? null,
     redirectBasePath: "/partner/sales"
+  });
+}
+
+export async function createManagerOrder(formData: FormData) {
+  const user = await requireManager();
+  const managerProfile = await prisma.managerProfile.findUnique({ where: { userId: user.id } });
+
+  if (!user.companyId || !managerProfile) {
+    redirect("/manager/sales?error=partner_profile_required");
+  }
+
+  await createWorkspaceOrder(formData, {
+    workspace: "manager",
+    companyId: user.companyId,
+    actorUserId: user.id,
+    partnerProfileId: managerProfile.partnerProfileId,
+    managerProfileId: managerProfile.id,
+    redirectBasePath: "/manager/sales"
   });
 }
 

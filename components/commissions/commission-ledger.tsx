@@ -140,6 +140,7 @@ function visibleEntries(scope: CommissionLedgerScope, entries: CommissionLedgerE
 
 function resetPath(scope: CommissionLedgerScope) {
   if (scope === "admin") return "/admin/commissions";
+  if (scope === "manager") return "/manager/commissions";
   if (scope === "consultant") return "/consultant/commissions";
   return "/partner/commissions";
 }

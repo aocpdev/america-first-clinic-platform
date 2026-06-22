@@ -73,16 +73,19 @@ function uniqueOrderSum(entries: CommissionLedgerEntry[], selector: (entry: Comm
 
 function orderHref(scope: CommissionLedgerScope, orderId: string) {
   if (scope === "admin") return `/admin/orders/${orderId}`;
+  if (scope === "manager") return `/manager/orders/${orderId}`;
   if (scope === "consultant") return `/consultant/orders/${orderId}`;
   return `/partner/orders/${orderId}`;
 }
 
 function returnPath(scope: CommissionLedgerScope) {
+  if (scope === "manager") return "/manager/payouts";
   return scope === "admin" ? "/admin/payouts" : "/partner/payouts";
 }
 
 function resetPath(scope: CommissionLedgerScope) {
   if (scope === "admin") return "/admin/payouts";
+  if (scope === "manager") return "/manager/payouts";
   if (scope === "consultant") return "/consultant/payouts";
   return "/partner/payouts";
 }

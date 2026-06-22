@@ -141,8 +141,8 @@ export function CustomerPipelineBoard({
 }: {
   customers: PipelineOpportunity[];
   showConsultant?: boolean;
-  mode?: "admin" | "partner" | "group_leader" | "consultant";
-  basePath?: "/admin" | "/partner" | "/consultant";
+  mode?: "admin" | "partner" | "manager" | "group_leader" | "consultant";
+  basePath?: "/admin" | "/partner" | "/manager" | "/consultant";
   qualiphyExams?: QualiphyExam[];
   qualiphyExamsError?: string | null;
 }) {
@@ -404,7 +404,7 @@ function OpportunityModal({
   opportunity: PipelineOpportunity;
   canManageInternalDocs: boolean;
   initialTab: "notes" | "clinical" | "orders";
-  basePath: "/admin" | "/partner" | "/consultant";
+  basePath: "/admin" | "/partner" | "/manager" | "/consultant";
   onClose: () => void;
 }) {
   const [tab, setTab] = useState<"notes" | "clinical" | "orders">(initialTab);

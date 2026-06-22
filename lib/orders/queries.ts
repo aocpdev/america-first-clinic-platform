@@ -54,6 +54,7 @@ export function mapOrderRows(orders: OrderListRecord[]) {
       grossMarginCents: order.grossMarginCents,
       commissionPoolCents: order.commissionPoolCents,
       partnerProfitCents: splitAmount(order, "PARTNER"),
+      managerProfitCents: splitAmount(order, "MANAGER"),
       leaderProfitCents: splitAmount(order, "GROUP_LEADER"),
       consultantCommissionCents: splitAmount(order, "CONSULTANT"),
       paymentStatus: order.paymentStatus,

@@ -5,7 +5,7 @@ import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type Rec
 import { orderPipelineLabel } from "@/lib/sales/pipeline";
 import { currency } from "@/lib/utils";
 
-export type OrdersTableMode = "admin" | "partner" | "group_leader" | "consultant";
+export type OrdersTableMode = "admin" | "partner" | "manager" | "group_leader" | "consultant";
 
 export type OrderRow = {
   id: string;
@@ -19,6 +19,7 @@ export type OrderRow = {
   grossMarginCents: number;
   commissionPoolCents: number;
   partnerProfitCents: number;
+  managerProfitCents: number;
   leaderProfitCents: number;
   consultantCommissionCents: number;
   paymentStatus: string;
@@ -39,6 +40,7 @@ function shortId(id: string) {
 
 function resetPath(mode: OrdersTableMode) {
   if (mode === "admin") return "/admin/orders";
+  if (mode === "manager") return "/manager/orders";
   if (mode === "consultant") return "/consultant/orders";
   return "/partner/orders";
 }
@@ -83,9 +85,10 @@ export function OrdersTable({
   const rows = applyOrderFilters(orders, filters);
   const showAdminFinancials = mode === "admin";
   const showPartnerFinancials = mode === "partner";
+  const showManagerFinancials = mode === "manager";
   const showLeaderFinancials = mode === "group_leader";
   const showConsultantFinancials = mode === "consultant";
-  const basePath = mode === "admin" ? "/admin" : mode === "consultant" ? "/consultant" : "/partner";
+  const basePath = mode === "admin" ? "/admin" : mode === "manager" ? "/manager" : mode === "consultant" ? "/consultant" : "/partner";
 
   return (
     <div className="space-y-6">
@@ -120,15 +123,16 @@ export function OrdersTable({
               <th className="px-5 py-3">Order</th>
               <th className="px-5 py-3">Customer</th>
               {mode !== "consultant" ? <th className="px-5 py-3">Consultant</th> : null}
-              {showAdminFinancials || showPartnerFinancials ? <th className="px-5 py-3">Leader</th> : null}
+              {showAdminFinancials || showPartnerFinancials || showManagerFinancials ? <th className="px-5 py-3">Leader</th> : null}
               {showAdminFinancials ? <th className="px-5 py-3">Partner</th> : null}
               <th className="px-5 py-3">Products</th>
               <th className="px-5 py-3">Total</th>
               {showAdminFinancials ? <th className="px-5 py-3">Margin</th> : null}
               {showAdminFinancials ? <th className="px-5 py-3">Pool</th> : null}
               {showAdminFinancials || showPartnerFinancials ? <th className="px-5 py-3">Partner profit</th> : null}
-              {showAdminFinancials || showPartnerFinancials || showLeaderFinancials ? <th className="px-5 py-3">Leader profit</th> : null}
-              {(showAdminFinancials || showPartnerFinancials || showLeaderFinancials || showConsultantFinancials) ? <th className="px-5 py-3">Consultant commission</th> : null}
+              {showAdminFinancials || showPartnerFinancials || showManagerFinancials ? <th className="px-5 py-3">Manager earnings</th> : null}
+              {showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials ? <th className="px-5 py-3">Leader profit</th> : null}
+              {(showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials || showConsultantFinancials) ? <th className="px-5 py-3">Consultant commission</th> : null}
               <th className="px-5 py-3">Payment</th>
               <th className="px-5 py-3">Step</th>
               <th className="px-5 py-3">Commission</th>
@@ -150,7 +154,7 @@ export function OrdersTable({
                   <p className="mt-1 text-xs text-slate-500">{order.customerEmail}</p>
                 </td>
                 {mode !== "consultant" ? <td className="px-5 py-4 text-slate-600">{order.consultantName ?? "Direct sale"}</td> : null}
-                {showAdminFinancials || showPartnerFinancials ? <td className="px-5 py-4 text-slate-600">{order.leaderName ?? "No leader"}</td> : null}
+                {showAdminFinancials || showPartnerFinancials || showManagerFinancials ? <td className="px-5 py-4 text-slate-600">{order.leaderName ?? "No leader"}</td> : null}
                 {showAdminFinancials ? <td className="px-5 py-4 text-slate-600">{order.partnerName ?? "Company"}</td> : null}
                 <td className="px-5 py-4 text-slate-600">
                   <p className="line-clamp-2">{order.products}</p>
@@ -159,8 +163,9 @@ export function OrdersTable({
                 {showAdminFinancials ? <td className="px-5 py-4 font-semibold text-clinic-navy">{money(order.grossMarginCents)}</td> : null}
                 {showAdminFinancials ? <td className="px-5 py-4 text-slate-600">{money(order.commissionPoolCents)}</td> : null}
                 {showAdminFinancials || showPartnerFinancials ? <td className="px-5 py-4 font-semibold text-clinic-navy">{money(order.partnerProfitCents)}</td> : null}
-                {showAdminFinancials || showPartnerFinancials || showLeaderFinancials ? <td className="px-5 py-4 font-semibold text-clinic-navy">{money(order.leaderProfitCents)}</td> : null}
-                <td className="px-5 py-4 font-semibold text-clinic-red">{money(order.consultantCommissionCents)}</td>
+                {showAdminFinancials || showPartnerFinancials || showManagerFinancials ? <td className="px-5 py-4 font-semibold text-clinic-navy">{money(order.managerProfitCents)}</td> : null}
+                {showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials ? <td className="px-5 py-4 font-semibold text-clinic-navy">{money(order.leaderProfitCents)}</td> : null}
+                {(showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials || showConsultantFinancials) ? <td className="px-5 py-4 font-semibold text-clinic-red">{money(order.consultantCommissionCents)}</td> : null}
                 <td className="px-5 py-4"><Badge>{order.paymentStatus}</Badge></td>
                 <td className="px-5 py-4"><Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{orderPipelineLabel(order.orderPipelineStage)}</Badge></td>
                 <td className="px-5 py-4"><Badge>{order.commissionStatus}</Badge></td>
