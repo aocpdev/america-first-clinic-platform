@@ -939,7 +939,7 @@ export function AdminRewardsEditor({
         </div>
 
         <div className="grid gap-4 p-6 xl:grid-cols-3">
-          {levels.map((level) => {
+          {levels.length ? levels.map((level) => {
             const reward = level.rewards[0];
             return (
               <button
@@ -982,7 +982,11 @@ export function AdminRewardsEditor({
                 </div>
               </button>
             );
-          })}
+          }) : (
+            <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500 xl:col-span-3">
+              No reward levels are configured. Default admin-created rewards are disabled, so this area stays empty until levels are intentionally added through a future workflow.
+            </div>
+          )}
         </div>
       </Card>
 

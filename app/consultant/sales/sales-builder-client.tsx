@@ -777,15 +777,15 @@ export function SalesBuilderClient({
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 1</label>
-                  <Input name="shippingAddressLine1" placeholder="Street address" className="mt-2" required />
+                  <Input name="shippingAddressLine1" placeholder="Street address" className="mt-2" required={shippingMode === "new"} disabled={shippingMode !== "new"} />
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Address line 2</label>
-                  <Input name="shippingAddressLine2" placeholder="Apt, suite, unit, optional" className="mt-2" />
+                  <Input name="shippingAddressLine2" placeholder="Apt, suite, unit, optional" className="mt-2" disabled={shippingMode !== "new"} />
                 </div>
                 <div>
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">City</label>
-                  <Input name="shippingCity" placeholder="City" className="mt-2" required />
+                  <Input name="shippingCity" placeholder="City" className="mt-2" required={shippingMode === "new"} disabled={shippingMode !== "new"} />
                 </div>
                 <div>
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">State</label>
@@ -793,7 +793,8 @@ export function SalesBuilderClient({
                     name="shippingState"
                     defaultValue=""
                     className="mt-2 flex h-11 w-full min-w-0 rounded-lg border border-input bg-white px-3 py-2 text-sm text-clinic-ink shadow-line transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    required
+                    required={shippingMode === "new"}
+                    disabled={shippingMode !== "new"}
                   >
                     <option value="" disabled>
                       Select state
@@ -807,11 +808,11 @@ export function SalesBuilderClient({
                 </div>
                 <div>
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">ZIP code</label>
-                  <Input name="shippingPostalCode" placeholder="ZIP code" className="mt-2" required />
+                  <Input name="shippingPostalCode" placeholder="ZIP code" className="mt-2" required={shippingMode === "new"} disabled={shippingMode !== "new"} />
                 </div>
                 <div>
                   <label className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Country</label>
-                  <Input name="shippingCountry" defaultValue="US" placeholder="Country" className="mt-2" required />
+                  <Input name="shippingCountry" defaultValue="US" placeholder="Country" className="mt-2" required={shippingMode === "new"} disabled={shippingMode !== "new"} />
                 </div>
               </div>
             </div>
@@ -1068,25 +1069,29 @@ export function SalesBuilderClient({
               </p>
             </Card>
           ) : null}
+
+          <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/70 bg-white/92 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-18px_50px_rgba(7,55,99,0.12)] backdrop-blur-xl lg:left-72 xl:hidden">
+            <div className="mx-auto grid max-w-5xl grid-cols-2 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_80px_minmax(180px,220px)]">
+              <div className="min-w-0 rounded-2xl bg-clinic-mist px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Total</p>
+                <p className="truncate text-lg font-semibold text-clinic-navy">{formatCurrency(orderTotalCents)}</p>
+              </div>
+              <div className="min-w-0 rounded-2xl bg-emerald-50 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Commission</p>
+                <p className="truncate text-lg font-semibold text-emerald-800">{formatCurrency(adjustedCommissionCents)}</p>
+              </div>
+              <div className="hidden rounded-2xl border border-border bg-white px-3 py-2 text-center sm:block">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Items</p>
+                <p className="text-lg font-semibold text-clinic-ink">{selectedItemCount}</p>
+              </div>
+              <SubmitButton className="col-span-2 h-12 rounded-2xl sm:col-span-1" size="lg" pendingText="Creating order..." disabled={!canCreateOrders || selectedLines.length === 0}>
+                <CheckCircle2 className="h-4 w-4" />
+                {paymentWorkflow === "collect_payment" ? "Collect payment" : "Send invoice"}
+              </SubmitButton>
+            </div>
+          </div>
         </div>
       </form>
-
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/70 bg-white/92 p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] shadow-[0_-18px_50px_rgba(7,55,99,0.12)] backdrop-blur-xl lg:left-72 xl:hidden">
-        <div className="mx-auto grid max-w-5xl grid-cols-2 items-center gap-2 sm:grid-cols-[1fr_1fr_auto]">
-          <div className="min-w-0 rounded-2xl bg-clinic-mist px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Total</p>
-            <p className="truncate text-lg font-semibold text-clinic-navy">{formatCurrency(orderTotalCents)}</p>
-          </div>
-          <div className="min-w-0 rounded-2xl bg-emerald-50 px-3 py-2">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-emerald-700">Commission</p>
-            <p className="truncate text-lg font-semibold text-emerald-800">{formatCurrency(adjustedCommissionCents)}</p>
-          </div>
-          <div className="hidden rounded-2xl border border-border bg-white px-3 py-2 text-center sm:block">
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">Items</p>
-            <p className="text-lg font-semibold text-clinic-ink">{selectedItemCount}</p>
-          </div>
-        </div>
-      </div>
 
       {selectedProduct ? (
         <div className="fixed inset-0 z-50 flex items-end bg-clinic-navy/30 p-0 backdrop-blur-sm sm:items-center sm:p-6">

@@ -5,6 +5,7 @@ import { requireApprovedConsultant } from "@/lib/auth/current-user";
 import { consultantNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { orderListInclude, type OrderListRecord } from "@/lib/orders/queries";
+import { formatOrderShippingAddress, orderShippingAddress } from "@/lib/orders/shipping-address";
 import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
 
 function customerName(customer: { firstName: string | null; lastName: string | null; email: string }) {
@@ -68,6 +69,7 @@ export default async function ConsultantPipelinePage() {
           orderTotalCents: order.totalCents,
           opportunityValueCents: splitAmount(order, "CONSULTANT"),
           adminMarginCents: order.grossMarginCents,
+          shippingAddress: formatOrderShippingAddress(orderShippingAddress(order.referralMetadata)),
           createdAt: order.createdAt.toISOString(),
           notes: order.orderNotes,
           rxNotes: null,
@@ -87,6 +89,7 @@ export default async function ConsultantPipelinePage() {
               paymentStatus: historyOrder.paymentStatus,
               orderStatus: historyOrder.orderStatus,
               pipelineStage: historyOrder.orderPipelineStage,
+              shippingAddress: formatOrderShippingAddress(orderShippingAddress(historyOrder.referralMetadata)),
               products: orderProducts(historyOrder)
             }))
         }))}

@@ -5,6 +5,7 @@ import { requirePartner } from "@/lib/auth/current-user";
 import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { orderListInclude, type OrderListRecord } from "@/lib/orders/queries";
+import { formatOrderShippingAddress, orderShippingAddress } from "@/lib/orders/shipping-address";
 import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
 
 function customerName(customer: { firstName: string | null; lastName: string | null; email: string }) {
@@ -95,6 +96,7 @@ export default async function PartnerPipelinePage() {
             orderTotalCents: order.totalCents,
             opportunityValueCents: isGroupLeader ? splitAmount(order, "GROUP_LEADER") : splitAmount(order, "PARTNER"),
             adminMarginCents: order.grossMarginCents,
+            shippingAddress: formatOrderShippingAddress(orderShippingAddress(order.referralMetadata)),
             createdAt: order.createdAt.toISOString(),
             notes: order.orderNotes,
             rxNotes: null,
@@ -114,6 +116,7 @@ export default async function PartnerPipelinePage() {
                 paymentStatus: historyOrder.paymentStatus,
                 orderStatus: historyOrder.orderStatus,
                 pipelineStage: historyOrder.orderPipelineStage,
+                shippingAddress: formatOrderShippingAddress(orderShippingAddress(historyOrder.referralMetadata)),
                 products: orderProducts(historyOrder)
               }))
           }))}

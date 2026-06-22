@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ExternalLink, FileText, FileUp, GripVertical, NotebookPen, PackageCheck, Pill, ReceiptText, Trash2, X } from "lucide-react";
+import { ExternalLink, FileText, FileUp, GripVertical, MapPin, NotebookPen, PackageCheck, Pill, ReceiptText, Trash2, X } from "lucide-react";
 import {
   deleteOrderClinicalDocument,
   deleteUnpaidOrder,
@@ -30,6 +30,7 @@ type PipelineOpportunity = {
   orderTotalCents: number;
   opportunityValueCents: number;
   adminMarginCents: number;
+  shippingAddress: string | null;
   createdAt: string | null;
   notes: string | null;
   rxNotes: string | null;
@@ -61,6 +62,7 @@ type CustomerOrderHistoryItem = {
   paymentStatus: string;
   orderStatus: string;
   pipelineStage: string;
+  shippingAddress: string | null;
   products: string;
 };
 
@@ -304,6 +306,12 @@ export function CustomerPipelineBoard({
                       <div className="mt-3 space-y-1 text-xs text-slate-500">
                         <p className="truncate" title={opportunity.email}>{opportunity.email}</p>
                         <p>{opportunity.phone || "No phone"}</p>
+                        <div className="flex items-start gap-1.5 rounded-xl bg-clinic-mist px-2.5 py-2 text-slate-600">
+                          <MapPin className="mt-0.5 size-3.5 shrink-0 text-clinic-navy" />
+                          <p className="line-clamp-2" title={opportunity.shippingAddress ?? undefined}>
+                            {opportunity.shippingAddress ?? "No shipping address"}
+                          </p>
+                        </div>
                         <p>{formatDate(opportunity.pipelineUpdatedAt ?? opportunity.createdAt)}</p>
                       </div>
 
@@ -476,6 +484,10 @@ function OpportunityModal({
                       <p className="mt-1 text-sm text-slate-600">
                         {formatFullDate(opportunity.createdAt)} · {orderPipelineLabel(opportunity.pipelineStage)} · {opportunity.paymentStatus.replaceAll("_", " ")}
                       </p>
+                      <div className="mt-3 flex items-start gap-2 rounded-2xl bg-white px-3 py-2 text-sm font-semibold text-clinic-navy shadow-line">
+                        <MapPin className="mt-0.5 size-4 shrink-0 text-clinic-red" />
+                        <p>{opportunity.shippingAddress ?? "No shipping address saved for this order"}</p>
+                      </div>
                     </div>
                     <Link
                       href={`${basePath}/orders/${opportunity.id}`}
@@ -510,6 +522,10 @@ function OpportunityModal({
                             </div>
                             <p className="mt-2 text-sm text-slate-500">{formatFullDate(order.createdAt)}</p>
                             <p className="mt-2 truncate text-sm text-slate-600" title={order.products}>{order.products || "No products listed"}</p>
+                            <div className="mt-3 flex items-start gap-2 rounded-2xl bg-clinic-mist px-3 py-2 text-sm font-semibold text-slate-600">
+                              <MapPin className="mt-0.5 size-4 shrink-0 text-clinic-navy" />
+                              <p>{order.shippingAddress ?? "No shipping address saved"}</p>
+                            </div>
                           </div>
                           <div className="grid shrink-0 grid-cols-2 gap-2 sm:min-w-64">
                             <div className="rounded-2xl bg-clinic-mist px-3 py-2">

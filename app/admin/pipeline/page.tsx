@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
 import { prisma } from "@/lib/db/prisma";
 import { orderListInclude, type OrderListRecord } from "@/lib/orders/queries";
+import { formatOrderShippingAddress, orderShippingAddress } from "@/lib/orders/shipping-address";
 import { getQualiphyExamList } from "@/lib/qualiphy/exams";
 import { CUSTOMER_PIPELINE_STAGES, type CustomerPipelineStage } from "@/lib/sales/pipeline";
 
@@ -59,6 +60,7 @@ export default async function AdminPipelinePage() {
             orderTotalCents: order.totalCents,
             opportunityValueCents: order.grossMarginCents,
             adminMarginCents: order.grossMarginCents,
+            shippingAddress: formatOrderShippingAddress(orderShippingAddress(order.referralMetadata)),
             createdAt: order.createdAt.toISOString(),
             consultantName: ownerUser ? personName(ownerUser) : "Admin",
             consultantAvatarUrl: ownerUser?.avatarUrl ?? null,
@@ -88,6 +90,7 @@ export default async function AdminPipelinePage() {
                 paymentStatus: historyOrder.paymentStatus,
                 orderStatus: historyOrder.orderStatus,
                 pipelineStage: historyOrder.orderPipelineStage,
+                shippingAddress: formatOrderShippingAddress(orderShippingAddress(historyOrder.referralMetadata)),
                 products: orderProducts(historyOrder)
               }))
           };

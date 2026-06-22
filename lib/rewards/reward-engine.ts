@@ -108,8 +108,6 @@ export async function ensureDefaultRewardLevels(companyId: string) {
 }
 
 export async function getRewardLevels(companyId: string) {
-  await ensureDefaultRewardLevels(companyId);
-
   return prisma.rewardLevel.findMany({
     where: { companyId, isActive: true },
     include: { rewards: { where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
@@ -118,8 +116,6 @@ export async function getRewardLevels(companyId: string) {
 }
 
 export async function getRewardLevelAdminModels(companyId: string) {
-  await ensureDefaultRewardLevels(companyId);
-
   const [levels, products] = await Promise.all([
     prisma.rewardLevel.findMany({
       where: { companyId },
