@@ -9,6 +9,7 @@ import type { PaymentProviderCode } from "@/lib/payments/types";
 import { phoneForWebhook } from "@/lib/phone";
 import type { QualiphyPatientExam } from "@/lib/qualiphy/invites";
 import { sendQualiphyExamInvite } from "@/lib/qualiphy/invites";
+import { carrierTrackingUrl, normalizeCarrier } from "@/lib/orders/tracking";
 import { isCustomerPipelineStage, isOrderPipelineStage, orderPipelineLabel } from "@/lib/sales/pipeline";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { publicSiteBaseUrl } from "@/lib/urls";
@@ -21,22 +22,13 @@ function value(formData: FormData, key: string) {
 
 function returnPipelinePath(role: string) {
   if (role === "CONSULTANT") return "/consultant/pipeline";
+  if (role === "MANAGER") return "/manager/pipeline";
   if (role === "PARTNER" || role === "GROUP_LEADER") return "/partner/pipeline";
   return "/admin/pipeline";
 }
 
 function personName(person: { firstName: string | null; lastName: string | null; email?: string }) {
   return [person.firstName, person.lastName].filter(Boolean).join(" ").trim() || person.email || "Customer";
-}
-
-function carrierTrackingUrl(carrier: string | null, trackingCode: string | null) {
-  if (!carrier || !trackingCode) return null;
-  const code = encodeURIComponent(trackingCode);
-  if (carrier === "fedex") return `https://www.fedex.com/fedextrack/?trknbr=${code}`;
-  if (carrier === "ups") return `https://www.ups.com/track?tracknum=${code}`;
-  if (carrier === "usps") return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${code}`;
-  if (carrier === "dhl") return `https://www.dhl.com/us-en/home/tracking/tracking-express.html?submit=1&tracking-id=${code}`;
-  return null;
 }
 
 function jsonSafe(value: unknown) {
@@ -212,6 +204,7 @@ export async function updateCustomerPipelineStage(formData: FormData) {
   });
 
   revalidatePath("/consultant/pipeline");
+  revalidatePath("/manager/pipeline");
   revalidatePath("/partner/pipeline");
   revalidatePath("/admin/pipeline");
   revalidatePath("/admin/customers");
@@ -264,6 +257,7 @@ export async function updateOrderOpportunityDetails(formData: FormData) {
 
   revalidatePath("/admin/pipeline");
   revalidatePath("/partner/pipeline");
+  revalidatePath("/manager/pipeline");
   revalidatePath("/consultant/pipeline");
   redirect(`${returnPath}?opportunity=updated`);
 }
@@ -353,6 +347,7 @@ export async function uploadOrderClinicalDocument(formData: FormData) {
   });
 
   revalidatePath("/admin/pipeline");
+  revalidatePath("/manager/pipeline");
   revalidatePath(`/admin/orders/${order.id}`);
   redirect(`${returnPath}?document=uploaded`);
 }
@@ -424,6 +419,7 @@ export async function deleteOrderClinicalDocument(formData: FormData) {
   });
 
   revalidatePath("/admin/pipeline");
+  revalidatePath("/manager/pipeline");
   if (document.orderId) revalidatePath(`/admin/orders/${document.orderId}`);
   redirect(`${returnPath}?document=deleted`);
 }
@@ -443,7 +439,7 @@ export async function updatePipelineOrderStage(formData: FormData) {
     redirect(`${returnPath}?stage=not_found`);
   }
 
-  const shippingCarrier = value(formData, "shippingCarrier");
+  const shippingCarrier = normalizeCarrier(value(formData, "shippingCarrier"));
   const shippingTrackingCode = value(formData, "shippingTrackingCode");
   const allowWithoutTracking = value(formData, "allowFulfillmentWithoutTracking") === "true";
   const qualiphyExamMode = value(formData, "qualiphyExamMode");
@@ -717,6 +713,7 @@ export async function updatePipelineOrderStage(formData: FormData) {
 
   revalidatePath("/admin/pipeline");
   revalidatePath("/partner/pipeline");
+  revalidatePath("/manager/pipeline");
   revalidatePath("/consultant/pipeline");
   revalidatePath("/admin/orders");
   redirect(`${returnPath}?stage=updated`);
@@ -766,6 +763,7 @@ export async function deleteUnpaidOrder(formData: FormData) {
 
   revalidatePath("/admin/pipeline");
   revalidatePath("/partner/pipeline");
+  revalidatePath("/manager/pipeline");
   revalidatePath("/consultant/pipeline");
   revalidatePath("/admin/orders");
   redirect(`${returnPath}?delete=deleted`);

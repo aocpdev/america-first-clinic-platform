@@ -98,6 +98,8 @@ export default async function PartnerPipelinePage() {
             opportunityValueCents: isGroupLeader ? splitAmount(order, "GROUP_LEADER") : splitAmount(order, "PARTNER"),
             adminMarginCents: order.grossMarginCents,
             shippingAddress: formatOrderShippingAddress(orderShippingAddress(order.referralMetadata)),
+            shippingCarrier: order.shippingCarrier,
+            shippingTrackingCode: order.shippingTrackingCode,
             createdAt: order.createdAt.toISOString(),
             notes: order.orderNotes,
             rxNotes: null,
@@ -119,6 +121,8 @@ export default async function PartnerPipelinePage() {
                 orderStatus: historyOrder.orderStatus,
                 pipelineStage: historyOrder.orderPipelineStage,
                 shippingAddress: formatOrderShippingAddress(orderShippingAddress(historyOrder.referralMetadata)),
+                shippingCarrier: historyOrder.shippingCarrier,
+                shippingTrackingCode: historyOrder.shippingTrackingCode,
                 products: orderProducts(historyOrder)
               }))
           }))}

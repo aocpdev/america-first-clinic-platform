@@ -8,6 +8,7 @@ import { moneyFromCents, notifyUsers, orderRecipientUserIds, personDisplayName }
 import { getPaymentProvider } from "@/lib/payments/registry";
 import type { PaymentProviderCode } from "@/lib/payments/types";
 import { phoneForWebhook } from "@/lib/phone";
+import { carrierTrackingUrl, normalizeCarrier } from "@/lib/orders/tracking";
 import { isOrderPipelineStage, orderPipelineLabel } from "@/lib/sales/pipeline";
 import { publicSiteBaseUrl } from "@/lib/urls";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
@@ -29,16 +30,6 @@ function returnPathForRole(role: string, orderId: string) {
 
 function jsonSafe(value: unknown) {
   return JSON.parse(JSON.stringify(value));
-}
-
-function carrierTrackingUrl(carrier: string | null, trackingCode: string | null) {
-  if (!carrier || !trackingCode) return null;
-  const code = encodeURIComponent(trackingCode);
-  if (carrier === "fedex") return `https://www.fedex.com/fedextrack/?trknbr=${code}`;
-  if (carrier === "ups") return `https://www.ups.com/track?tracknum=${code}`;
-  if (carrier === "usps") return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${code}`;
-  if (carrier === "dhl") return `https://www.dhl.com/us-en/home/tracking/tracking-express.html?submit=1&tracking-id=${code}`;
-  return null;
 }
 
 function canManageClinicalPipeline(role: string) {
@@ -154,6 +145,122 @@ export async function deleteAdminTestOrder(formData: FormData) {
   redirect(`/admin/orders?deleted=${order.id.slice(0, 8).toUpperCase()}`);
 }
 
+export async function updateOrderShippingTracking(formData: FormData) {
+  const user = await requireUser();
+  const orderId = String(formData.get("orderId") || "");
+  const returnPath = returnPathForRole(user.role, orderId);
+
+  if (!orderId || !canManageClinicalPipeline(user.role)) {
+    redirect(`${returnPath}?tracking=not_allowed`);
+  }
+
+  const order = await ensureOrderAccess(user, orderId);
+  if (!order) {
+    redirect(`${returnPath}?tracking=not_found`);
+  }
+
+  const action = String(formData.get("trackingAction") || "save");
+  const rawCarrier = String(formData.get("shippingCarrier") || "");
+  const trackingCode = String(formData.get("shippingTrackingCode") || "").trim();
+  const carrier = normalizeCarrier(rawCarrier) || (trackingCode ? "other" : "");
+  const now = new Date();
+
+  if (action === "delete") {
+    await prisma.$transaction([
+      prisma.order.update({
+        where: { id: order.id },
+        data: {
+          shippingCarrier: null,
+          shippingTrackingCode: null
+        }
+      }),
+      prisma.activityLog.create({
+        data: {
+          companyId: order.companyId,
+          userId: user.id,
+          customerId: order.customerId,
+          action: "ORDER_TRACKING_DELETED",
+          metadata: {
+            orderId: order.id,
+            previousCarrier: order.shippingCarrier,
+            previousTrackingCode: order.shippingTrackingCode
+          }
+        }
+      })
+    ]);
+
+    revalidatePath(returnPath);
+    revalidatePath("/admin/orders");
+    revalidatePath("/admin/pipeline");
+    revalidatePath("/partner/orders");
+    revalidatePath("/partner/pipeline");
+    revalidatePath("/manager/orders");
+    revalidatePath("/manager/pipeline");
+    revalidatePath("/consultant/orders");
+    revalidatePath("/consultant/pipeline");
+    redirect(`${returnPath}?tracking=deleted`);
+  }
+
+  if (!trackingCode) {
+    redirect(`${returnPath}?tracking=missing_code`);
+  }
+
+  await prisma.$transaction([
+    prisma.order.update({
+      where: { id: order.id },
+      data: {
+        shippingCarrier: carrier,
+        shippingTrackingCode: trackingCode,
+        shippedAt: order.orderPipelineStage === "SHIPPED" ? (order.shippedAt ?? now) : order.shippedAt
+      }
+    }),
+    prisma.activityLog.create({
+      data: {
+        companyId: order.companyId,
+        userId: user.id,
+        customerId: order.customerId,
+        action: order.shippingTrackingCode ? "ORDER_TRACKING_UPDATED" : "ORDER_TRACKING_CREATED",
+        metadata: {
+          orderId: order.id,
+          previousCarrier: order.shippingCarrier,
+          previousTrackingCode: order.shippingTrackingCode,
+          carrier,
+          trackingCode,
+          trackingUrl: carrierTrackingUrl(carrier, trackingCode)
+        }
+      }
+    })
+  ]);
+
+  await dispatchWebhookEvent({
+    companyId: order.companyId,
+    partnerProfileId: order.partnerProfileId ?? order.consultantProfile?.partnerProfileId,
+    eventType: "shipment.tracking_ready",
+    payload: {
+      orderId: order.id,
+      customerId: order.customerId,
+      customerName: personName(order.customer),
+      customerEmail: order.customer.email,
+      customerPhone: phoneForWebhook(order.customer.phone),
+      stage: order.orderPipelineStage,
+      carrier,
+      trackingCode,
+      trackingUrl: carrierTrackingUrl(carrier, trackingCode)
+    }
+  });
+
+  revalidatePath(returnPath);
+  revalidatePath("/admin/orders");
+  revalidatePath("/admin/pipeline");
+  revalidatePath("/partner/orders");
+  revalidatePath("/partner/pipeline");
+  revalidatePath("/manager/orders");
+  revalidatePath("/manager/pipeline");
+  revalidatePath("/consultant/orders");
+  revalidatePath("/consultant/pipeline");
+  redirect(`${returnPath}?tracking=saved`);
+}
+
 export async function updateOrderPipelineStage(formData: FormData) {
   const user = await requireUser();
   const orderId = String(formData.get("orderId") || "");
@@ -172,7 +279,7 @@ export async function updateOrderPipelineStage(formData: FormData) {
   const now = new Date();
   const prescriptionDocumentUrl = String(formData.get("prescriptionDocumentUrl") || "").trim();
   const prescriptionNotes = String(formData.get("prescriptionNotes") || "").trim();
-  const shippingCarrier = String(formData.get("shippingCarrier") || "").trim();
+  const shippingCarrier = normalizeCarrier(String(formData.get("shippingCarrier") || ""));
   const shippingTrackingCode = String(formData.get("shippingTrackingCode") || "").trim();
   const allowFulfillmentWithoutTracking = String(formData.get("allowFulfillmentWithoutTracking") || "") === "true";
   const nextData: {

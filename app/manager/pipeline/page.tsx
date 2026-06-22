@@ -77,6 +77,8 @@ export default async function ManagerPipelinePage() {
           opportunityValueCents: splitAmount(order),
           adminMarginCents: order.grossMarginCents,
           shippingAddress: formatOrderShippingAddress(orderShippingAddress(order.referralMetadata)),
+          shippingCarrier: order.shippingCarrier,
+          shippingTrackingCode: order.shippingTrackingCode,
           createdAt: order.createdAt.toISOString(),
           notes: order.orderNotes,
           rxNotes: null,
@@ -98,6 +100,8 @@ export default async function ManagerPipelinePage() {
               orderStatus: historyOrder.orderStatus,
               pipelineStage: historyOrder.orderPipelineStage,
               shippingAddress: formatOrderShippingAddress(orderShippingAddress(historyOrder.referralMetadata)),
+              shippingCarrier: historyOrder.shippingCarrier,
+              shippingTrackingCode: historyOrder.shippingTrackingCode,
               products: orderProducts(historyOrder)
             }))
         }))}

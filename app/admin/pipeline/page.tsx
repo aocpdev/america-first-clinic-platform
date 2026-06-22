@@ -80,6 +80,8 @@ export default async function AdminPipelinePage() {
             opportunityValueCents: order.grossMarginCents,
             adminMarginCents: order.grossMarginCents,
             shippingAddress: formatOrderShippingAddress(orderShippingAddress(order.referralMetadata)),
+            shippingCarrier: order.shippingCarrier,
+            shippingTrackingCode: order.shippingTrackingCode,
             createdAt: order.createdAt.toISOString(),
             consultantName: ownerUser ? personName(ownerUser) : "Admin",
             consultantAvatarUrl: ownerUser?.avatarUrl ?? null,
@@ -111,6 +113,8 @@ export default async function AdminPipelinePage() {
                 orderStatus: historyOrder.orderStatus,
                 pipelineStage: historyOrder.orderPipelineStage,
                 shippingAddress: formatOrderShippingAddress(orderShippingAddress(historyOrder.referralMetadata)),
+                shippingCarrier: historyOrder.shippingCarrier,
+                shippingTrackingCode: historyOrder.shippingTrackingCode,
                 products: orderProducts(historyOrder)
               }))
           };

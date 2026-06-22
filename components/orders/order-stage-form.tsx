@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { updateOrderPipelineStage } from "@/app/orders/actions";
 import { Button } from "@/components/ui/button";
+import { SHIPPING_CARRIERS } from "@/lib/orders/tracking";
 import { ORDER_PIPELINE_STAGES, orderPipelineDescription } from "@/lib/sales/pipeline";
 
 export function OrderStageForm({
@@ -93,10 +94,11 @@ export function OrderStageForm({
               className="h-11 rounded-xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
             >
               <option value="">Select carrier</option>
-              <option value="fedex">FedEx</option>
-              <option value="ups">UPS</option>
-              <option value="usps">USPS</option>
-              <option value="dhl">DHL</option>
+              {SHIPPING_CARRIERS.map((carrier) => (
+                <option key={carrier.value} value={carrier.value}>
+                  {carrier.label}
+                </option>
+              ))}
             </select>
             <input
               name="shippingTrackingCode"

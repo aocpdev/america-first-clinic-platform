@@ -23,6 +23,7 @@ export const consultantNav = [
   { href: "/consultant/commissions", label: "Commissions" },
   { href: "/consultant/products", label: "Products" },
   { href: "/consultant/performance", label: "Performance" },
+  { href: "/consultant/reports", label: "Reports" },
   { href: "/consultant/rewards", label: "Rewards" },
   { href: "/consultant/referrals", label: "Referrals" },
   { href: "/consultant/profile", label: "Profile" }

@@ -1,10 +1,13 @@
 import { resendReceiptWebhook } from "@/app/orders/actions";
+import { Download, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { AdminDeleteTestOrderButton } from "@/components/orders/admin-delete-test-order-button";
 import { OrderStageForm } from "@/components/orders/order-stage-form";
+import { OrderTrackingForm } from "@/components/orders/order-tracking-form";
 import { ORDER_PROGRESS_STAGES, orderPipelineDescription, orderPipelineLabel } from "@/lib/sales/pipeline";
+import { carrierLabel, carrierTrackingUrl } from "@/lib/orders/tracking";
 import { currency } from "@/lib/utils";
 import type { OrderListRecord } from "@/lib/orders/queries";
 
@@ -31,6 +34,20 @@ function shortId(id: string) {
 function birthDateLabel(value: Date | null) {
   if (!value) return "Not provided";
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(value);
+}
+
+function documentDateLabel(value: Date) {
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(value);
+}
+
+function documentLabel(type: string) {
+  return type === "RX" ? "RX" : "Exam";
+}
+
+function fileSizeLabel(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function paymentProviderMetadata(order: OrderListRecord) {
@@ -79,6 +96,7 @@ export function OrderDocument({
   const currentProgressIndex = ORDER_PROGRESS_STAGES.findIndex((stage) => stage.value === currentStage);
   const isDeferred = currentStage === "DEFERRED";
   const canManageOrderStage = mode === "admin" && !isReceipt;
+  const trackingUrl = carrierTrackingUrl(order.shippingCarrier, order.shippingTrackingCode);
 
   return (
     <Card id={isReceipt ? "customer-receipt" : undefined} className="overflow-hidden rounded-3xl bg-white shadow-line">
@@ -212,6 +230,33 @@ export function OrderDocument({
             </div>
           </section>
 
+          <section>
+            <h3 className="text-lg font-semibold text-clinic-ink">Shipping</h3>
+            <div className="mt-3 rounded-2xl border border-border bg-white p-4 text-sm text-slate-600">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Carrier</p>
+                  <p className="mt-1 font-semibold text-clinic-ink">{carrierLabel(order.shippingCarrier)}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Tracking code</p>
+                  {order.shippingTrackingCode ? (
+                    trackingUrl ? (
+                      <a href={trackingUrl} target="_blank" rel="noreferrer" className="mt-1 inline-flex break-all font-semibold text-clinic-navy underline decoration-blue-200 underline-offset-4 transition hover:text-clinic-red">
+                        {order.shippingTrackingCode}
+                      </a>
+                    ) : (
+                      <p className="mt-1 break-all font-semibold text-clinic-ink">{order.shippingTrackingCode}</p>
+                    )
+                  ) : (
+                    <p className="mt-1">Tracking pending</p>
+                  )}
+                </div>
+              </div>
+              {trackingUrl ? <p className="mt-3 text-xs text-slate-500">Opens the carrier tracking page in a new tab.</p> : null}
+            </div>
+          </section>
+
           {!isReceipt ? (
             <section>
               <h3 className="text-lg font-semibold text-clinic-ink">Attribution</h3>
@@ -329,6 +374,14 @@ export function OrderDocument({
             </div>
           ) : null}
 
+          {canManageOrderStage ? (
+            <OrderTrackingForm
+              orderId={order.id}
+              shippingCarrier={order.shippingCarrier}
+              shippingTrackingCode={order.shippingTrackingCode}
+            />
+          ) : null}
+
           {mode === "admin" && !isReceipt && (order.prescriptionDocumentUrl || order.prescriptionNotes) ? (
             <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Admin-only prescription</p>
@@ -338,6 +391,52 @@ export function OrderDocument({
                 </a>
               ) : null}
               {order.prescriptionNotes ? <p className="mt-3 text-sm leading-6 text-slate-600">{order.prescriptionNotes}</p> : null}
+            </div>
+          ) : null}
+
+          {mode === "admin" && !isReceipt ? (
+            <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Admin-only clinical files</p>
+              <h3 className="mt-2 text-lg font-semibold text-clinic-ink">Exam / RX documents</h3>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Protected patient files. Only admins can open or download these links.</p>
+              <div className="mt-4 space-y-3">
+                {order.clinicalDocuments.length ? (
+                  order.clinicalDocuments.map((document) => (
+                    <div key={document.id} className="rounded-2xl border border-blue-100 bg-white p-3 shadow-line">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">{documentLabel(document.type)}</span>
+                        <p className="min-w-0 flex-1 truncate text-sm font-semibold text-clinic-ink">{document.title}</p>
+                      </div>
+                      <p className="mt-2 truncate text-xs text-slate-500">{document.fileName}</p>
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                        {documentDateLabel(document.createdAt)} · {fileSizeLabel(document.sizeBytes)}
+                      </p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                        <a
+                          href={`/api/customer-documents/${document.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border px-3 text-sm font-semibold text-clinic-navy transition hover:bg-clinic-mist"
+                        >
+                          <ExternalLink className="size-4" />
+                          Open
+                        </a>
+                        <a
+                          href={`/api/customer-documents/${document.id}?download=1`}
+                          className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-clinic-mist px-3 text-sm font-semibold text-clinic-navy transition hover:bg-white"
+                        >
+                          <Download className="size-4" />
+                          Download
+                        </a>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-blue-100 bg-white/70 p-4 text-sm text-slate-500">
+                    No Exam or RX documents have been uploaded for this order yet.
+                  </div>
+                )}
+              </div>
             </div>
           ) : null}
 

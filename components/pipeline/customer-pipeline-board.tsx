@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ExternalLink, FileText, FileUp, GripVertical, MapPin, NotebookPen, PackageCheck, Pill, ReceiptText, Trash2, X } from "lucide-react";
+import { Download, ExternalLink, FileText, FileUp, GripVertical, MapPin, NotebookPen, PackageCheck, Pill, ReceiptText, Trash2, X } from "lucide-react";
 import {
   deleteOrderClinicalDocument,
   deleteUnpaidOrder,
@@ -12,7 +12,9 @@ import {
   uploadOrderClinicalDocument
 } from "@/app/pipeline/actions";
 import { Button } from "@/components/ui/button";
+import { OrderTrackingForm } from "@/components/orders/order-tracking-form";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { carrierLabel, carrierTrackingUrl, SHIPPING_CARRIERS } from "@/lib/orders/tracking";
 import { CUSTOMER_PIPELINE_STAGES, orderPipelineLabel, type CustomerPipelineStage } from "@/lib/sales/pipeline";
 import { formatCurrency } from "@/lib/products/catalog";
 import type { QualiphyExam } from "@/lib/qualiphy/exams";
@@ -32,6 +34,8 @@ type PipelineOpportunity = {
   opportunityValueCents: number;
   adminMarginCents: number;
   shippingAddress: string | null;
+  shippingCarrier: string | null;
+  shippingTrackingCode: string | null;
   createdAt: string | null;
   notes: string | null;
   rxNotes: string | null;
@@ -65,6 +69,8 @@ type CustomerOrderHistoryItem = {
   orderStatus: string;
   pipelineStage: string;
   shippingAddress: string | null;
+  shippingCarrier: string | null;
+  shippingTrackingCode: string | null;
   products: string;
 };
 
@@ -134,8 +140,58 @@ function documentLabel(type: "RX" | "GFE") {
   return type === "RX" ? "RX" : "Exam";
 }
 
+function fileSizeLabel(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 function isInteractiveTarget(target: EventTarget | null) {
   return target instanceof HTMLElement && Boolean(target.closest("a,button,input,textarea,select,label,form"));
+}
+
+function TrackingLink({
+  carrier,
+  trackingCode,
+  compact = false
+}: {
+  carrier: string | null;
+  trackingCode: string | null;
+  compact?: boolean;
+}) {
+  if (!trackingCode) {
+    if (compact) return null;
+
+    return (
+      <div className="rounded-2xl border border-dashed border-border bg-white px-3 py-2 text-sm text-slate-500">
+        Tracking pending
+      </div>
+    );
+  }
+
+  const url = carrierTrackingUrl(carrier, trackingCode);
+  const label = carrierLabel(carrier);
+  const className = compact
+    ? "flex items-start gap-1.5 rounded-xl bg-blue-50 px-2.5 py-2 text-xs text-clinic-navy transition hover:bg-white"
+    : "inline-flex w-full items-start gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-3 py-3 text-sm text-clinic-navy transition hover:bg-white";
+
+  const content = (
+    <>
+      <PackageCheck className={`${compact ? "size-3.5" : "size-4"} mt-0.5 shrink-0`} />
+      <span className="min-w-0">
+        <span className={compact ? "block truncate" : "block font-semibold"}>{label}</span>
+        <span className={compact ? "block truncate font-semibold" : "block break-all text-xs text-slate-500"}>{trackingCode}</span>
+      </span>
+    </>
+  );
+
+  return url ? (
+    <a href={url} target="_blank" rel="noreferrer" className={className}>
+      {content}
+    </a>
+  ) : (
+    <div className={className}>{content}</div>
+  );
 }
 
 export function CustomerPipelineBoard({
@@ -320,6 +376,9 @@ export function CustomerPipelineBoard({
                             {opportunity.shippingAddress ?? "No shipping address"}
                           </p>
                         </div>
+                        {opportunity.shippingTrackingCode ? (
+                          <TrackingLink carrier={opportunity.shippingCarrier} trackingCode={opportunity.shippingTrackingCode} compact />
+                        ) : null}
                         <p>{formatDate(opportunity.pipelineUpdatedAt ?? opportunity.createdAt)}</p>
                       </div>
 
@@ -507,6 +566,19 @@ function OpportunityModal({
                         <MapPin className="mt-0.5 size-4 shrink-0 text-clinic-red" />
                         <p>{opportunity.shippingAddress ?? "No shipping address saved for this order"}</p>
                       </div>
+                      <div className="mt-3">
+                        <TrackingLink carrier={opportunity.shippingCarrier} trackingCode={opportunity.shippingTrackingCode} />
+                      </div>
+                      {canManageInternalDocs ? (
+                        <div className="mt-3">
+                          <OrderTrackingForm
+                            orderId={opportunity.id}
+                            shippingCarrier={opportunity.shippingCarrier}
+                            shippingTrackingCode={opportunity.shippingTrackingCode}
+                            compact
+                          />
+                        </div>
+                      ) : null}
                     </div>
                     <Link
                       href={`${basePath}/orders/${opportunity.id}`}
@@ -545,6 +617,9 @@ function OpportunityModal({
                             <div className="mt-3 flex items-start gap-2 rounded-2xl bg-clinic-mist px-3 py-2 text-sm font-semibold text-slate-600">
                               <MapPin className="mt-0.5 size-4 shrink-0 text-clinic-navy" />
                               <p>{order.shippingAddress ?? "No shipping address saved"}</p>
+                            </div>
+                            <div className="mt-3">
+                              <TrackingLink carrier={order.shippingCarrier} trackingCode={order.shippingTrackingCode} />
                             </div>
                           </div>
                           <div className="grid shrink-0 grid-cols-2 gap-2 sm:min-w-64">
@@ -652,9 +727,12 @@ function OpportunityModal({
                                     <p className="truncate text-base font-semibold text-clinic-ink">{document.title}</p>
                                   </div>
                                   <p className="mt-2 truncate text-sm text-slate-500">{document.fileName}</p>
+                                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                                    {formatFullDate(document.createdAt)} · {fileSizeLabel(document.sizeBytes)}
+                                  </p>
                                   {document.notes ? <p className="mt-2 text-sm leading-6 text-slate-600">{document.notes}</p> : null}
                                 </div>
-                                <div className="flex shrink-0 items-center gap-2">
+                                <div className="flex shrink-0 flex-wrap items-center gap-2">
                                   <a
                                     href={`/api/customer-documents/${document.id}`}
                                     target="_blank"
@@ -662,7 +740,14 @@ function OpportunityModal({
                                     className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border px-4 text-sm font-semibold text-clinic-navy transition hover:bg-clinic-mist"
                                   >
                                     <ExternalLink className="size-4" />
-                                    View
+                                    Open
+                                  </a>
+                                  <a
+                                    href={`/api/customer-documents/${document.id}?download=1`}
+                                    className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-border bg-clinic-mist px-4 text-sm font-semibold text-clinic-navy transition hover:bg-white"
+                                  >
+                                    <Download className="size-4" />
+                                    Download
                                   </a>
                                   <form action={deleteOrderClinicalDocument}>
                                     <input type="hidden" name="documentId" value={document.id} />
@@ -874,15 +959,17 @@ function StageMoveModal({
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Shipping tracking</p>
               <p className="mt-1 text-xs leading-5 text-slate-500">Add tracking if available. If skipped, the tracking webhook will not be sent.</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <select name="shippingCarrier" className="h-11 rounded-xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100" defaultValue="">
+                <select name="shippingCarrier" className="h-11 rounded-xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100" defaultValue={opportunity.shippingCarrier ?? ""}>
                   <option value="">Select carrier</option>
-                  <option value="fedex">FedEx</option>
-                  <option value="ups">UPS</option>
-                  <option value="usps">USPS</option>
-                  <option value="dhl">DHL</option>
+                  {SHIPPING_CARRIERS.map((carrier) => (
+                    <option key={carrier.value} value={carrier.value}>
+                      {carrier.label}
+                    </option>
+                  ))}
                 </select>
                 <input
                   name="shippingTrackingCode"
+                  defaultValue={opportunity.shippingTrackingCode ?? ""}
                   placeholder="Tracking code"
                   className="h-11 rounded-xl border border-border bg-white px-3 text-sm font-semibold outline-none transition focus:border-clinic-blue focus:ring-4 focus:ring-blue-100"
                 />
