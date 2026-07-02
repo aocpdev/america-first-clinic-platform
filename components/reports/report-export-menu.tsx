@@ -31,7 +31,6 @@ export function ReportExportMenu({ exports }: { exports: ReportExport[] }) {
     <div
       ref={wrapperRef}
       className="relative inline-flex"
-      onMouseLeave={() => setIsOpen(false)}
       onBlur={(event) => {
         const nextFocus = event.relatedTarget as Node | null;
         if (!event.currentTarget.contains(nextFocus)) {

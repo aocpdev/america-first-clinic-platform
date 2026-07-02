@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BarChart3, LineChart, Package, TrendingUp, Users } from "lucide-react";
-import { DashboardDateRangeFilter } from "@/components/dashboard/date-range-filter";
+import { DashboardDateRangeMenu } from "@/components/dashboard/date-range-menu";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { ReportExportMenu } from "@/components/reports/report-export-menu";
 import { Card } from "@/components/ui/card";
@@ -101,7 +101,6 @@ export function ReportsWorkspace({
   comparisonBaseHref,
   earningsLabel,
   directLabel,
-  scopeDescription,
   data
 }: ReportsWorkspaceProps) {
   const exportOptions = [
@@ -128,20 +127,19 @@ export function ReportsWorkspace({
 
   return (
     <div className="space-y-6">
-      <DashboardDateRangeFilter
-        range={range}
-        resetHref={resetHref}
-        hiddenParams={comparisonBaseHref ? { compare: comparisonView } : undefined}
-      />
-
-      <section className="overflow-visible rounded-[2rem] border border-white/80 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.08)]">
-        <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">{eyebrow}</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-clinic-ink sm:text-3xl">{title}</h2>
-            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{scopeDescription}</p>
+      <section className="relative z-20 rounded-[2rem] border border-white/80 bg-white/90 p-4 shadow-[0_18px_60px_rgba(7,55,99,0.07)] backdrop-blur">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">{eyebrow}</p>
+            <h2 className="mt-1 truncate text-lg font-semibold text-clinic-ink">{title}</h2>
+            <p className="mt-1 text-sm text-slate-500">Showing KPIs for {range.label.toLowerCase()}.</p>
           </div>
-          <div className="flex shrink-0 justify-start lg:justify-end">
+          <div className="flex flex-wrap gap-2">
+            <DashboardDateRangeMenu
+              range={range}
+              resetHref={resetHref}
+              hiddenParams={comparisonBaseHref ? { compare: comparisonView } : undefined}
+            />
             <ReportExportMenu exports={exportOptions} />
           </div>
         </div>

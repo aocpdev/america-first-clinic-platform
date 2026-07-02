@@ -1,9 +1,25 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Download, ExternalLink, FileText, FileUp, GripVertical, MapPin, NotebookPen, PackageCheck, Pill, ReceiptText, Trash2, X } from "lucide-react";
+import {
+  ChevronDown,
+  Download,
+  ExternalLink,
+  FileText,
+  FileUp,
+  GripVertical,
+  MapPin,
+  NotebookPen,
+  PackageCheck,
+  Pill,
+  ReceiptText,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+  X
+} from "lucide-react";
 import {
   deleteOrderClinicalDocument,
   deleteUnpaidOrder,
@@ -72,6 +88,14 @@ type CustomerOrderHistoryItem = {
   shippingCarrier: string | null;
   shippingTrackingCode: string | null;
   products: string;
+};
+
+type PipelineFilters = {
+  query: string;
+  stage: "ALL" | CustomerPipelineStage;
+  paymentStatus: "ALL" | string;
+  tracking: "ALL" | "WITH_TRACKING" | "MISSING_TRACKING";
+  dateRange: "ALL" | "7D" | "30D" | "90D";
 };
 
 const stageStyles = [
@@ -150,6 +174,59 @@ function isInteractiveTarget(target: EventTarget | null) {
   return target instanceof HTMLElement && Boolean(target.closest("a,button,input,textarea,select,label,form"));
 }
 
+function filterSearchText(opportunity: PipelineOpportunity) {
+  return [
+    opportunity.id,
+    opportunity.name,
+    opportunity.email,
+    opportunity.phone,
+    opportunity.consultantName,
+    opportunity.shippingAddress,
+    opportunity.shippingTrackingCode,
+    opportunity.paymentStatus,
+    opportunity.orderStatus
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+}
+
+function dateRangeCutoff(dateRange: PipelineFilters["dateRange"]) {
+  if (dateRange === "ALL") return null;
+  const days = dateRange === "7D" ? 7 : dateRange === "90D" ? 90 : 30;
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - (days - 1));
+  return cutoff;
+}
+
+function matchesPipelineFilters(opportunity: PipelineOpportunity, filters: PipelineFilters) {
+  const query = filters.query.trim().toLowerCase();
+  if (query && !filterSearchText(opportunity).includes(query)) return false;
+  if (filters.stage !== "ALL" && opportunity.pipelineStage !== filters.stage) return false;
+  if (filters.paymentStatus !== "ALL" && opportunity.paymentStatus !== filters.paymentStatus) return false;
+  if (filters.tracking === "WITH_TRACKING" && !opportunity.shippingTrackingCode) return false;
+  if (filters.tracking === "MISSING_TRACKING" && opportunity.shippingTrackingCode) return false;
+
+  const cutoff = dateRangeCutoff(filters.dateRange);
+  if (cutoff) {
+    const referenceDate = opportunity.createdAt ? new Date(opportunity.createdAt) : null;
+    if (!referenceDate || referenceDate < cutoff) return false;
+  }
+
+  return true;
+}
+
+function activePipelineFilterCount(filters: PipelineFilters) {
+  return [
+    filters.query.trim(),
+    filters.stage !== "ALL",
+    filters.paymentStatus !== "ALL",
+    filters.tracking !== "ALL",
+    filters.dateRange !== "ALL"
+  ].filter(Boolean).length;
+}
+
 function TrackingLink({
   carrier,
   trackingCode,
@@ -194,6 +271,199 @@ function TrackingLink({
   );
 }
 
+const emptyPipelineFilters: PipelineFilters = {
+  query: "",
+  stage: "ALL",
+  paymentStatus: "ALL",
+  tracking: "ALL",
+  dateRange: "ALL"
+};
+
+function PipelineFilterBar({
+  filters,
+  onChange,
+  paymentStatuses,
+  activeFilterCount,
+  visibleCount,
+  totalCount
+}: {
+  filters: PipelineFilters;
+  onChange: (filters: PipelineFilters) => void;
+  paymentStatuses: string[];
+  activeFilterCount: number;
+  visibleCount: number;
+  totalCount: number;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function closeOnOutsidePointer(event: PointerEvent) {
+      if (!wrapperRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    return () => document.removeEventListener("pointerdown", closeOnOutsidePointer);
+  }, [isOpen]);
+
+  function updateFilter<Key extends keyof PipelineFilters>(key: Key, value: PipelineFilters[Key]) {
+    onChange({ ...filters, [key]: value });
+  }
+
+  return (
+    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-2xl border border-border bg-white/80 px-4 py-3 shadow-sm">
+        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-400">Pipeline view</p>
+        <p className="mt-1 text-sm font-semibold text-clinic-ink">
+          Showing {visibleCount} of {totalCount} opportunities
+        </p>
+      </div>
+
+      <div
+        ref={wrapperRef}
+        className="relative inline-flex self-start sm:self-auto"
+        onBlur={(event) => {
+          const nextFocus = event.relatedTarget as Node | null;
+          if (!event.currentTarget.contains(nextFocus)) {
+            setIsOpen(false);
+          }
+        }}
+      >
+        <button
+          type="button"
+          className="inline-flex h-12 items-center gap-2 rounded-2xl border border-border bg-white px-4 text-sm font-semibold text-clinic-navy shadow-sm transition hover:border-clinic-blue/30 hover:bg-clinic-mist focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
+          aria-expanded={isOpen}
+          onClick={() => setIsOpen((current) => !current)}
+          onFocus={() => setIsOpen(true)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setIsOpen(false);
+              event.currentTarget.blur();
+            }
+          }}
+        >
+          <SlidersHorizontal className="size-4" />
+          Filters
+          {activeFilterCount ? (
+            <span className="grid min-w-5 place-items-center rounded-full bg-clinic-red px-1.5 py-0.5 text-[11px] font-bold text-white">
+              {activeFilterCount}
+            </span>
+          ) : null}
+          <ChevronDown className={`size-4 text-slate-400 transition ${isOpen ? "rotate-180" : ""}`} />
+        </button>
+
+        {isOpen ? (
+          <div className="absolute right-0 top-14 z-50 w-[min(92vw,34rem)] rounded-3xl border border-white/80 bg-white/95 p-4 text-left shadow-[0_24px_70px_rgba(15,35,58,0.18)] ring-1 ring-slate-900/5 backdrop-blur-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Filter pipeline</p>
+                <p className="mt-1 text-sm text-slate-500">Narrow the board without changing the saved pipeline.</p>
+              </div>
+              {activeFilterCount ? (
+                <button
+                  type="button"
+                  className="rounded-xl px-3 py-2 text-xs font-semibold text-clinic-red transition hover:bg-red-50"
+                  onClick={() => onChange(emptyPipelineFilters)}
+                >
+                  Reset
+                </button>
+              ) : null}
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="md:col-span-2">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Search</span>
+                <span className="mt-2 flex h-12 items-center gap-2 rounded-2xl border border-border bg-white px-3">
+                  <Search className="size-4 text-slate-400" />
+                  <input
+                    value={filters.query}
+                    onChange={(event) => updateFilter("query", event.target.value)}
+                    placeholder="Customer, order, seller, email, phone, address..."
+                    className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-clinic-ink outline-none placeholder:text-slate-400"
+                  />
+                </span>
+              </label>
+
+              <FilterSelect
+                label="Stage"
+                value={filters.stage}
+                onChange={(value) => updateFilter("stage", value as PipelineFilters["stage"])}
+                options={[
+                  { label: "All stages", value: "ALL" },
+                  ...CUSTOMER_PIPELINE_STAGES.map((stage) => ({ label: stage.label, value: stage.value }))
+                ]}
+              />
+              <FilterSelect
+                label="Payment"
+                value={filters.paymentStatus}
+                onChange={(value) => updateFilter("paymentStatus", value)}
+                options={[
+                  { label: "All payments", value: "ALL" },
+                  ...paymentStatuses.map((status) => ({ label: status.replaceAll("_", " "), value: status }))
+                ]}
+              />
+              <FilterSelect
+                label="Tracking"
+                value={filters.tracking}
+                onChange={(value) => updateFilter("tracking", value as PipelineFilters["tracking"])}
+                options={[
+                  { label: "All tracking", value: "ALL" },
+                  { label: "With tracking", value: "WITH_TRACKING" },
+                  { label: "Missing tracking", value: "MISSING_TRACKING" }
+                ]}
+              />
+              <FilterSelect
+                label="Created"
+                value={filters.dateRange}
+                onChange={(value) => updateFilter("dateRange", value as PipelineFilters["dateRange"])}
+                options={[
+                  { label: "All time", value: "ALL" },
+                  { label: "Last 7 days", value: "7D" },
+                  { label: "Last 30 days", value: "30D" },
+                  { label: "Last 90 days", value: "90D" }
+                ]}
+              />
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function FilterSelect({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string;
+  value: string;
+  options: Array<{ label: string; value: string }>;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label>
+      <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="mt-2 h-12 w-full rounded-2xl border border-border bg-white px-3 text-sm font-semibold text-clinic-ink outline-none transition focus:border-clinic-blue/40 focus:ring-4 focus:ring-blue-100"
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export function CustomerPipelineBoard({
   customers,
   showConsultant,
@@ -214,9 +484,25 @@ export function CustomerPipelineBoard({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [pendingMove, setPendingMove] = useState<{ opportunity: PipelineOpportunity; stage: CustomerPipelineStage } | null>(null);
   const [stagePicker, setStagePicker] = useState<PipelineOpportunity | null>(null);
+  const [filters, setFilters] = useState<PipelineFilters>({
+    query: "",
+    stage: "ALL",
+    paymentStatus: "ALL",
+    tracking: "ALL",
+    dateRange: "ALL"
+  });
   const [, startTransition] = useTransition();
   const canManageStages = mode === "admin";
   const canManageInternalDocs = mode === "admin";
+  const activeFilterCount = activePipelineFilterCount(filters);
+  const paymentStatuses = useMemo(
+    () => Array.from(new Set(customers.map((opportunity) => opportunity.paymentStatus).filter(Boolean))).sort(),
+    [customers]
+  );
+  const filteredCustomers = useMemo(
+    () => customers.filter((opportunity) => matchesPipelineFilters(opportunity, filters)),
+    [customers, filters]
+  );
 
   function submitStageMove(opportunity: PipelineOpportunity, stage: CustomerPipelineStage, extra?: Record<string, string>) {
     const formData = new FormData();
@@ -247,15 +533,24 @@ export function CustomerPipelineBoard({
   const opportunitiesByStage = useMemo(() => {
     const map = new Map<CustomerPipelineStage, PipelineOpportunity[]>();
     CUSTOMER_PIPELINE_STAGES.forEach((stage) => map.set(stage.value, []));
-    customers.forEach((opportunity) => {
+    filteredCustomers.forEach((opportunity) => {
       const bucket = map.get(opportunity.pipelineStage) ?? map.get("AWAITING_PAYMENT");
       bucket?.push(opportunity);
     });
     return map;
-  }, [customers]);
+  }, [filteredCustomers]);
 
   return (
     <>
+      <PipelineFilterBar
+        filters={filters}
+        onChange={setFilters}
+        paymentStatuses={paymentStatuses}
+        activeFilterCount={activeFilterCount}
+        visibleCount={filteredCustomers.length}
+        totalCount={customers.length}
+      />
+
       <div className="snap-x snap-mandatory overflow-x-auto rounded-[2rem] border border-border bg-white/35 p-3 pb-5 shadow-line">
         <div className="flex w-max min-w-full gap-3 sm:gap-4">
           {CUSTOMER_PIPELINE_STAGES.map((stage, index) => {
