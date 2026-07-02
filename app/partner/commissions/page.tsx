@@ -1,9 +1,11 @@
 import { CommissionLedger } from "@/components/commissions/commission-ledger";
+import { DashboardDateRangeFilter } from "@/components/dashboard/date-range-filter";
 import type { RecordFiltersState } from "@/components/filters/record-filters";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requirePartner } from "@/lib/auth/current-user";
 import { getPartnerCommissionLedger, type CommissionLedgerScope } from "@/lib/commissions/queries";
 import { groupLeaderNav, managerNav, partnerNav } from "@/lib/constants/navigation";
+import { parseDashboardDateRange } from "@/lib/dashboard/date-range";
 
 function navigationForRole(role: string) {
   if (role === "MANAGER") return managerNav;
@@ -43,14 +45,16 @@ function copyForScope(scope: CommissionLedgerScope) {
 
 export default async function PartnerCommissionsPage({ searchParams }: { searchParams: Promise<RecordFiltersState> }) {
   const filters = await searchParams;
+  const dateRange = parseDashboardDateRange(filters);
   const user = await requirePartner();
   const scope = scopeForRole(user.role);
   const copy = copyForScope(scope);
-  const entries = await getPartnerCommissionLedger(user);
+  const entries = await getPartnerCommissionLedger(user, dateRange);
 
   return (
     <SidebarShell nav={navigationForRole(user.role)} eyebrow={copy.eyebrow} title="Commissions">
-      <CommissionLedger entries={entries} scope={scope} title={copy.title} description={copy.description} filters={filters} />
+      <DashboardDateRangeFilter range={dateRange} resetHref="/partner/commissions" hiddenParams={{ q: filters.q ?? "", status: filters.status ?? "ALL", role: filters.role ?? "ALL" }} />
+      <CommissionLedger entries={entries} scope={scope} title={copy.title} description={copy.description} filters={filters} dateRangeLabel={dateRange.label} />
     </SidebarShell>
   );
 }

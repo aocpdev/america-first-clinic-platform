@@ -22,6 +22,9 @@ export type RecordFiltersState = {
   role?: string;
   payment?: string;
   stage?: string;
+  range?: string;
+  from?: string;
+  to?: string;
 };
 
 type RecordFiltersProps = {
@@ -31,6 +34,7 @@ type RecordFiltersProps = {
   filters: RecordFiltersState;
   selects?: FilterSelect[];
   resetHref: string;
+  hiddenParams?: Record<string, string | undefined>;
   className?: string;
 };
 
@@ -61,6 +65,7 @@ export function RecordFilters({
   filters,
   selects = [],
   resetHref,
+  hiddenParams = {},
   className
 }: RecordFiltersProps) {
   const normalized = normalizeFilters(filters);
@@ -98,6 +103,9 @@ export function RecordFilters({
       </div>
 
       <form className="grid gap-3 border-t border-border bg-clinic-mist/45 p-4 lg:grid-cols-[minmax(280px,1fr)_repeat(auto-fit,minmax(180px,240px))_auto]">
+        {Object.entries(hiddenParams).map(([key, value]) => (
+          value ? <input key={key} type="hidden" name={key} value={value} /> : null
+        ))}
         <label className="relative block">
           <span className="sr-only">Search</span>
           <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />

@@ -3,6 +3,7 @@ import { BarChart3, Download, FileDown, LineChart, Package, TrendingUp, Users } 
 import { DashboardDateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { Card } from "@/components/ui/card";
+import { KpiInfo } from "@/components/ui/kpi-info";
 import type { DashboardDateRange } from "@/lib/dashboard/date-range";
 import { currency } from "@/lib/utils";
 
@@ -158,22 +159,34 @@ export function ReportsWorkspace({
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="rounded-[1.75rem] p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Collected revenue</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Collected revenue</p>
+            <KpiInfo label="Collected revenue" description="Sum of captured order totals in the selected report range." />
+          </div>
           <p className="mt-3 text-3xl font-semibold text-clinic-navy">{currency(data.totalRevenueCents / 100)}</p>
           <p className="mt-2 text-sm text-slate-500">{data.paidOrderCount} paid orders</p>
         </Card>
         <Card className="rounded-[1.75rem] p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{earningsLabel}</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{earningsLabel}</p>
+            <KpiInfo label={earningsLabel} description="Earnings or margin from captured orders in the selected report range." />
+          </div>
           <p className="mt-3 text-3xl font-semibold text-emerald-700">{currency(data.totalEarningsCents / 100)}</p>
           <p className="mt-2 text-sm text-slate-500">Based on captured payments only</p>
         </Card>
         <Card className="rounded-[1.75rem] p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{directLabel}</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{directLabel}</p>
+            <KpiInfo label={directLabel} description="Captured revenue from orders personally created by this role." />
+          </div>
           <p className="mt-3 text-3xl font-semibold text-clinic-navy">{currency(data.directRevenueCents / 100)}</p>
           <p className="mt-2 text-sm text-slate-500">{currency(data.directEarningsCents / 100)} direct earnings</p>
         </Card>
         <Card className="rounded-[1.75rem] p-5">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Average order</p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Average order</p>
+            <KpiInfo label="Average order" description="Collected revenue divided by paid order count in the selected range." />
+          </div>
           <p className="mt-3 text-3xl font-semibold text-clinic-red">{currency(data.averageOrderCents / 100)}</p>
           <p className="mt-2 text-sm text-slate-500">Average captured order value</p>
         </Card>

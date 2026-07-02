@@ -7,6 +7,7 @@ import { cn, currency } from "@/lib/utils";
 import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type RecordFiltersState } from "@/components/filters/record-filters";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { KpiInfo } from "@/components/ui/kpi-info";
 
 type CommissionLedgerProps = {
   entries: CommissionLedgerEntry[];
@@ -14,6 +15,7 @@ type CommissionLedgerProps = {
   title: string;
   description: string;
   filters?: RecordFiltersState;
+  dateRangeLabel?: string;
 };
 
 const statusCopy: Record<CommissionStatus, string> = {
@@ -80,45 +82,50 @@ function metricsFor(scope: CommissionLedgerScope, entries: CommissionLedgerEntry
 
   if (scope === "admin") {
     return [
-      { label: "Gross margin", value: uniqueOrderSum(scopedEntries, (entry) => entry.grossMarginCents), icon: DollarSign },
-      { label: "Commission pool", value: uniqueOrderSum(scopedEntries, (entry) => entry.commissionPoolCents), icon: WalletCards },
-      { label: "Pending payouts", value: sum(scopedEntries, (entry) => entry.status === "PENDING"), icon: Clock3 },
-      { label: "Approved payouts", value: sum(scopedEntries, (entry) => entry.status === "APPROVED"), icon: CheckCircle2 }
+      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Sum of captured order totals represented in the current ledger filters." },
+      { label: "Gross margin", value: uniqueOrderSum(scopedEntries, (entry) => entry.grossMarginCents), icon: DollarSign, info: "Captured revenue minus internal product cost, counted once per order." },
+      { label: "Commission pool", value: uniqueOrderSum(scopedEntries, (entry) => entry.commissionPoolCents), icon: WalletCards, info: "Total commission pool created by captured orders, counted once per order." },
+      { label: "Pending payouts", value: sum(scopedEntries, (entry) => entry.status === "PENDING"), icon: Clock3, info: "Commission split amounts still marked pending in the current filters." },
+      { label: "Approved payouts", value: sum(scopedEntries, (entry) => entry.status === "APPROVED"), icon: CheckCircle2, info: "Commission split amounts approved but not marked paid in the current filters." }
     ];
   }
 
   if (scope === "partner") {
     return [
-      { label: "Partner profit", value: sum(ownEntries, () => true), icon: DollarSign },
-      { label: "Team payouts", value: sum(teamEntries, () => true), icon: WalletCards },
-      { label: "Pending", value: pending, icon: Clock3 },
-      { label: "Approved", value: approved + paid, icon: CheckCircle2 }
+      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Captured order totals for your network in the current filters." },
+      { label: "Partner profit", value: sum(ownEntries, () => true), icon: DollarSign, info: "Commission splits assigned to the partner role." },
+      { label: "Team payouts", value: sum(teamEntries, () => true), icon: WalletCards, info: "Manager, leader, and seller splits funded from the partner payout flow." },
+      { label: "Pending", value: pending, icon: Clock3, info: "Your own partner splits still pending." },
+      { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Your own partner splits approved or already paid." }
     ];
   }
 
   if (scope === "manager") {
     return [
-      { label: "Personal earnings", value: sum(ownEntries, () => true), icon: DollarSign },
-      { label: "Group payouts", value: sum(teamEntries, () => true), icon: WalletCards },
-      { label: "Pending", value: pending, icon: Clock3 },
-      { label: "Approved", value: approved + paid, icon: CheckCircle2 }
+      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Captured order totals for your managed team in the current filters." },
+      { label: "Personal earnings", value: sum(ownEntries, () => true), icon: DollarSign, info: "Commission splits assigned to this manager." },
+      { label: "Group payouts", value: sum(teamEntries, () => true), icon: WalletCards, info: "Leader and seller commission splits under this manager." },
+      { label: "Pending", value: pending, icon: Clock3, info: "Manager splits still pending." },
+      { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Manager splits approved or already paid." }
     ];
   }
 
   if (scope === "group_leader") {
     return [
-      { label: "Personal earnings", value: sum(ownEntries, () => true), icon: DollarSign },
-      { label: "Seller payouts", value: sum(teamEntries, () => true), icon: WalletCards },
-      { label: "Pending", value: pending, icon: Clock3 },
-      { label: "Approved", value: approved + paid, icon: CheckCircle2 }
+      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Captured order totals for this leader team in the current filters." },
+      { label: "Personal earnings", value: sum(ownEntries, () => true), icon: DollarSign, info: "Commission splits assigned to this leader." },
+      { label: "Seller payouts", value: sum(teamEntries, () => true), icon: WalletCards, info: "Seller commission splits under this leader." },
+      { label: "Pending", value: pending, icon: Clock3, info: "Leader splits still pending." },
+      { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Leader splits approved or already paid." }
     ];
   }
 
   return [
-    { label: "Your commission", value: sum(ownEntries, () => true), icon: DollarSign },
-    { label: "Pending", value: pending, icon: Clock3 },
-    { label: "Approved", value: approved + paid, icon: CheckCircle2 },
-    { label: "Deferred", value: deferred, icon: FileText }
+    { label: "Collected revenue", value: uniqueOrderSum(ownEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Captured order totals from your sales in the current filters." },
+    { label: "Your commission", value: sum(ownEntries, () => true), icon: DollarSign, info: "Your seller commission splits from captured orders." },
+    { label: "Pending", value: pending, icon: Clock3, info: "Your seller commission splits still pending." },
+    { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Your seller commission splits approved or already paid." },
+    { label: "Deferred", value: deferred, icon: FileText, info: "Your seller commission splits rejected, refunded, or no longer payable." }
   ];
 }
 
@@ -153,6 +160,9 @@ function applyCommissionFilters(entries: CommissionLedgerEntry[], filters?: Reco
       entry.orderNumber,
       entry.customerName,
       entry.customerEmail,
+      entry.sellerName,
+      entry.sellerEmail,
+      entry.sellerRole,
       entry.participantName,
       entry.participantEmail,
       roleCopy[entry.participantRole],
@@ -199,7 +209,7 @@ function EmptyLedger({ scope }: { scope: CommissionLedgerScope }) {
   );
 }
 
-export function CommissionLedger({ entries, scope, title, description, filters }: CommissionLedgerProps) {
+export function CommissionLedger({ entries, scope, title, description, filters, dateRangeLabel = "selected range" }: CommissionLedgerProps) {
   const scopedRows = visibleEntries(scope, entries);
   const rows = applyCommissionFilters(scopedRows, filters);
   const metrics = metricsFor(scope, rows);
@@ -221,18 +231,21 @@ export function CommissionLedger({ entries, scope, title, description, filters }
             </Badge>
           </div>
         </div>
-        <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-5">
           {metrics.map((metric) => {
             const Icon = metric.icon;
             return (
               <div key={metric.label} className="rounded-[28px] border border-border bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between gap-4">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{metric.label}</p>
+                  <KpiInfo label={metric.label} description={`${metric.info} Date range: ${dateRangeLabel}.`} />
+                </div>
+                <div className="mt-4 flex items-end justify-between gap-3">
+                  <p className="text-3xl font-semibold text-clinic-navy">{dollars(metric.value)}</p>
                   <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-clinic-mist text-clinic-navy">
                     <Icon className="h-5 w-5" />
                   </span>
                 </div>
-                <p className="mt-5 text-3xl font-semibold text-clinic-navy">{dollars(metric.value)}</p>
               </div>
             );
           })}
@@ -241,9 +254,10 @@ export function CommissionLedger({ entries, scope, title, description, filters }
 
       <RecordFilters
         title="Commission filters"
-        description="Filter commission activity by customer, order, participant, status, or role."
+            description="Filter commission activity by customer, order, seller, payout recipient, status, or role."
         searchPlaceholder="Search commissions, customers, orders..."
         filters={filters ?? {}}
+        hiddenParams={{ range: filters?.range, from: filters?.from, to: filters?.to }}
         resetHref={resetPath(scope)}
         selects={[
           {
@@ -298,7 +312,7 @@ export function CommissionLedger({ entries, scope, title, description, filters }
                   <tr>
                     <th className="px-5 py-4">Order</th>
                     <th className="px-5 py-4">Customer</th>
-                    {showTeamColumns ? <th className="px-5 py-4">Participant</th> : null}
+                    {showTeamColumns ? <th className="px-5 py-4">Seller</th> : null}
                     <th className="px-5 py-4">Amount</th>
                     {showInternalColumns ? <th className="px-5 py-4">Margin</th> : null}
                     {showInternalColumns ? <th className="px-5 py-4">Pool</th> : null}
@@ -320,8 +334,11 @@ export function CommissionLedger({ entries, scope, title, description, filters }
                       </td>
                       {showTeamColumns ? (
                         <td className="px-5 py-5">
-                          <p className="font-semibold text-clinic-ink">{entry.participantName}</p>
-                          <p className="mt-1 text-slate-500">{roleCopy[entry.participantRole]}</p>
+                          <p className="font-semibold text-clinic-ink">{entry.sellerName}</p>
+                          <p className="mt-1 text-slate-500">{entry.sellerRole}</p>
+                          <p className="mt-2 text-xs font-medium text-slate-400">
+                            Payout: {entry.participantName} · {roleCopy[entry.participantRole]}
+                          </p>
                         </td>
                       ) : null}
                       <td className="px-5 py-5 text-lg font-semibold text-emerald-700">{dollars(entry.amountCents)}</td>
@@ -355,8 +372,12 @@ export function CommissionLedger({ entries, scope, title, description, filters }
                   </div>
                   {showTeamColumns ? (
                     <div className="mt-4 rounded-2xl bg-clinic-mist p-4">
-                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{roleCopy[entry.participantRole]}</p>
-                      <p className="mt-1 font-semibold text-clinic-ink">{entry.participantName}</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Seller</p>
+                      <p className="mt-1 font-semibold text-clinic-ink">{entry.sellerName}</p>
+                      <p className="mt-1 text-sm text-slate-500">{entry.sellerRole}</p>
+                      <p className="mt-3 text-xs font-medium text-slate-500">
+                        Payout: {entry.participantName} · {roleCopy[entry.participantRole]}
+                      </p>
                     </div>
                   ) : null}
                   <div className="mt-4 grid grid-cols-2 gap-3">

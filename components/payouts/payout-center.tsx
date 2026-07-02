@@ -9,6 +9,7 @@ import { cn, currency } from "@/lib/utils";
 import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type RecordFiltersState } from "@/components/filters/record-filters";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { KpiInfo } from "@/components/ui/kpi-info";
 
 type PayoutCenterProps = {
   entries: CommissionLedgerEntry[];
@@ -330,11 +331,14 @@ function PayoutMetric({
     <div className="rounded-[28px] border border-border bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-4">
         <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{label}</p>
+        <KpiInfo label={label} description={helper} />
+      </div>
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <p className="text-3xl font-semibold tracking-tight text-clinic-navy">{dollars(value)}</p>
         <span className={cn("flex h-11 w-11 items-center justify-center rounded-2xl", toneClassName)}>
           <Icon className="h-5 w-5" />
         </span>
       </div>
-      <p className="mt-5 text-3xl font-semibold tracking-tight text-clinic-navy">{dollars(value)}</p>
       <p className="mt-2 text-sm leading-6 text-slate-500">{helper}</p>
     </div>
   );

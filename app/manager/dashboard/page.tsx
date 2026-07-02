@@ -44,10 +44,10 @@ export default async function ManagerDashboardPage({
     <SidebarShell nav={managerNav} eyebrow="Manager" title="Manager dashboard">
       <DashboardDateRangeFilter range={dateRange} resetHref="/manager/dashboard" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Team revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders in your team`} />
-        <MetricCard label="Personal revenue" value={currency(metrics.personalRevenueCents / 100)} change={`${metrics.personalOrderCount} direct sales`} />
-        <MetricCard label="Manager earnings" value={currency(metrics.profitCents / 100)} change="Direct earnings plus team overrides" tone="green" />
-        <MetricCard label="Pending team payouts" value={currency(metrics.pendingDownlinePayoutCents / 100)} change="Leader and seller commissions pending" tone="red" />
+        <MetricCard label="Team revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders in your team`} info="Captured order totals from your direct sales and assigned team sales in the selected date range." />
+        <MetricCard label="Personal revenue" value={currency(metrics.personalRevenueCents / 100)} change={`${metrics.personalOrderCount} direct sales`} info="Captured order totals from orders personally created by this manager." />
+        <MetricCard label="Manager earnings" value={currency(metrics.profitCents / 100)} change="Direct earnings plus team overrides" tone="green" info="Manager commission splits from captured orders in scope." />
+        <MetricCard label="Pending team payouts" value={currency(metrics.pendingDownlinePayoutCents / 100)} change="Leader and seller commissions pending" tone="red" info="Pending downline commission splits for captured team orders." />
       </div>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_0.7fr]">

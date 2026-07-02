@@ -2,6 +2,7 @@ import type { CommissionParticipantRole, CommissionStatus, Prisma } from "@prism
 
 import type { Role } from "@/lib/auth/roles";
 import { prisma } from "@/lib/db/prisma";
+import type { DashboardDateRange } from "@/lib/dashboard/date-range";
 
 export type CommissionLedgerScope = "admin" | "partner" | "manager" | "group_leader" | "consultant";
 
@@ -11,6 +12,9 @@ export type CommissionLedgerEntry = {
   orderNumber: string;
   customerName: string;
   customerEmail: string;
+  sellerName: string;
+  sellerEmail: string;
+  sellerRole: "Seller" | "Leader" | "Manager" | "Partner" | "Admin";
   participantRole: CommissionParticipantRole;
   participantName: string;
   participantEmail: string;
@@ -27,7 +31,19 @@ export type CommissionLedgerEntry = {
 const commissionSplitInclude = {
   order: {
     include: {
-      customer: true
+      customer: true,
+      consultantProfile: {
+        include: { user: true }
+      },
+      partnerProfile: {
+        include: { user: true }
+      },
+      managerProfile: {
+        include: { user: true }
+      },
+      groupLeaderProfile: {
+        include: { user: true }
+      }
     }
   },
   partnerProfile: {
@@ -55,6 +71,21 @@ function personName(person?: { firstName?: string | null; lastName?: string | nu
 
 function orderNumber(orderId: string) {
   return `#${orderId.slice(0, 8).toUpperCase()}`;
+}
+
+function createdAtFilter(dateRange?: DashboardDateRange): Prisma.DateTimeFilter | undefined {
+  if (!dateRange?.from && !dateRange?.to) return undefined;
+  return {
+    ...(dateRange.from ? { gte: dateRange.from } : {}),
+    ...(dateRange.to ? { lte: dateRange.to } : {})
+  };
+}
+
+function capturedOrderFilter(dateRange?: DashboardDateRange): Prisma.OrderWhereInput {
+  return {
+    paymentStatus: "CAPTURED",
+    ...(createdAtFilter(dateRange) ? { createdAt: createdAtFilter(dateRange) } : {})
+  };
 }
 
 function participantFor(split: CommissionSplitWithRelations) {
@@ -85,8 +116,56 @@ function participantFor(split: CommissionSplitWithRelations) {
   };
 }
 
+function metadataRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function saleOriginatorFor(split: CommissionSplitWithRelations) {
+  const metadata = metadataRecord(split.order.referralMetadata);
+  const commissionMode = typeof metadata.commissionMode === "string" ? metadata.commissionMode : "";
+
+  if (commissionMode === "PARTNER_DIRECT") {
+    return {
+      name: split.order.partnerProfile?.displayName || personName(split.order.partnerProfile?.user),
+      email: split.order.partnerProfile?.user.email || "",
+      role: "Partner" as const
+    };
+  }
+
+  if (commissionMode === "MANAGER_DIRECT") {
+    return {
+      name: split.order.managerProfile?.displayName || personName(split.order.managerProfile?.user),
+      email: split.order.managerProfile?.user.email || "",
+      role: "Manager" as const
+    };
+  }
+
+  if (commissionMode === "GROUP_LEADER_DIRECT") {
+    return {
+      name: split.order.groupLeaderProfile?.displayName || personName(split.order.groupLeaderProfile?.user),
+      email: split.order.groupLeaderProfile?.user.email || "",
+      role: "Leader" as const
+    };
+  }
+
+  if (commissionMode === "ADMIN_DIRECT") {
+    return {
+      name: "Admin direct sale",
+      email: "",
+      role: "Admin" as const
+    };
+  }
+
+  return {
+    name: personName(split.order.consultantProfile?.user),
+    email: split.order.consultantProfile?.user.email || "",
+    role: "Seller" as const
+  };
+}
+
 export function mapCommissionSplit(split: CommissionSplitWithRelations): CommissionLedgerEntry {
   const participant = participantFor(split);
+  const seller = saleOriginatorFor(split);
 
   return {
     id: split.id,
@@ -94,6 +173,9 @@ export function mapCommissionSplit(split: CommissionSplitWithRelations): Commiss
     orderNumber: orderNumber(split.orderId),
     customerName: personName(split.order.customer),
     customerEmail: split.order.customer.email,
+    sellerName: seller.name,
+    sellerEmail: seller.email,
+    sellerRole: seller.role,
     participantRole: split.participantRole,
     participantName: participant.name,
     participantEmail: participant.email,
@@ -108,9 +190,12 @@ export function mapCommissionSplit(split: CommissionSplitWithRelations): Commiss
   };
 }
 
-export async function getAdminCommissionLedger(companyId?: string | null) {
+export async function getAdminCommissionLedger(companyId?: string | null, dateRange?: DashboardDateRange) {
   const splits = await prisma.commissionSplit.findMany({
-    where: companyId ? { companyId } : undefined,
+    where: {
+      ...(companyId ? { companyId } : {}),
+      order: capturedOrderFilter(dateRange)
+    },
     include: commissionSplitInclude,
     orderBy: { createdAt: "desc" },
     take: 500
@@ -126,7 +211,7 @@ export async function getPartnerCommissionLedger(user: {
   partnerProfile?: { id: string } | null;
   managerProfile?: { id: string; partnerProfileId: string } | null;
   groupLeaderProfile?: { id: string; partnerProfileId: string; managerProfileId?: string | null } | null;
-}) {
+}, dateRange?: DashboardDateRange) {
   const companyFilter = user.companyId ? { companyId: user.companyId } : {};
   let where: Prisma.CommissionSplitWhereInput | null = null;
 
@@ -134,6 +219,7 @@ export async function getPartnerCommissionLedger(user: {
     where = {
       ...companyFilter,
       order: {
+        ...capturedOrderFilter(dateRange),
         OR: [
           { partnerProfileId: user.partnerProfile.id },
           { managerProfile: { partnerProfileId: user.partnerProfile.id } },
@@ -148,6 +234,7 @@ export async function getPartnerCommissionLedger(user: {
     where = {
       ...companyFilter,
       order: {
+        ...capturedOrderFilter(dateRange),
         OR: [
           { managerProfileId: user.managerProfile.id },
           { groupLeaderProfile: { managerProfileId: user.managerProfile.id } },
@@ -162,6 +249,7 @@ export async function getPartnerCommissionLedger(user: {
     where = {
       ...companyFilter,
       order: {
+        ...capturedOrderFilter(dateRange),
         OR: [
           { groupLeaderProfileId: user.groupLeaderProfile.id },
           { consultantProfile: { groupLeaderProfileId: user.groupLeaderProfile.id } }
@@ -186,14 +274,15 @@ export async function getConsultantCommissionLedger(user: {
   id: string;
   companyId: string | null;
   consultantProfile?: { id: string } | null;
-}) {
+}, dateRange?: DashboardDateRange) {
   if (!user.consultantProfile) return [];
 
   const splits = await prisma.commissionSplit.findMany({
     where: {
       ...(user.companyId ? { companyId: user.companyId } : {}),
       consultantProfileId: user.consultantProfile.id,
-      participantRole: "CONSULTANT"
+      participantRole: "CONSULTANT",
+      order: capturedOrderFilter(dateRange)
     },
     include: commissionSplitInclude,
     orderBy: { createdAt: "desc" },

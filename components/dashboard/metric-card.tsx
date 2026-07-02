@@ -1,15 +1,18 @@
 import { ArrowUpRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { KpiInfo } from "@/components/ui/kpi-info";
 
 export function MetricCard({
   label,
   value,
   change,
+  info,
   tone = "blue"
 }: {
   label: string;
   value: string;
   change: string;
+  info?: string;
   tone?: "blue" | "red" | "green";
 }) {
   const tones = {
@@ -25,9 +28,13 @@ export function MetricCard({
           <p className="text-sm font-medium text-slate-500">{label}</p>
           <p className="mt-3 text-3xl font-semibold tracking-normal text-clinic-ink">{value}</p>
         </div>
-        <span className={`rounded-lg p-2 ${tones[tone]}`}>
-          <ArrowUpRight className="h-4 w-4" />
-        </span>
+        {info ? (
+          <KpiInfo label={label} description={info} />
+        ) : (
+          <span className={`rounded-lg p-2 ${tones[tone]}`}>
+            <ArrowUpRight className="h-4 w-4" />
+          </span>
+        )}
       </div>
       <p className="mt-4 text-sm font-medium text-emerald-700">{change}</p>
     </Card>
