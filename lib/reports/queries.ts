@@ -20,21 +20,24 @@ export type ReportInput = {
 const reportOrderInclude = {
   customer: true,
   partnerProfile: { include: { user: true } },
-  managerProfile: { include: { user: true } },
+  managerProfile: { include: { user: true, partnerProfile: { include: { user: true } } } },
   groupLeaderProfile: {
     include: {
       user: true,
-      managerProfile: { include: { user: true } }
+      partnerProfile: { include: { user: true } },
+      managerProfile: { include: { user: true, partnerProfile: { include: { user: true } } } }
     }
   },
   consultantProfile: {
     include: {
       user: true,
-      managerProfile: { include: { user: true } },
+      partnerProfile: { include: { user: true } },
+      managerProfile: { include: { user: true, partnerProfile: { include: { user: true } } } },
       groupLeaderProfile: {
         include: {
           user: true,
-          managerProfile: { include: { user: true } }
+          partnerProfile: { include: { user: true } },
+          managerProfile: { include: { user: true, partnerProfile: { include: { user: true } } } }
         }
       }
     }
@@ -178,6 +181,19 @@ type PerformanceAccumulator = PerformanceEntity & {
   lastSaleAt: Date | null;
 };
 
+type TeamReportRow = {
+  name: string;
+  partnerName: string;
+  role: string;
+  orders: number;
+  revenueCents: number;
+  agentCommissionCents: number;
+  partnerOverrideCents: number;
+  managerOverrideCents: number;
+  leaderOverrideCents: number;
+  totalPayoutCents: number;
+};
+
 function addPerformanceRow(
   map: Map<string, PerformanceAccumulator>,
   entity: PerformanceEntity | null,
@@ -232,6 +248,35 @@ function directOrder(order: ReportOrder, input: ReportInput) {
   return Boolean(!order.partnerProfileId && !order.managerProfileId && !order.groupLeaderProfileId && !order.consultantProfileId);
 }
 
+function splitAmount(order: ReportOrder, role: CommissionParticipantRole) {
+  return order.commissionSplits
+    .filter((split) => split.participantRole === role)
+    .reduce((sum, split) => sum + split.amountCents, 0);
+}
+
+function agentParticipantRole(role: string): CommissionParticipantRole | null {
+  if (role === "Seller") return "CONSULTANT";
+  if (role === "Leader") return "GROUP_LEADER";
+  if (role === "Manager") return "MANAGER";
+  if (role === "Partner") return "PARTNER";
+  return null;
+}
+
+function partnerForOrder(order: ReportOrder) {
+  const profile =
+    order.partnerProfile ??
+    order.managerProfile?.partnerProfile ??
+    order.groupLeaderProfile?.partnerProfile ??
+    order.groupLeaderProfile?.managerProfile?.partnerProfile ??
+    order.consultantProfile?.partnerProfile ??
+    order.consultantProfile?.managerProfile?.partnerProfile ??
+    order.consultantProfile?.groupLeaderProfile?.partnerProfile ??
+    order.consultantProfile?.groupLeaderProfile?.managerProfile?.partnerProfile ??
+    null;
+
+  return profile ? personName(profile.user) : "No partner";
+}
+
 export async function getReportData(input: ReportInput) {
   const orders = await prisma.order.findMany({
     where: reportOrderWhere(input),
@@ -246,7 +291,7 @@ export async function getReportData(input: ReportInput) {
   const directEarningsCents = orders.filter((order) => directOrder(order, input)).reduce((sum, order) => sum + splitForRole(order, input), 0);
 
   const productMap = new Map<string, { title: string; sku: string; quantity: number; revenueCents: number }>();
-  const teamMap = new Map<string, { name: string; role: string; orders: number; revenueCents: number; earningsCents: number }>();
+  const teamMap = new Map<string, TeamReportRow>();
   const managerMap = new Map<string, PerformanceAccumulator>();
   const leaderMap = new Map<string, PerformanceAccumulator>();
   const sellerMap = new Map<string, PerformanceAccumulator>();
@@ -261,11 +306,32 @@ export async function getReportData(input: ReportInput) {
     }
 
     const seller = originator(order);
-    const teamCurrent = teamMap.get(`${seller.role}:${seller.name}`) ?? { ...seller, orders: 0, revenueCents: 0, earningsCents: 0 };
+    const partnerName = partnerForOrder(order);
+    const agentRole = agentParticipantRole(seller.role);
+    const partnerAmountCents = splitAmount(order, "PARTNER");
+    const managerAmountCents = splitAmount(order, "MANAGER");
+    const leaderAmountCents = splitAmount(order, "GROUP_LEADER");
+    const agentCommissionCents = agentRole ? splitAmount(order, agentRole) : 0;
+    const teamKey = `${partnerName}:${seller.role}:${seller.name}`;
+    const teamCurrent = teamMap.get(teamKey) ?? {
+      ...seller,
+      partnerName,
+      orders: 0,
+      revenueCents: 0,
+      agentCommissionCents: 0,
+      partnerOverrideCents: 0,
+      managerOverrideCents: 0,
+      leaderOverrideCents: 0,
+      totalPayoutCents: 0
+    };
     teamCurrent.orders += 1;
     teamCurrent.revenueCents += order.totalCents;
-    teamCurrent.earningsCents += orderEarningsCents;
-    teamMap.set(`${seller.role}:${seller.name}`, teamCurrent);
+    teamCurrent.agentCommissionCents += agentCommissionCents;
+    teamCurrent.partnerOverrideCents += agentRole === "PARTNER" ? 0 : partnerAmountCents;
+    teamCurrent.managerOverrideCents += agentRole === "MANAGER" ? 0 : managerAmountCents;
+    teamCurrent.leaderOverrideCents += agentRole === "GROUP_LEADER" ? 0 : leaderAmountCents;
+    teamCurrent.totalPayoutCents += partnerAmountCents + managerAmountCents + leaderAmountCents + splitAmount(order, "CONSULTANT");
+    teamMap.set(teamKey, teamCurrent);
 
     addPerformanceRow(managerMap, managerForOrder(order), order, orderEarningsCents);
     addPerformanceRow(leaderMap, leaderForOrder(order), order, orderEarningsCents);
@@ -286,6 +352,11 @@ export async function getReportData(input: ReportInput) {
   const sellerRows = performanceRows(sellerMap);
   const orderRows = orders.map((order) => {
     const seller = originator(order);
+    const agentRole = agentParticipantRole(seller.role);
+    const partnerAmountCents = splitAmount(order, "PARTNER");
+    const managerAmountCents = splitAmount(order, "MANAGER");
+    const leaderAmountCents = splitAmount(order, "GROUP_LEADER");
+    const consultantAmountCents = splitAmount(order, "CONSULTANT");
     return {
       id: order.id,
       createdAt: order.createdAt,
@@ -293,8 +364,14 @@ export async function getReportData(input: ReportInput) {
       customerEmail: order.customer.email,
       sellerName: seller.name,
       sellerRole: seller.role,
+      partnerName: partnerForOrder(order),
       totalCents: order.totalCents,
       earningsCents: splitForRole(order, input),
+      agentCommissionCents: agentRole ? splitAmount(order, agentRole) : 0,
+      partnerOverrideCents: agentRole === "PARTNER" ? 0 : partnerAmountCents,
+      managerOverrideCents: agentRole === "MANAGER" ? 0 : managerAmountCents,
+      leaderOverrideCents: agentRole === "GROUP_LEADER" ? 0 : leaderAmountCents,
+      totalPayoutCents: partnerAmountCents + managerAmountCents + leaderAmountCents + consultantAmountCents,
       products: order.items.map((item) => `${item.quantity}x ${item.product.title}`).join(", ")
     };
   });
@@ -308,7 +385,7 @@ export async function getReportData(input: ReportInput) {
     averageOrderCents: orders.length ? Math.round(totalRevenueCents / orders.length) : 0,
     chartData: Array.from(bucketMap.values()),
     topProducts: productRows.slice(0, 8),
-    teamRows: teamRows.slice(0, 12),
+    teamRows,
     recentOrders: orderRows.slice(0, 12),
     managerRows,
     leaderRows,
@@ -321,6 +398,7 @@ export async function getReportData(input: ReportInput) {
 
 export async function getReportCsv(input: ReportInput, type: ReportExportType) {
   const report = await getReportData(input);
+  const partnerPayoutLabel = input.role === "partner" ? "Partner Commission" : "Partner Override";
 
   if (type === "products") {
     return [
@@ -331,22 +409,55 @@ export async function getReportCsv(input: ReportInput, type: ReportExportType) {
 
   if (type === "team") {
     return [
-      ["Name", "Role", "Orders", "Revenue", "Earnings"].join(","),
-      ...report.exportTeamRows.map((row) => [row.name, row.role, row.orders, (row.revenueCents / 100).toFixed(2), (row.earningsCents / 100).toFixed(2)].map(csvEscape).join(","))
+      ["Agent Name", "Partner", "Role", "Orders", "Revenue", "Agent Commission", partnerPayoutLabel, "Manager Override", "Leader Override", "Total Payout"].join(","),
+      ...report.exportTeamRows.map((row) => [
+        row.name,
+        row.partnerName,
+        row.role,
+        row.orders,
+        (row.revenueCents / 100).toFixed(2),
+        (row.agentCommissionCents / 100).toFixed(2),
+        (row.partnerOverrideCents / 100).toFixed(2),
+        (row.managerOverrideCents / 100).toFixed(2),
+        (row.leaderOverrideCents / 100).toFixed(2),
+        (row.totalPayoutCents / 100).toFixed(2)
+      ].map(csvEscape).join(","))
     ].join("\n");
   }
 
   return [
-    ["Order ID", "Date", "Customer", "Email", "Originator", "Role", "Products", "Revenue", "Earnings"].join(","),
+    [
+      "Order ID",
+      "Date",
+      "Customer",
+      "Email",
+      "Agent Name",
+      "Partner",
+      "Role",
+      "Products",
+      "Revenue",
+      "Agent Commission",
+      partnerPayoutLabel,
+      "Manager Override",
+      "Leader Override",
+      "Total Payout",
+      "Viewer Earnings"
+    ].join(","),
     ...report.exportOrders.map((row) => [
       row.id,
       row.createdAt.toISOString(),
       row.customerName,
       row.customerEmail,
       row.sellerName,
+      row.partnerName,
       row.sellerRole,
       row.products,
       (row.totalCents / 100).toFixed(2),
+      (row.agentCommissionCents / 100).toFixed(2),
+      (row.partnerOverrideCents / 100).toFixed(2),
+      (row.managerOverrideCents / 100).toFixed(2),
+      (row.leaderOverrideCents / 100).toFixed(2),
+      (row.totalPayoutCents / 100).toFixed(2),
       (row.earningsCents / 100).toFixed(2)
     ].map(csvEscape).join(","))
   ].join("\n");

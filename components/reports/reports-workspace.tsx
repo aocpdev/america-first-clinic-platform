@@ -17,7 +17,18 @@ type ReportWorkspaceData = {
   averageOrderCents: number;
   chartData: Array<{ month: string; revenue: number; earnings: number }>;
   topProducts: Array<{ title: string; sku: string; quantity: number; revenueCents: number }>;
-  teamRows: Array<{ name: string; role: string; orders: number; revenueCents: number; earningsCents: number }>;
+  teamRows: Array<{
+    name: string;
+    partnerName: string;
+    role: string;
+    orders: number;
+    revenueCents: number;
+    agentCommissionCents: number;
+    partnerOverrideCents: number;
+    managerOverrideCents: number;
+    leaderOverrideCents: number;
+    totalPayoutCents: number;
+  }>;
   managerRows?: PerformanceRow[];
   leaderRows?: PerformanceRow[];
   sellerRows?: PerformanceRow[];
@@ -28,6 +39,7 @@ type ReportWorkspaceData = {
     customerEmail: string;
     sellerName: string;
     sellerRole: string;
+    partnerName: string;
     totalCents: number;
     earningsCents: number;
     products: string;
@@ -57,6 +69,7 @@ type ReportsWorkspaceProps = {
   comparisonBaseHref?: string;
   earningsLabel: string;
   directLabel: string;
+  partnerPayoutLabel?: string;
   scopeDescription: string;
   data: ReportWorkspaceData;
 };
@@ -101,6 +114,7 @@ export function ReportsWorkspace({
   comparisonBaseHref,
   earningsLabel,
   directLabel,
+  partnerPayoutLabel = "Partner Override",
   data
 }: ReportsWorkspaceProps) {
   const exportOptions = [
@@ -336,27 +350,38 @@ export function ReportsWorkspace({
             <Users className="size-5 text-clinic-navy" />
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[620px] text-left text-sm">
+            <table className="w-full min-w-[1080px] text-left text-sm">
               <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
                 <tr>
-                  <th className="px-5 py-3">Name</th>
-                  <th className="px-5 py-3">Role</th>
+                  <th className="px-5 py-3">Agent name</th>
+                  <th className="px-5 py-3">Partner</th>
                   <th className="px-5 py-3">Orders</th>
                   <th className="px-5 py-3">Revenue</th>
-                  <th className="px-5 py-3">Earnings</th>
+                  <th className="px-5 py-3">Agent commission</th>
+                  <th className="px-5 py-3">{partnerPayoutLabel}</th>
+                  <th className="px-5 py-3">Manager override</th>
+                  <th className="px-5 py-3">Leader override</th>
+                  <th className="px-5 py-3">Total payout</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {data.teamRows.length ? data.teamRows.map((row) => (
                   <tr key={`${row.role}-${row.name}`}>
-                    <td className="px-5 py-4 font-semibold text-clinic-ink">{row.name}</td>
-                    <td className="px-5 py-4 text-slate-600">{row.role}</td>
+                    <td className="px-5 py-4">
+                      <p className="font-semibold text-clinic-ink">{row.name}</p>
+                      <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{row.role}</p>
+                    </td>
+                    <td className="px-5 py-4 font-semibold text-slate-600">{row.partnerName}</td>
                     <td className="px-5 py-4 text-slate-600">{row.orders}</td>
                     <td className="px-5 py-4 font-semibold text-clinic-navy">{currency(row.revenueCents / 100)}</td>
-                    <td className="px-5 py-4 font-semibold text-emerald-700">{currency(row.earningsCents / 100)}</td>
+                    <td className="px-5 py-4 font-semibold text-emerald-700">{currency(row.agentCommissionCents / 100)}</td>
+                    <td className="px-5 py-4 font-semibold text-clinic-navy">{currency(row.partnerOverrideCents / 100)}</td>
+                    <td className="px-5 py-4 text-slate-600">{currency(row.managerOverrideCents / 100)}</td>
+                    <td className="px-5 py-4 text-slate-600">{currency(row.leaderOverrideCents / 100)}</td>
+                    <td className="px-5 py-4 font-semibold text-clinic-ink">{currency(row.totalPayoutCents / 100)}</td>
                   </tr>
                 )) : (
-                  <tr><td className="px-5 py-10 text-center text-slate-500" colSpan={5}>No team sales in this range.</td></tr>
+                  <tr><td className="px-5 py-10 text-center text-slate-500" colSpan={9}>No team sales in this range.</td></tr>
                 )}
               </tbody>
             </table>

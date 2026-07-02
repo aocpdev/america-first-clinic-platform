@@ -59,6 +59,7 @@ export default async function PartnerReportsPage({
         comparisonBaseHref="/partner/reports"
         earningsLabel={leader ? "Leader earnings" : "Partner earnings"}
         directLabel={leader ? "Leader direct revenue" : "Partner direct revenue"}
+        partnerPayoutLabel={leader ? "Partner Override" : "Partner Commission"}
         scopeDescription={leader
           ? "Leader reports include your personal sales and the sellers assigned under your leadership. Partner-only payout reconciliation is intentionally outside this view."
           : "Partner reports include the full hierarchy you control: your own sales, managers, leaders, sellers, product performance, and CSV exports for payout reconciliation."}
