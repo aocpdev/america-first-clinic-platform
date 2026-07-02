@@ -174,6 +174,14 @@ function relatedPartnerObligations(entry: CommissionLedgerEntry, entries: Commis
   ));
 }
 
+function partnerPacketAmount(entry: CommissionLedgerEntry, entries: CommissionLedgerEntry[]) {
+  return entry.amountCents + sum(relatedPartnerObligations(entry, entries));
+}
+
+function displayPayoutAmount(entry: CommissionLedgerEntry, scope: CommissionLedgerScope, entries: CommissionLedgerEntry[]) {
+  return scope === "admin" && entry.participantRole === "PARTNER" ? partnerPacketAmount(entry, entries) : entry.amountCents;
+}
+
 function partnerCompanyPayments(entries: CommissionLedgerEntry[]) {
   return entries.filter((entry) => entry.payoutResponsibility === "COMPANY" && entry.participantRole === "PARTNER");
 }
@@ -336,15 +344,20 @@ function PayoutRow({
   entry,
   scope,
   canMarkPaid,
+  allEntries,
   relatedEntries = [],
   sourceCompanyPayment
 }: {
   entry: CommissionLedgerEntry;
   scope: CommissionLedgerScope;
   canMarkPaid: boolean;
+  allEntries: CommissionLedgerEntry[];
   relatedEntries?: CommissionLedgerEntry[];
   sourceCompanyPayment?: CommissionLedgerEntry;
 }) {
+  const displayedAmount = displayPayoutAmount(entry, scope, allEntries);
+  const sourcePacketAmount = sourceCompanyPayment ? partnerPacketAmount(sourceCompanyPayment, allEntries) : 0;
+
   return (
     <div className="grid gap-4 border-t border-border px-5 py-5 lg:grid-cols-[1.15fr_1fr_0.75fr_0.7fr_auto] lg:items-center">
       <div className="min-w-0">
@@ -365,7 +378,12 @@ function PayoutRow({
 
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Amount</p>
-        <p className="mt-1 text-2xl font-semibold text-clinic-navy">{dollars(entry.amountCents)}</p>
+        <p className="mt-1 text-2xl font-semibold text-clinic-navy">{dollars(displayedAmount)}</p>
+        {scope === "admin" && relatedEntries.length ? (
+          <p className="mt-1 text-xs leading-5 text-slate-500">
+            Partner keeps {dollars(entry.amountCents)} after downline payouts.
+          </p>
+        ) : null}
       </div>
 
       <div>
@@ -392,8 +410,9 @@ function PayoutRow({
         <div className="rounded-[24px] border border-blue-100 bg-blue-50/70 p-4 lg:col-span-5">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Funded by company partner payout</p>
           <p className="mt-2 text-sm leading-6 text-slate-600">
-            Company payout for this order: <span className="font-semibold text-clinic-navy">{dollars(sourceCompanyPayment.amountCents)}</span>{" "}
-            ({statusCopy[sourceCompanyPayment.status]}). Use this packet to reconcile what the partner received against what the team is owed.
+            Partner retained split: <span className="font-semibold text-clinic-navy">{dollars(sourceCompanyPayment.amountCents)}</span>{" "}
+            ({statusCopy[sourceCompanyPayment.status]}). Total partner packet: <span className="font-semibold text-clinic-navy">{dollars(sourcePacketAmount)}</span>.
+            Use this packet to reconcile what the partner received against what the team is owed.
           </p>
         </div>
       ) : null}
@@ -468,13 +487,15 @@ function RewardPayoutRow({ claim }: { claim: PartnerCashRewardPayoutItem }) {
 function PartnerPayoutOverview({
   teamRows,
   companyPayments,
+  entries,
   rewardPayouts
 }: {
   teamRows: CommissionLedgerEntry[];
   companyPayments: CommissionLedgerEntry[];
+  entries: CommissionLedgerEntry[];
   rewardPayouts: PartnerCashRewardPayoutItem[];
 }) {
-  const companyPartnerPayout = sum(companyPayments);
+  const companyPartnerPayout = companyPayments.reduce((total, entry) => total + partnerPacketAmount(entry, entries), 0);
   const teamCommissions = sum(teamRows);
   const cashRewards = rewardPayoutSum(rewardPayouts);
   const totalFundedByCompany = companyPartnerPayout + cashRewards;
@@ -625,10 +646,12 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
   const rows = applyPayoutFilters(visibleRows, filters);
   const visibleRewardPayouts = scope === "partner" ? applyRewardPayoutFilters(rewardPayouts, filters) : [];
   const copy = copyForScope(scope);
-  const pending = sum(rows, (entry) => entry.status === "PENDING");
-  const approved = sum(rows, (entry) => entry.status === "APPROVED");
-  const paid = sum(rows, (entry) => entry.status === "PAID");
-  const deferred = sum(rows, (entry) => entry.status === "REJECTED");
+  const statusTotal = (status: CommissionStatus) =>
+    rows.reduce((total, entry) => total + (entry.status === status ? displayPayoutAmount(entry, scope, entries) : 0), 0);
+  const pending = statusTotal("PENDING");
+  const approved = statusTotal("APPROVED");
+  const paid = statusTotal("PAID");
+  const deferred = statusTotal("REJECTED");
   const grossMargin = uniqueOrderSum(entries, (entry) => entry.grossMarginCents);
   const partnerPool = uniqueOrderSum(entries, (entry) => entry.commissionPoolCents);
   const companyNet = Math.max(grossMargin - partnerPool, 0);
@@ -726,7 +749,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
       ) : null}
 
       {scope === "partner" ? (
-        <PartnerPayoutOverview teamRows={rows} companyPayments={companyPayments} rewardPayouts={visibleRewardPayouts} />
+        <PartnerPayoutOverview teamRows={rows} companyPayments={companyPayments} entries={entries} rewardPayouts={visibleRewardPayouts} />
       ) : null}
 
       <RecordFilters
@@ -754,7 +777,8 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
             {companyPayments.map((entry) => {
               const obligations = relatedPartnerObligations(entry, entries);
               const teamOwed = sum(obligations);
-              const partnerKeeps = Math.max(entry.amountCents - teamOwed, 0);
+              const packetAmount = partnerPacketAmount(entry, entries);
+              const partnerKeeps = Math.max(packetAmount - teamOwed, 0);
               return (
                 <div key={entry.id} className="rounded-[24px] border border-border bg-white p-4 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-3">
@@ -769,7 +793,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-clinic-mist p-3">
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Received</p>
-                      <p className="mt-1 text-xl font-semibold text-clinic-navy">{dollars(entry.amountCents)}</p>
+                      <p className="mt-1 text-xl font-semibold text-clinic-navy">{dollars(packetAmount)}</p>
                     </div>
                     <div className="rounded-2xl bg-emerald-50 p-3">
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Team owed</p>
@@ -880,6 +904,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
                     entry={entry}
                     scope={scope}
                     canMarkPaid={copy.showActions}
+                    allEntries={entries}
                     relatedEntries={scope === "admin" ? relatedPartnerObligations(entry, entries) : []}
                     sourceCompanyPayment={scope === "partner" ? partnerCompanyPayments(entries).find((item) => item.orderId === entry.orderId) : undefined}
                   />
@@ -896,6 +921,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
                     entry={entry}
                     scope={scope}
                     canMarkPaid={false}
+                    allEntries={entries}
                     relatedEntries={scope === "admin" ? relatedPartnerObligations(entry, entries) : []}
                     sourceCompanyPayment={scope === "partner" ? partnerCompanyPayments(entries).find((item) => item.orderId === entry.orderId) : undefined}
                   />
@@ -912,6 +938,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
                     entry={entry}
                     scope={scope}
                     canMarkPaid={false}
+                    allEntries={entries}
                     relatedEntries={scope === "admin" ? relatedPartnerObligations(entry, entries) : []}
                     sourceCompanyPayment={scope === "partner" ? partnerCompanyPayments(entries).find((item) => item.orderId === entry.orderId) : undefined}
                   />

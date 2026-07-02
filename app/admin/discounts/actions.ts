@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
-import { normalizeDiscountCode } from "@/lib/discounts/calculations";
+import { normalizeDiscountCode, normalizeDiscountFundingStrategy } from "@/lib/discounts/calculations";
 
 function cents(value: FormDataEntryValue | null) {
   const amount = Number(String(value ?? "").replace(/[^0-9.]/g, ""));
@@ -36,6 +36,7 @@ const discountSchema = z.object({
   amountCents: z.number().int().min(0),
   minSubtotalCents: z.number().int().min(0),
   ownerProtectedProfitCents: z.number().int().min(0),
+  fundingStrategy: z.enum(["ORIGINATOR_FUNDED", "PARTNER_FUNDED", "COMPANY_FUNDED", "SHARED_POOL"]),
   maxRedemptions: z.number().int().positive().nullable(),
   startsAt: z.date().nullable(),
   endsAt: z.date().nullable(),
@@ -53,6 +54,7 @@ async function requireCompanyId() {
 
 function parseDiscount(formData: FormData) {
   const rawMax = String(formData.get("maxRedemptions") ?? "").trim();
+  const fundingStrategy = normalizeDiscountFundingStrategy(formData.get("fundingStrategy"));
   return discountSchema.parse({
     name: formData.get("name"),
     code: normalizeDiscountCode(String(formData.get("code") ?? "")),
@@ -61,10 +63,11 @@ function parseDiscount(formData: FormData) {
     amountCents: cents(formData.get("amount")),
     minSubtotalCents: cents(formData.get("minSubtotal")),
     ownerProtectedProfitCents: cents(formData.get("ownerProtectedProfit")),
+    fundingStrategy,
     maxRedemptions: rawMax ? Number(rawMax) : null,
     startsAt: optionalDate(formData.get("startsAt")),
     endsAt: optionalDate(formData.get("endsAt")),
-    affectsCommissions: formData.get("affectsCommissions") === "on",
+    affectsCommissions: fundingStrategy !== "COMPANY_FUNDED",
     active: formData.get("active") === "on",
     productIds: selectedValues(formData, "productIds"),
     categoryNames: []

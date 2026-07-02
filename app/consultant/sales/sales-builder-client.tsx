@@ -7,7 +7,13 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { calculateDiscountApplication, isDiscountActive, normalizeDiscountCode } from "@/lib/discounts/calculations";
+import {
+  calculateDiscountApplication,
+  isDiscountActive,
+  normalizeDiscountCode,
+  normalizeDiscountFundingStrategy,
+  type DiscountFundingStrategy
+} from "@/lib/discounts/calculations";
 import { US_STATE_OPTIONS } from "@/lib/locations/us-states";
 import { formatPhoneForDisplay } from "@/lib/phone";
 import { formatCurrency } from "@/lib/products/catalog";
@@ -63,6 +69,7 @@ type DiscountOption = {
   minSubtotalCents: number;
   ownerProtectedProfitCents: number;
   affectsCommissions: boolean;
+  fundingStrategy?: string;
   productIds: string[];
   categoryNames: string[];
   startsAt: string | null;
@@ -109,6 +116,48 @@ const priceRanges = [
   { label: "$250-$500", min: 25000, max: 50000 },
   { label: "$500+", min: 50000, max: Number.POSITIVE_INFINITY }
 ];
+
+function commissionPreviewForDiscount({
+  commissionCents,
+  discountCents,
+  sharedPoolCommissionCents,
+  fundingStrategy
+}: {
+  commissionCents: number;
+  discountCents: number;
+  sharedPoolCommissionCents: number;
+  fundingStrategy: DiscountFundingStrategy;
+}) {
+  if (fundingStrategy === "SHARED_POOL") {
+    return {
+      adjustedCommissionCents: sharedPoolCommissionCents,
+      originatorAbsorbedDiscountCents: Math.max(0, commissionCents - sharedPoolCommissionCents),
+      remainingDiscountCents: 0
+    };
+  }
+
+  if (fundingStrategy !== "ORIGINATOR_FUNDED") {
+    return {
+      adjustedCommissionCents: commissionCents,
+      originatorAbsorbedDiscountCents: 0,
+      remainingDiscountCents: discountCents
+    };
+  }
+
+  const originatorAbsorbedDiscountCents = Math.min(commissionCents, discountCents);
+  return {
+    adjustedCommissionCents: Math.max(0, commissionCents - discountCents),
+    originatorAbsorbedDiscountCents,
+    remainingDiscountCents: Math.max(0, discountCents - originatorAbsorbedDiscountCents)
+  };
+}
+
+function fundingPreviewCopy(strategy: DiscountFundingStrategy, commissionLabel: string) {
+  if (strategy === "ORIGINATOR_FUNDED") return `${commissionLabel} absorbs first`;
+  if (strategy === "PARTNER_FUNDED") return "Partner split absorbs first";
+  if (strategy === "COMPANY_FUNDED") return "Company promotion";
+  return "Shared margin pool";
+}
 
 type SalesDraft = {
   state: {
@@ -263,15 +312,24 @@ export function SalesBuilderClient({
   }, [couponCode, discounts, selectedLines]);
   const discountCents = appliedDiscount?.discountCents ?? 0;
   const orderTotalCents = appliedDiscount?.totalCents ?? subtotalCents;
-  const originalGrossMarginCents = selectedLines.reduce(
-    (sum, line) => sum + Math.max(0, line.product.priceCents - line.product.internalCostCents) * line.quantity,
-    0
-  );
-  const commissionScale =
-    appliedDiscount && originalGrossMarginCents > 0
-      ? Math.min(1, appliedDiscount.commissionableMarginCents / originalGrossMarginCents)
-      : 1;
-  const adjustedCommissionCents = Math.max(0, Math.round(consultantCommissionCents * commissionScale));
+  const discountFundingStrategy = appliedDiscount
+    ? normalizeDiscountFundingStrategy(appliedDiscount.discount.fundingStrategy, appliedDiscount.discount.affectsCommissions)
+    : "ORIGINATOR_FUNDED";
+  const preDiscountGrossMarginCents = appliedDiscount
+    ? Math.max(0, appliedDiscount.subtotalCents - appliedDiscount.internalCostCents)
+    : 0;
+  const sharedPoolCommissionCents = appliedDiscount && preDiscountGrossMarginCents > 0
+    ? Math.max(0, Math.round((consultantCommissionCents * appliedDiscount.commissionableMarginCents) / preDiscountGrossMarginCents))
+    : consultantCommissionCents;
+  const commissionPreview = commissionPreviewForDiscount({
+    commissionCents: consultantCommissionCents,
+    discountCents,
+    sharedPoolCommissionCents,
+    fundingStrategy: discountFundingStrategy
+  });
+  const adjustedCommissionCents = commissionPreview.adjustedCommissionCents;
+  const originatorAbsorbedDiscountCents = commissionPreview.originatorAbsorbedDiscountCents;
+  const remainingDiscountCents = commissionPreview.remainingDiscountCents;
   const couponEntered = normalizeDiscountCode(couponCode).length > 0;
   const couponInvalid = couponEntered && !appliedDiscount;
   const selectedCustomer = customers.find((customer) => customer.id === selectedCustomerId);
@@ -977,7 +1035,13 @@ export function SalesBuilderClient({
                 ) : appliedDiscount ? (
                   <div className="mt-2 grid gap-1 text-xs font-semibold text-emerald-800">
                     <span>{appliedDiscount.discount.name}: -{formatCurrency(appliedDiscount.discountCents)}</span>
-                    <span>Owner protected profit: {formatCurrency(appliedDiscount.ownerProtectedProfitCents)}</span>
+                    <span>{fundingPreviewCopy(discountFundingStrategy, commissionLabel)}: -{formatCurrency(originatorAbsorbedDiscountCents)}</span>
+                    {remainingDiscountCents > 0 && discountFundingStrategy === "ORIGINATOR_FUNDED" ? (
+                      <span>Remainder affects partner/margin: -{formatCurrency(remainingDiscountCents)}</span>
+                    ) : null}
+                    {discountFundingStrategy !== "ORIGINATOR_FUNDED" ? (
+                      <span>This coupon is controlled by admin funding rules.</span>
+                    ) : null}
                   </div>
                 ) : (
                   <p className="mt-2 text-xs font-semibold text-slate-500">Optional. Discounts are validated when the order is created.</p>
@@ -1001,8 +1065,8 @@ export function SalesBuilderClient({
                 </div>
                 {appliedDiscount ? (
                   <div className="flex justify-between">
-                    <span className="text-slate-500">Commissionable margin</span>
-                    <span className="font-semibold text-clinic-ink">{formatCurrency(appliedDiscount.commissionableMarginCents)}</span>
+                    <span className="text-slate-500">Commission impact</span>
+                    <span className="font-semibold text-clinic-red">-{formatCurrency(originatorAbsorbedDiscountCents)}</span>
                   </div>
                 ) : null}
                 <div className="flex justify-between">

@@ -1,3 +1,23 @@
+export const DISCOUNT_FUNDING_STRATEGIES = [
+  "ORIGINATOR_FUNDED",
+  "PARTNER_FUNDED",
+  "COMPANY_FUNDED",
+  "SHARED_POOL"
+] as const;
+
+export type DiscountFundingStrategy = (typeof DISCOUNT_FUNDING_STRATEGIES)[number];
+
+export const DEFAULT_DISCOUNT_FUNDING_STRATEGY: DiscountFundingStrategy = "ORIGINATOR_FUNDED";
+
+export function isDiscountFundingStrategy(value: unknown): value is DiscountFundingStrategy {
+  return typeof value === "string" && DISCOUNT_FUNDING_STRATEGIES.includes(value as DiscountFundingStrategy);
+}
+
+export function normalizeDiscountFundingStrategy(value: unknown, affectsCommissions = true): DiscountFundingStrategy {
+  if (isDiscountFundingStrategy(value)) return value;
+  return affectsCommissions ? DEFAULT_DISCOUNT_FUNDING_STRATEGY : "COMPANY_FUNDED";
+}
+
 export type DiscountLike = {
   id: string;
   name: string;
@@ -8,6 +28,7 @@ export type DiscountLike = {
   minSubtotalCents: number;
   ownerProtectedProfitCents: number;
   affectsCommissions: boolean;
+  fundingStrategy?: DiscountFundingStrategy | string;
   productIds: string[];
   categoryNames: string[];
   startsAt: Date | null;
@@ -78,7 +99,8 @@ export function calculateDiscountApplication(discount: DiscountLike, lines: Disc
   const discountCents = Math.max(0, Math.min(requestedDiscountCents, maxDiscountByOwnerProtection, subtotalCents));
   const totalCents = Math.max(0, subtotalCents - discountCents);
   const grossMarginCents = Math.max(0, totalCents - internalCostCents);
-  const commissionableMarginCents = discount.affectsCommissions
+  const fundingStrategy = normalizeDiscountFundingStrategy(discount.fundingStrategy, discount.affectsCommissions);
+  const commissionableMarginCents = fundingStrategy === "SHARED_POOL"
     ? Math.max(0, grossMarginCents - discount.ownerProtectedProfitCents)
     : grossMarginCents;
   const ownerProfitCents = Math.max(0, grossMarginCents - commissionableMarginCents);

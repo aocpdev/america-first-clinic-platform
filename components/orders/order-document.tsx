@@ -1,5 +1,5 @@
 import { resendReceiptWebhook } from "@/app/orders/actions";
-import { Download, ExternalLink } from "lucide-react";
+import { BadgePercent, Download, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -10,6 +10,7 @@ import { ORDER_PROGRESS_STAGES, orderPipelineDescription, orderPipelineLabel } f
 import { carrierLabel, carrierTrackingUrl } from "@/lib/orders/tracking";
 import { currency } from "@/lib/utils";
 import type { OrderListRecord } from "@/lib/orders/queries";
+import { normalizeDiscountFundingStrategy, type DiscountFundingStrategy } from "@/lib/discounts/calculations";
 
 type DocumentMode = "admin" | "partner" | "manager" | "group_leader" | "consultant";
 
@@ -64,6 +65,60 @@ function referralMetadata(order: OrderListRecord) {
   return metadata as Record<string, unknown>;
 }
 
+function metadataRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function stringValue(record: Record<string, unknown> | null, key: string) {
+  const value = record?.[key];
+  return typeof value === "string" ? value : "";
+}
+
+function numberValue(record: Record<string, unknown> | null, key: string) {
+  const value = record?.[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function booleanValue(record: Record<string, unknown> | null, key: string) {
+  const value = record?.[key];
+  return typeof value === "boolean" ? value : null;
+}
+
+function discountFundingLabel(value: unknown, affectsCommissions: boolean | null) {
+  const labels: Record<DiscountFundingStrategy, string> = {
+    ORIGINATOR_FUNDED: "Originator funded first",
+    PARTNER_FUNDED: "Partner funded first",
+    COMPANY_FUNDED: "Company funded promotion",
+    SHARED_POOL: "Shared margin pool"
+  };
+  return labels[normalizeDiscountFundingStrategy(value, affectsCommissions ?? true)];
+}
+
+function discountDetails(order: OrderListRecord) {
+  const metadata = referralMetadata(order);
+  const discount = metadataRecord(metadata?.discount);
+  const discountCents = numberValue(discount, "discountCents") ?? order.discountCents;
+  const hasDiscount = Boolean(discount) || discountCents > 0;
+
+  if (!hasDiscount) {
+    return null;
+  }
+
+  return {
+    name: stringValue(discount, "name") || "Discount applied",
+    code: stringValue(discount, "code") || "No code recorded",
+    type: stringValue(discount, "discountType"),
+    discountCents,
+    subtotalCents: numberValue(discount, "subtotalCents") ?? order.subtotalCents,
+    totalCents: numberValue(discount, "totalCents") ?? order.totalCents,
+    requestedDiscountCents: numberValue(discount, "requestedDiscountCents"),
+    affectsCommissions: booleanValue(discount, "affectsCommissions"),
+    fundingStrategy: discountFundingLabel(stringValue(discount, "fundingStrategy"), booleanValue(discount, "affectsCommissions")),
+    ownerProtectedProfitCents: numberValue(discount, "ownerProtectedProfitCents"),
+    commissionableMarginCents: numberValue(discount, "commissionableMarginCents")
+  };
+}
+
 export function OrderDocument({
   order,
   mode,
@@ -97,6 +152,7 @@ export function OrderDocument({
   const isDeferred = currentStage === "DEFERRED";
   const canManageOrderStage = mode === "admin" && !isReceipt;
   const trackingUrl = carrierTrackingUrl(order.shippingCarrier, order.shippingTrackingCode);
+  const discount = discountDetails(order);
 
   return (
     <Card id={isReceipt ? "customer-receipt" : undefined} className="overflow-hidden rounded-3xl bg-white shadow-line">
@@ -231,6 +287,56 @@ export function OrderDocument({
           </section>
 
           <section>
+            <h3 className="text-lg font-semibold text-clinic-ink">Coupon / Discount</h3>
+            <div className={`mt-3 rounded-2xl border p-4 text-sm ${discount ? "border-emerald-100 bg-emerald-50 text-slate-700" : "border-border bg-white text-slate-600"}`}>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span className={`grid size-10 shrink-0 place-items-center rounded-2xl ${discount ? "bg-white text-emerald-700" : "bg-clinic-mist text-slate-500"}`}>
+                    <BadgePercent className="size-5" />
+                  </span>
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">{discount ? "Coupon applied" : "No coupon applied"}</p>
+                    <p className="mt-1 font-semibold text-clinic-ink">{discount ? discount.name : "This order did not use a discount code."}</p>
+                    {discount ? <p className="mt-1 text-sm text-slate-600">Code: <span className="font-semibold text-clinic-navy">{discount.code}</span></p> : null}
+                  </div>
+                </div>
+                {discount ? (
+                  <div className="grid gap-2 sm:min-w-56">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-slate-500">Subtotal</span>
+                      <span className="font-semibold text-clinic-ink">{money(discount.subtotalCents)}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-slate-500">Discount</span>
+                      <span className="font-semibold text-emerald-700">-{money(discount.discountCents)}</span>
+                    </div>
+                    <div className="flex justify-between gap-4 border-t border-emerald-100 pt-2">
+                      <span className="font-semibold text-clinic-ink">Final total</span>
+                      <span className="font-semibold text-clinic-navy">{money(discount.totalCents)}</span>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              {discount && !isReceipt && mode === "admin" ? (
+                <div className="mt-4 grid gap-3 rounded-2xl bg-white/80 p-3 sm:grid-cols-3">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Commission impact</p>
+                    <p className="mt-1 font-semibold text-clinic-ink">{discount.fundingStrategy}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Protected profit</p>
+                    <p className="mt-1 font-semibold text-clinic-ink">{money(discount.ownerProtectedProfitCents ?? 0)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Commissionable margin</p>
+                    <p className="mt-1 font-semibold text-clinic-ink">{money(discount.commissionableMarginCents ?? order.grossMarginCents)}</p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </section>
+
+          <section>
             <h3 className="text-lg font-semibold text-clinic-ink">Shipping</h3>
             <div className="mt-3 rounded-2xl border border-border bg-white p-4 text-sm text-slate-600">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -282,6 +388,18 @@ export function OrderDocument({
           <div className="rounded-3xl border border-border bg-clinic-mist p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Order total</p>
             <p className="mt-3 text-4xl font-semibold text-clinic-navy">{money(order.totalCents)}</p>
+            <div className="mt-4 space-y-2 border-t border-border pt-3 text-sm">
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Subtotal</span>
+                <span className="font-semibold text-clinic-ink">{money(order.subtotalCents)}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-slate-500">Coupon</span>
+                <span className={discount ? "font-semibold text-emerald-700" : "font-semibold text-slate-400"}>
+                  {discount ? `-${money(discount.discountCents)}` : "No coupon"}
+                </span>
+              </div>
+            </div>
           </div>
 
           {!isReceipt && paymentUrl ? (

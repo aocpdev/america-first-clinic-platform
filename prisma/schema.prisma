@@ -500,6 +500,7 @@ model Discount {
   minSubtotalCents          Int                  @default(0)
   ownerProtectedProfitCents Int                  @default(0)
   affectsCommissions        Boolean              @default(true)
+  fundingStrategy           String               @default("ORIGINATOR_FUNDED")
   productIds                String[]             @default([])
   categoryNames             String[]             @default([])
   startsAt                  DateTime?
@@ -531,6 +532,7 @@ model DiscountRedemption {
   totalCents                Int
   ownerProtectedProfitCents Int
   commissionableMarginCents Int
+  fundingStrategy           String               @default("ORIGINATOR_FUNDED")
   createdAt                 DateTime  @default(now())
 
   @@unique([orderId])

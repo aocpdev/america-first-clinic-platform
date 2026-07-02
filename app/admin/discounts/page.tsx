@@ -6,12 +6,22 @@ import { deleteDiscount, toggleDiscount } from "@/app/admin/discounts/actions";
 import { DiscountForm } from "@/app/admin/discounts/discount-form";
 import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
-import { calculateDiscountApplication, isDiscountActive } from "@/lib/discounts/calculations";
+import { calculateDiscountApplication, isDiscountActive, normalizeDiscountFundingStrategy, type DiscountFundingStrategy } from "@/lib/discounts/calculations";
 import { prisma } from "@/lib/db/prisma";
 import { formatCurrency } from "@/lib/products/catalog";
 
 function percent(bps: number) {
   return (bps / 100).toFixed(2).replace(/\.00$/, "");
+}
+
+function fundingLabel(value: unknown, affectsCommissions: boolean) {
+  const labels: Record<DiscountFundingStrategy, string> = {
+    ORIGINATOR_FUNDED: "Originator funded",
+    PARTNER_FUNDED: "Partner funded",
+    COMPANY_FUNDED: "Company funded",
+    SHARED_POOL: "Shared margin pool"
+  };
+  return labels[normalizeDiscountFundingStrategy(value, affectsCommissions)];
 }
 
 export default async function AdminDiscountsPage() {
@@ -109,6 +119,9 @@ export default async function AdminDiscountsPage() {
                           {discount.productIds.length > 0
                             ? ` · ${discount.productIds.length} product${discount.productIds.length === 1 ? "" : "s"}`
                             : " · All products"}
+                        </p>
+                        <p className="mt-2 text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                          {fundingLabel(discount.fundingStrategy, discount.affectsCommissions)}
                         </p>
                       </div>
                       <div className="flex gap-2">

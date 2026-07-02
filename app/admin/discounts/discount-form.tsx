@@ -6,7 +6,7 @@ import { createDiscount, updateDiscount } from "@/app/admin/discounts/actions";
 import { DiscountMultiSelect } from "@/app/admin/discounts/discount-multi-select";
 import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { calculateDiscountApplication } from "@/lib/discounts/calculations";
+import { calculateDiscountApplication, normalizeDiscountFundingStrategy, type DiscountFundingStrategy } from "@/lib/discounts/calculations";
 import { formatCurrency } from "@/lib/products/catalog";
 
 type DiscountFormProduct = {
@@ -27,6 +27,7 @@ type DiscountFormDiscount = {
   minSubtotalCents: number;
   ownerProtectedProfitCents: number;
   affectsCommissions: boolean;
+  fundingStrategy?: string;
   productIds: string[];
   categoryNames: string[];
   startsAt: Date | null;
@@ -92,6 +93,33 @@ function buildProductProfitPreview({
   });
 }
 
+const fundingStrategyOptions: Array<{
+  value: DiscountFundingStrategy;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "ORIGINATOR_FUNDED",
+    label: "Originator funded",
+    description: "Best default. The seller, manager, leader, or partner who uses the coupon absorbs it first."
+  },
+  {
+    value: "PARTNER_FUNDED",
+    label: "Partner funded",
+    description: "Protects sellers and charges the discount against the partner split first."
+  },
+  {
+    value: "COMPANY_FUNDED",
+    label: "Company funded",
+    description: "Use only for approved corporate promotions. Commissions are not directly reduced by the coupon."
+  },
+  {
+    value: "SHARED_POOL",
+    label: "Shared margin pool",
+    description: "Recalculates commissions from the discounted margin for neutral storewide campaigns."
+  }
+];
+
 function PreviewMetric({
   label,
   value,
@@ -120,7 +148,9 @@ export function DiscountForm({
   const [valuePercent, setValuePercent] = useState(discount ? percent(discount.valueBps) : "10");
   const [amount, setAmount] = useState(discount ? dollars(discount.amountCents) : "0.00");
   const [productIds, setProductIds] = useState(discount?.productIds ?? []);
-  const [affectsCommissions, setAffectsCommissions] = useState(discount?.affectsCommissions ?? true);
+  const [fundingStrategy, setFundingStrategy] = useState<DiscountFundingStrategy>(
+    normalizeDiscountFundingStrategy(discount?.fundingStrategy, discount?.affectsCommissions ?? true)
+  );
 
   const productProfitPreview = useMemo(
     () => buildProductProfitPreview({ products, productIds, discountType, valuePercent, amount }),
@@ -150,7 +180,8 @@ export function DiscountForm({
         amountCents: cents(amount),
         minSubtotalCents: 0,
         ownerProtectedProfitCents: 0,
-        affectsCommissions,
+        affectsCommissions: fundingStrategy !== "COMPANY_FUNDED",
+        fundingStrategy,
         productIds,
         categoryNames: [],
         startsAt: null,
@@ -167,7 +198,7 @@ export function DiscountForm({
         quantity: 1
       }))
     );
-  }, [affectsCommissions, amount, discount, discountType, productIds, products, valuePercent]);
+  }, [amount, discount, discountType, fundingStrategy, productIds, products, valuePercent]);
 
   return (
     <form action={discount ? updateDiscount : createDiscount} className="grid gap-6 p-6">
@@ -300,19 +331,21 @@ export function DiscountForm({
 
         <div className="flex flex-col justify-between gap-4 rounded-2xl border border-border bg-clinic-mist/70 p-4">
           <div className="space-y-3">
-            <label className="flex items-center justify-between gap-4 rounded-xl border border-border bg-white px-4 py-3 text-sm font-semibold text-clinic-ink shadow-line">
-              <span>Reduce commission pool</span>
-              <span className="relative inline-flex h-6 w-11 items-center">
-                <input
-                  name="affectsCommissions"
-                  type="checkbox"
-                  checked={affectsCommissions}
-                  onChange={(event) => setAffectsCommissions(event.target.checked)}
-                  className="peer sr-only"
-                />
-                <span className="absolute inset-0 rounded-full bg-slate-300 transition peer-checked:bg-clinic-navy" />
-                <span className="absolute left-1 h-4 w-4 rounded-full bg-white shadow-sm transition peer-checked:translate-x-5" />
-              </span>
+            <label className="block rounded-xl border border-border bg-white px-4 py-3 shadow-line">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Coupon funding</span>
+              <select
+                name="fundingStrategy"
+                value={fundingStrategy}
+                onChange={(event) => setFundingStrategy(normalizeDiscountFundingStrategy(event.target.value))}
+                className="mt-2 h-11 w-full rounded-xl border border-input bg-white px-3 text-sm font-semibold text-clinic-ink"
+              >
+                {fundingStrategyOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <p className="mt-2 text-xs font-medium leading-5 text-slate-500">
+                {fundingStrategyOptions.find((option) => option.value === fundingStrategy)?.description}
+              </p>
             </label>
             <label className="flex items-center justify-between gap-4 rounded-xl border border-border bg-white px-4 py-3 text-sm font-semibold text-clinic-ink shadow-line">
               <span>Active</span>

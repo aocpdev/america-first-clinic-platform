@@ -111,6 +111,7 @@ export default async function AdminSalesPage({
           minSubtotalCents: discount.minSubtotalCents,
           ownerProtectedProfitCents: discount.ownerProtectedProfitCents,
           affectsCommissions: discount.affectsCommissions,
+          fundingStrategy: discount.fundingStrategy,
           productIds: discount.productIds,
           categoryNames: discount.categoryNames,
           startsAt: discount.startsAt?.toISOString() ?? null,

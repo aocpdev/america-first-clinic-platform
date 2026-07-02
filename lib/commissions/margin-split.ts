@@ -1,4 +1,5 @@
 import { CommissionStatus, type PrismaClient } from "@prisma/client";
+import { normalizeDiscountFundingStrategy, type DiscountFundingStrategy } from "@/lib/discounts/calculations";
 
 export const DEFAULT_MARGIN_POOL_BPS = 2500;
 export const DEFAULT_PARTNER_SPLIT_BPS = 5000;
@@ -86,6 +87,138 @@ export function calculateMarginCommissionSplit({
   };
 }
 
+function numberFromMetadata(metadata: Record<string, unknown>, key: string) {
+  const value = metadata[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function absorbDiscount(amountCents: number, remainingDiscountCents: number) {
+  const absorbedCents = Math.min(amountCents, remainingDiscountCents);
+  return {
+    amountCents: amountCents - absorbedCents,
+    remainingDiscountCents: remainingDiscountCents - absorbedCents,
+    absorbedCents
+  };
+}
+
+type CommissionMode = "CONSULTANT_PARTNER_SPLIT" | "PARTNER_DIRECT" | "MANAGER_DIRECT" | "GROUP_LEADER_DIRECT" | "ADMIN_DIRECT";
+
+function applyOriginatorFundedDiscount(
+  split: ReturnType<typeof calculateMarginCommissionSplit>,
+  commissionMode: CommissionMode,
+  discountCents: number
+) {
+  let remainingDiscountCents = Math.max(0, discountCents);
+  let partnerAmountCents = split.partnerAmountCents;
+  let managerAmountCents = split.managerAmountCents;
+  let groupLeaderAmountCents = split.groupLeaderAmountCents;
+  let consultantAmountCents = split.consultantAmountCents;
+
+  if (commissionMode === "ADMIN_DIRECT") {
+    return {
+      ...split,
+      partnerAmountCents: 0,
+      managerAmountCents: 0,
+      groupLeaderAmountCents: 0,
+      consultantAmountCents: 0,
+      commissionPoolCents: 0,
+      discountAbsorbedByMarginCents: remainingDiscountCents
+    };
+  }
+
+  if (commissionMode === "PARTNER_DIRECT") {
+    const result = absorbDiscount(split.commissionPoolCents, remainingDiscountCents);
+    return {
+      ...split,
+      partnerAmountCents: result.amountCents,
+      managerAmountCents: 0,
+      groupLeaderAmountCents: 0,
+      consultantAmountCents: 0,
+      commissionPoolCents: result.amountCents,
+      discountAbsorbedByMarginCents: result.remainingDiscountCents
+    };
+  }
+
+  if (commissionMode === "CONSULTANT_PARTNER_SPLIT") {
+    const result = absorbDiscount(consultantAmountCents, remainingDiscountCents);
+    consultantAmountCents = result.amountCents;
+    remainingDiscountCents = result.remainingDiscountCents;
+  }
+
+  if (commissionMode === "GROUP_LEADER_DIRECT") {
+    const result = absorbDiscount(groupLeaderAmountCents, remainingDiscountCents);
+    groupLeaderAmountCents = result.amountCents;
+    remainingDiscountCents = result.remainingDiscountCents;
+  }
+
+  if (commissionMode === "MANAGER_DIRECT") {
+    const result = absorbDiscount(managerAmountCents, remainingDiscountCents);
+    managerAmountCents = result.amountCents;
+    remainingDiscountCents = result.remainingDiscountCents;
+  }
+
+  const partnerResult = absorbDiscount(partnerAmountCents, remainingDiscountCents);
+  partnerAmountCents = partnerResult.amountCents;
+  remainingDiscountCents = partnerResult.remainingDiscountCents;
+
+  return {
+    ...split,
+    partnerAmountCents,
+    managerAmountCents,
+    groupLeaderAmountCents,
+    consultantAmountCents,
+    commissionPoolCents: partnerAmountCents + managerAmountCents + groupLeaderAmountCents + consultantAmountCents,
+    discountAbsorbedByMarginCents: remainingDiscountCents
+  };
+}
+
+function applyPartnerFundedDiscount(
+  split: ReturnType<typeof calculateMarginCommissionSplit>,
+  discountCents: number
+) {
+  const partnerResult = absorbDiscount(split.partnerAmountCents, Math.max(0, discountCents));
+  return {
+    ...split,
+    partnerAmountCents: partnerResult.amountCents,
+    commissionPoolCents: partnerResult.amountCents + split.managerAmountCents + split.groupLeaderAmountCents + split.consultantAmountCents,
+    discountAbsorbedByMarginCents: partnerResult.remainingDiscountCents
+  };
+}
+
+function splitForDiscountFundingStrategy({
+  baseSplit,
+  sharedPoolSplit,
+  commissionMode,
+  fundingStrategy,
+  discountCents
+}: {
+  baseSplit: ReturnType<typeof calculateMarginCommissionSplit>;
+  sharedPoolSplit: ReturnType<typeof calculateMarginCommissionSplit>;
+  commissionMode: CommissionMode;
+  fundingStrategy: DiscountFundingStrategy;
+  discountCents: number;
+}) {
+  if (fundingStrategy === "COMPANY_FUNDED") {
+    return {
+      ...baseSplit,
+      discountAbsorbedByMarginCents: Math.max(0, discountCents)
+    };
+  }
+
+  if (fundingStrategy === "PARTNER_FUNDED") {
+    return applyPartnerFundedDiscount(baseSplit, discountCents);
+  }
+
+  if (fundingStrategy === "SHARED_POOL") {
+    return {
+      ...sharedPoolSplit,
+      discountAbsorbedByMarginCents: 0
+    };
+  }
+
+  return applyOriginatorFundedDiscount(baseSplit, commissionMode, discountCents);
+}
+
 export async function createMarginCommissionLedger({
   prisma,
   orderId,
@@ -95,7 +228,7 @@ export async function createMarginCommissionLedger({
   prisma: PrismaClient;
   orderId: string;
   status?: CommissionStatus;
-  commissionMode?: "CONSULTANT_PARTNER_SPLIT" | "PARTNER_DIRECT" | "MANAGER_DIRECT" | "GROUP_LEADER_DIRECT" | "ADMIN_DIRECT";
+  commissionMode?: CommissionMode;
 }) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -166,8 +299,16 @@ export async function createMarginCommissionLedger({
       : {};
   const ownerProtectedProfitCents =
     typeof discountMetadata.ownerProtectedProfitCents === "number" ? discountMetadata.ownerProtectedProfitCents : 0;
-  const commissionableMarginCents =
-    typeof discountMetadata.commissionableMarginCents === "number" ? discountMetadata.commissionableMarginCents : undefined;
+  const discountCents = numberFromMetadata(discountMetadata, "discountCents") ?? order.discountCents;
+  const discountFundingStrategy = normalizeDiscountFundingStrategy(
+    discountMetadata.fundingStrategy,
+    typeof discountMetadata.affectsCommissions === "boolean" ? discountMetadata.affectsCommissions : true
+  );
+  const preDiscountSubtotalCents = numberFromMetadata(discountMetadata, "subtotalCents") ?? order.subtotalCents ?? order.totalCents + discountCents;
+  const actualGrossMarginCents = Math.max(0, order.totalCents - internalCostCents);
+  const preDiscountGrossMarginCents = Math.max(0, preDiscountSubtotalCents - internalCostCents);
+  const preDiscountCommissionableMarginCents = Math.max(0, preDiscountGrossMarginCents - ownerProtectedProfitCents);
+  const postDiscountCommissionableMarginCents = Math.max(0, actualGrossMarginCents - ownerProtectedProfitCents);
   const isConsultantSale = commissionMode === "CONSULTANT_PARTNER_SPLIT";
   const isManagerDirectSale = commissionMode === "MANAGER_DIRECT";
   const isGroupLeaderDirectSale = commissionMode === "GROUP_LEADER_DIRECT";
@@ -185,11 +326,11 @@ export async function createMarginCommissionLedger({
     ? order.consultantProfile?.commissionBps ?? DEFAULT_CONSULTANT_SHARE_BPS
     : undefined;
 
-  const split = calculateMarginCommissionSplit({
-    subtotalCents: order.totalCents,
+  const baseSplit = calculateMarginCommissionSplit({
+    subtotalCents: preDiscountSubtotalCents,
     internalCostCents,
     ownerProtectedProfitCents,
-    commissionableMarginCents,
+    commissionableMarginCents: preDiscountCommissionableMarginCents,
     partnerPoolBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" || commissionMode === "GROUP_LEADER_DIRECT" || commissionMode === "MANAGER_DIRECT" ? partnerProfile?.commissionBps : undefined,
     managerShareBps,
     groupLeaderShareBps,
@@ -197,6 +338,28 @@ export async function createMarginCommissionLedger({
     leaderOverrideFromConsultantShare: false,
     managerOverrideFromLeaderShare: false
   });
+  const sharedPoolSplit = calculateMarginCommissionSplit({
+    subtotalCents: order.totalCents,
+    internalCostCents,
+    ownerProtectedProfitCents,
+    commissionableMarginCents: postDiscountCommissionableMarginCents,
+    partnerPoolBps: commissionMode === "CONSULTANT_PARTNER_SPLIT" || commissionMode === "GROUP_LEADER_DIRECT" || commissionMode === "MANAGER_DIRECT" ? partnerProfile?.commissionBps : undefined,
+    managerShareBps,
+    groupLeaderShareBps,
+    consultantShareBps,
+    leaderOverrideFromConsultantShare: false,
+    managerOverrideFromLeaderShare: false
+  });
+  const split = {
+    ...splitForDiscountFundingStrategy({
+      baseSplit,
+      sharedPoolSplit,
+      commissionMode,
+      fundingStrategy: discountFundingStrategy,
+      discountCents
+    }),
+    grossMarginCents: actualGrossMarginCents
+  };
 
   await prisma.$transaction(async (tx) => {
     await tx.order.update({

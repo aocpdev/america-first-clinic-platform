@@ -7,7 +7,7 @@ import { z } from "zod";
 import { requireApprovedConsultant, requireManager, requirePartner, requireRole } from "@/lib/auth/current-user";
 import { createMarginCommissionLedger } from "@/lib/commissions/margin-split";
 import { prisma } from "@/lib/db/prisma";
-import { calculateDiscountApplication, isDiscountActive, normalizeDiscountCode } from "@/lib/discounts/calculations";
+import { calculateDiscountApplication, isDiscountActive, normalizeDiscountCode, normalizeDiscountFundingStrategy } from "@/lib/discounts/calculations";
 import { getPaymentProvider } from "@/lib/payments/registry";
 import { appBaseUrl, fallbackOrderPaymentUrl, invoiceShortUrl, paymentShortUrl } from "@/lib/payments/short-links";
 import type { PaymentProviderCode } from "@/lib/payments/types";
@@ -551,6 +551,9 @@ async function createWorkspaceOrder(
 
   const discountCents = appliedDiscount?.discountCents ?? 0;
   const totalCents = appliedDiscount?.totalCents ?? subtotalCents;
+  const discountFundingStrategy = discount
+    ? normalizeDiscountFundingStrategy(discount.fundingStrategy, discount.affectsCommissions)
+    : null;
   const discountMetadata = appliedDiscount
     ? {
         discountId: discount!.id,
@@ -564,7 +567,8 @@ async function createWorkspaceOrder(
         ownerProtectedProfitCents: appliedDiscount.ownerProtectedProfitCents,
         commissionableMarginCents: appliedDiscount.commissionableMarginCents,
         eligibleSubtotalCents: appliedDiscount.eligibleSubtotalCents,
-        affectsCommissions: discount!.affectsCommissions
+        affectsCommissions: discount!.affectsCommissions,
+        fundingStrategy: discountFundingStrategy
       }
     : null;
 
@@ -642,7 +646,8 @@ async function createWorkspaceOrder(
           subtotalCents,
           totalCents,
           ownerProtectedProfitCents: appliedDiscount.ownerProtectedProfitCents,
-          commissionableMarginCents: appliedDiscount.commissionableMarginCents
+          commissionableMarginCents: appliedDiscount.commissionableMarginCents,
+          fundingStrategy: discountFundingStrategy ?? "ORIGINATOR_FUNDED"
         }
       }),
       prisma.discount.update({
