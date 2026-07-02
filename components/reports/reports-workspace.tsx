@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { BarChart3, LineChart, Package, TrendingUp, Users } from "lucide-react";
+import { ArrowRight, BarChart3, LineChart, Package, ReceiptText, Target, TrendingUp, Users } from "lucide-react";
 import { DashboardDateRangeMenu } from "@/components/dashboard/date-range-menu";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { ReportExportMenu } from "@/components/reports/report-export-menu";
@@ -104,6 +104,11 @@ function lastSaleLabel(date: Date | null) {
   return date ? formatDate(date) : "No sales";
 }
 
+function percent(value: number) {
+  if (!Number.isFinite(value)) return "0%";
+  return `${Math.round(value)}%`;
+}
+
 export function ReportsWorkspace({
   title,
   eyebrow,
@@ -138,6 +143,51 @@ export function ReportsWorkspace({
     { value: "sellers", label: "Sellers", count: data.sellerRows?.length ?? 0 }
   ];
   const topComparison = comparisonRows[0] ?? null;
+  const topAgent = data.teamRows[0] ?? null;
+  const topProduct = data.topProducts[0] ?? null;
+  const totalPayoutCents = data.teamRows.reduce((sum, row) => sum + row.totalPayoutCents, 0);
+  const payoutRatio = data.totalRevenueCents ? (totalPayoutCents / data.totalRevenueCents) * 100 : 0;
+  const productConcentration = data.totalRevenueCents && topProduct ? (topProduct.revenueCents / data.totalRevenueCents) * 100 : 0;
+  const reportCards = [
+    {
+      href: "#revenue-trend",
+      label: "Revenue trend",
+      description: "Revenue and earnings over time.",
+      icon: LineChart
+    },
+    {
+      href: "#originator-performance",
+      label: "Originators",
+      description: "Agent production, commissions, and overrides.",
+      icon: Users
+    },
+    {
+      href: "#product-mix",
+      label: "Product mix",
+      description: "Top products and revenue concentration.",
+      icon: Package
+    },
+    {
+      href: "#recent-orders",
+      label: "Orders",
+      description: "Recent captured sales and seller attribution.",
+      icon: ReceiptText
+    },
+    ...(comparisonBaseHref
+      ? [{
+        href: "#network-comparison",
+        label: "Network layers",
+        description: "Compare managers, leaders, and sellers.",
+        icon: TrendingUp
+      }]
+      : []),
+    {
+      href: "#opportunity-signals",
+      label: "Opportunities",
+      description: "Signals to coach, scale, or rebalance.",
+      icon: Target
+    }
+  ];
 
   return (
     <div className="space-y-6">
@@ -194,8 +244,41 @@ export function ReportsWorkspace({
         </Card>
       </div>
 
+      <section className="rounded-[2rem] border border-white/80 bg-white p-5 shadow-[0_18px_60px_rgba(7,55,99,0.07)]">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Report library</p>
+            <h3 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Choose the lens you want to inspect</h3>
+          </div>
+          <p className="max-w-2xl text-sm leading-6 text-slate-500">
+            Each report uses the selected date range, so revenue, commissions, products, and opportunities stay aligned.
+          </p>
+        </div>
+        <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {reportCards.map((report) => {
+            const Icon = report.icon;
+            return (
+              <a
+                key={report.href}
+                href={report.href}
+                className="group flex items-center gap-4 rounded-3xl border border-border bg-clinic-mist/55 p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-line"
+              >
+                <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white text-clinic-navy shadow-sm transition group-hover:bg-clinic-navy group-hover:text-white">
+                  <Icon className="size-5" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-clinic-ink">{report.label}</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">{report.description}</span>
+                </span>
+                <ArrowRight className="size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-clinic-red" />
+              </a>
+            );
+          })}
+        </div>
+      </section>
+
       {comparisonBaseHref ? (
-        <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.08)]">
+        <Card id="network-comparison" className="scroll-mt-6 overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.08)]">
           <div className="border-b border-border p-5 sm:p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
@@ -301,7 +384,7 @@ export function ReportsWorkspace({
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.35fr_.65fr]">
-        <Card className="overflow-hidden rounded-[2rem]">
+        <Card id="revenue-trend" className="scroll-mt-6 overflow-hidden rounded-[2rem]">
           <div className="flex flex-col gap-3 border-b border-border p-5 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Trend</p>
@@ -314,7 +397,7 @@ export function ReportsWorkspace({
           </div>
         </Card>
 
-        <Card className="overflow-hidden rounded-[2rem]">
+        <Card id="product-mix" className="scroll-mt-6 overflow-hidden rounded-[2rem]">
           <div className="flex items-center justify-between border-b border-border p-5">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Product mix</p>
@@ -340,8 +423,44 @@ export function ReportsWorkspace({
         </Card>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card className="overflow-hidden rounded-[2rem]">
+      <Card id="opportunity-signals" className="scroll-mt-6 overflow-hidden rounded-[2rem]">
+        <div className="flex items-center justify-between border-b border-border p-5">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Opportunities</p>
+            <h3 className="mt-1 text-xl font-semibold text-clinic-ink">Performance signals</h3>
+          </div>
+          <Target className="size-5 text-clinic-red" />
+        </div>
+        <div className="grid gap-4 p-5 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-3xl border border-border bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Top originator</p>
+            <p className="mt-3 text-lg font-semibold text-clinic-ink">{topAgent?.name ?? "No agent data"}</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {topAgent ? `${topAgent.orders} orders · ${currency(topAgent.revenueCents / 100)} revenue` : "No paid sales in range"}
+            </p>
+          </div>
+          <div className="rounded-3xl border border-border bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Top product</p>
+            <p className="mt-3 line-clamp-2 text-lg font-semibold text-clinic-ink">{topProduct?.title ?? "No product data"}</p>
+            <p className="mt-1 text-sm text-slate-500">
+              {topProduct ? `${topProduct.quantity} sold · ${currency(topProduct.revenueCents / 100)}` : "No paid product sales"}
+            </p>
+          </div>
+          <div className="rounded-3xl border border-border bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Payout ratio</p>
+            <p className="mt-3 text-2xl font-semibold text-emerald-700">{percent(payoutRatio)}</p>
+            <p className="mt-1 text-sm text-slate-500">Total payout compared with collected revenue.</p>
+          </div>
+          <div className="rounded-3xl border border-border bg-white p-4">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Product concentration</p>
+            <p className="mt-3 text-2xl font-semibold text-clinic-navy">{percent(productConcentration)}</p>
+            <p className="mt-1 text-sm text-slate-500">Revenue share from the top product.</p>
+          </div>
+        </div>
+      </Card>
+
+      <div className="space-y-6">
+        <Card id="originator-performance" className="scroll-mt-6 overflow-hidden rounded-[2rem]">
           <div className="flex items-center justify-between border-b border-border p-5">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Originators</p>
@@ -350,7 +469,7 @@ export function ReportsWorkspace({
             <Users className="size-5 text-clinic-navy" />
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1080px] text-left text-sm">
+            <table className="w-full min-w-[1240px] text-left text-sm">
               <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
                 <tr>
                   <th className="px-5 py-3">Agent name</th>
@@ -388,7 +507,7 @@ export function ReportsWorkspace({
           </div>
         </Card>
 
-        <Card className="overflow-hidden rounded-[2rem]">
+        <Card id="recent-orders" className="scroll-mt-6 overflow-hidden rounded-[2rem]">
           <div className="flex items-center justify-between border-b border-border p-5">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Orders</p>
