@@ -44,7 +44,10 @@ export function normalizeFilters(filters?: RecordFiltersState | null): RecordFil
     status: filters?.status?.trim() || "ALL",
     role: filters?.role?.trim() || "ALL",
     payment: filters?.payment?.trim() || "ALL",
-    stage: filters?.stage?.trim() || "ALL"
+    stage: filters?.stage?.trim() || "ALL",
+    range: filters?.range?.trim() || "ALL",
+    from: filters?.from?.trim() || "",
+    to: filters?.to?.trim() || ""
   };
 }
 

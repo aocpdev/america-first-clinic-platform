@@ -1,8 +1,9 @@
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { AdminDeleteTestOrderButton } from "@/components/orders/admin-delete-test-order-button";
+import { OrdersFilterBar } from "@/components/orders/orders-filter-bar";
 import Link from "next/link";
-import { matchesSearch, matchesSelect, normalizeFilters, RecordFilters, type RecordFiltersState } from "@/components/filters/record-filters";
+import { matchesSearch, matchesSelect, normalizeFilters, type FilterSelect, type RecordFiltersState } from "@/components/filters/record-filters";
 import { carrierLabel, carrierTrackingUrl } from "@/lib/orders/tracking";
 import { orderPipelineLabel } from "@/lib/sales/pipeline";
 import { currency } from "@/lib/utils";
@@ -60,6 +61,43 @@ function uniqueOptions(values: string[], fallback: string) {
   return [{ label: fallback, value: "ALL" }, ...unique.map((value) => ({ label: value.replaceAll("_", " "), value }))];
 }
 
+function orderCreatedDate(value: string) {
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function startOfDay(value: string) {
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function endOfDay(value: string) {
+  const parsed = new Date(`${value}T23:59:59.999`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function rangeCutoff(range?: string) {
+  if (!range || range === "ALL") return null;
+  const days = range === "7d" ? 7 : range === "90d" ? 90 : range === "30d" ? 30 : null;
+  if (!days) return null;
+  const cutoff = new Date();
+  cutoff.setHours(0, 0, 0, 0);
+  cutoff.setDate(cutoff.getDate() - (days - 1));
+  return cutoff;
+}
+
+function matchesOrderDate(order: OrderRow, filters: RecordFiltersState) {
+  const created = orderCreatedDate(order.createdAt);
+  if (!created) return true;
+
+  const from = filters.from ? startOfDay(filters.from) : rangeCutoff(filters.range);
+  const to = filters.to ? endOfDay(filters.to) : null;
+
+  if (from && created < from) return false;
+  if (to && created > to) return false;
+  return true;
+}
+
 function applyOrderFilters(orders: OrderRow[], filters?: RecordFiltersState) {
   const normalized = normalizeFilters(filters);
 
@@ -82,7 +120,8 @@ function applyOrderFilters(orders: OrderRow[], filters?: RecordFiltersState) {
     ]) &&
     matchesSelect(order.paymentStatus, normalized.payment) &&
     matchesSelect(order.orderPipelineStage, normalized.stage) &&
-    matchesSelect(order.commissionStatus, normalized.status)
+    matchesSelect(order.commissionStatus, normalized.status) &&
+    matchesOrderDate(order, filters ?? {})
   ));
 }
 
@@ -103,6 +142,21 @@ export function OrdersTable({
   const showConsultantFinancials = mode === "consultant";
   const showAdminActions = mode === "admin";
   const basePath = mode === "admin" ? "/admin" : mode === "manager" ? "/manager" : mode === "consultant" ? "/consultant" : "/partner";
+  const orderFilterSelects: FilterSelect[] = [
+    { name: "payment", label: "Payment", options: uniqueOptions(orders.map((order) => order.paymentStatus), "All payments") },
+    {
+      name: "stage",
+      label: "Stage",
+      options: [
+        { label: "All stages", value: "ALL" },
+        ...Array.from(new Set(orders.map((order) => order.orderPipelineStage).filter(Boolean))).map((value) => ({
+          label: orderPipelineLabel(value),
+          value
+        }))
+      ]
+    },
+    { name: "status", label: "Commission", options: uniqueOptions(orders.map((order) => order.commissionStatus), "All commissions") }
+  ];
   const columnCount =
     2 +
     (mode !== "consultant" ? 1 : 0) +
@@ -118,27 +172,12 @@ export function OrdersTable({
 
   return (
     <div className="space-y-6">
-      <RecordFilters
-        title="Order filters"
-        description="Search by customer, order, product, seller, payment state, or pipeline step."
-        searchPlaceholder="Search orders, customers, products..."
+      <OrdersFilterBar
         filters={filters ?? {}}
+        selects={orderFilterSelects}
         resetHref={resetPath(mode)}
-        selects={[
-          { name: "payment", label: "Payment", options: uniqueOptions(orders.map((order) => order.paymentStatus), "All payments") },
-          {
-            name: "stage",
-            label: "Stage",
-            options: [
-              { label: "All stages", value: "ALL" },
-              ...Array.from(new Set(orders.map((order) => order.orderPipelineStage).filter(Boolean))).map((value) => ({
-                label: orderPipelineLabel(value),
-                value
-              }))
-            ]
-          },
-          { name: "status", label: "Commission", options: uniqueOptions(orders.map((order) => order.commissionStatus), "All commissions") }
-        ]}
+        visibleCount={rows.length}
+        totalCount={orders.length}
       />
 
       <Card className="overflow-hidden">
