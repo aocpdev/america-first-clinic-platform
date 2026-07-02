@@ -161,7 +161,7 @@ export function ReportsWorkspace({
         <Card className="rounded-[1.75rem] p-5">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Collected revenue</p>
-            <KpiInfo label="Collected revenue" description="Sum of captured order totals in the selected report range." />
+            <KpiInfo label="Collected revenue" description="Total money collected from paid orders in this report." />
           </div>
           <p className="mt-3 text-3xl font-semibold text-clinic-navy">{currency(data.totalRevenueCents / 100)}</p>
           <p className="mt-2 text-sm text-slate-500">{data.paidOrderCount} paid orders</p>
@@ -169,7 +169,7 @@ export function ReportsWorkspace({
         <Card className="rounded-[1.75rem] p-5">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{earningsLabel}</p>
-            <KpiInfo label={earningsLabel} description="Earnings or margin from captured orders in the selected report range." />
+            <KpiInfo label={earningsLabel} description="Profit or commission earned from paid orders in this report." />
           </div>
           <p className="mt-3 text-3xl font-semibold text-emerald-700">{currency(data.totalEarningsCents / 100)}</p>
           <p className="mt-2 text-sm text-slate-500">Based on captured payments only</p>
@@ -177,7 +177,7 @@ export function ReportsWorkspace({
         <Card className="rounded-[1.75rem] p-5">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{directLabel}</p>
-            <KpiInfo label={directLabel} description="Captured revenue from orders personally created by this role." />
+            <KpiInfo label={directLabel} description="Money collected from orders personally created by this role." />
           </div>
           <p className="mt-3 text-3xl font-semibold text-clinic-navy">{currency(data.directRevenueCents / 100)}</p>
           <p className="mt-2 text-sm text-slate-500">{currency(data.directEarningsCents / 100)} direct earnings</p>
@@ -185,7 +185,7 @@ export function ReportsWorkspace({
         <Card className="rounded-[1.75rem] p-5">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Average order</p>
-            <KpiInfo label="Average order" description="Collected revenue divided by paid order count in the selected range." />
+            <KpiInfo label="Average order" description="Average amount collected per paid order." />
           </div>
           <p className="mt-3 text-3xl font-semibold text-clinic-red">{currency(data.averageOrderCents / 100)}</p>
           <p className="mt-2 text-sm text-slate-500">Average captured order value</p>

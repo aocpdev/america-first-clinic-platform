@@ -60,16 +60,16 @@ export default async function PartnerDashboardPage({
     <SidebarShell nav={nav} eyebrow={isLeaderDashboard ? "Group leader" : "Partner"} title={isLeaderDashboard ? "Leader performance" : "Partner performance"}>
       <DashboardDateRangeFilter range={dateRange} resetHref="/partner/dashboard" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label={isLeaderDashboard ? "Team revenue" : "Network revenue"} value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders in scope`} info="Captured order totals for the orders visible to this role in the selected date range." />
-        <MetricCard label="Personal revenue" value={currency(metrics.personalRevenueCents / 100)} change={`${metrics.personalOrderCount} direct sales`} info="Captured order totals from orders personally created by this account." />
-        <MetricCard label={isLeaderDashboard ? "Leader earnings" : "Partner earnings"} value={currency(metrics.profitCents / 100)} change="Personal earnings plus approved overrides" tone="green" info="Commission splits earned by this role from captured orders in scope." />
-        <MetricCard label="Pending downline payouts" value={currency(pendingDownlinePayoutCents / 100)} change="Commissions still pending approval" tone="red" info="Downline commission splits still marked pending for captured orders." />
+        <MetricCard label={isLeaderDashboard ? "Team revenue" : "Network revenue"} value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders in scope`} info="Total money collected from paid orders in your scope." />
+        <MetricCard label="Personal revenue" value={currency(metrics.personalRevenueCents / 100)} change={`${metrics.personalOrderCount} direct sales`} info="Money collected from orders you personally created." />
+        <MetricCard label={isLeaderDashboard ? "Leader earnings" : "Partner earnings"} value={currency(metrics.profitCents / 100)} change="Personal earnings plus approved overrides" tone="green" info="Your commission from paid orders in your scope." />
+        <MetricCard label="Pending downline payouts" value={currency(pendingDownlinePayoutCents / 100)} change="Commissions still pending approval" tone="red" info="Downline commissions that are calculated but not ready or marked paid yet." />
       </div>
       <div className="mt-4 grid gap-4 md:grid-cols-3">
-        {!isLeaderDashboard ? <MetricCard label="Managers" value={`${managerCount}`} change="Manager layer in your network" info="Active manager profiles assigned under this partner." /> : null}
-        <MetricCard label="Leaders" value={`${leaderCount}`} change={isLeaderDashboard ? "Current leader scope" : "Group leaders in network"} info="Group leader profiles visible to this role." />
-        <MetricCard label="Consultants" value={`${metrics.consultantCount}`} change={isLeaderDashboard ? "Direct sellers under you" : "Sellers across the partner network"} info="Seller profiles visible to this role." />
-        <MetricCard label="Personal earnings" value={currency(metrics.personalProfitCents / 100)} change="Only sales personally created by this account" tone="green" info="Commission splits earned from orders personally created by this account." />
+        {!isLeaderDashboard ? <MetricCard label="Managers" value={`${managerCount}`} change="Manager layer in your network" info="Managers assigned under this partner." /> : null}
+        <MetricCard label="Leaders" value={`${leaderCount}`} change={isLeaderDashboard ? "Current leader scope" : "Group leaders in network"} info="Leaders visible in your current role." />
+        <MetricCard label="Consultants" value={`${metrics.consultantCount}`} change={isLeaderDashboard ? "Direct sellers under you" : "Sellers across the partner network"} info="Sellers visible in your current role." />
+        <MetricCard label="Personal earnings" value={currency(metrics.personalProfitCents / 100)} change="Only sales personally created by this account" tone="green" info="Your commission from orders you personally created." />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_1fr]">
         <Card>

@@ -82,50 +82,50 @@ function metricsFor(scope: CommissionLedgerScope, entries: CommissionLedgerEntry
 
   if (scope === "admin") {
     return [
-      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Sum of captured order totals represented in the current ledger filters." },
-      { label: "Gross margin", value: uniqueOrderSum(scopedEntries, (entry) => entry.grossMarginCents), icon: DollarSign, info: "Captured revenue minus internal product cost, counted once per order." },
-      { label: "Commission pool", value: uniqueOrderSum(scopedEntries, (entry) => entry.commissionPoolCents), icon: WalletCards, info: "Total commission pool created by captured orders, counted once per order." },
-      { label: "Pending payouts", value: sum(scopedEntries, (entry) => entry.status === "PENDING"), icon: Clock3, info: "Commission split amounts still marked pending in the current filters." },
-      { label: "Approved payouts", value: sum(scopedEntries, (entry) => entry.status === "APPROVED"), icon: CheckCircle2, info: "Commission split amounts approved but not marked paid in the current filters." }
+      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Total money collected from paid orders shown here." },
+      { label: "Gross margin", value: uniqueOrderSum(scopedEntries, (entry) => entry.grossMarginCents), icon: DollarSign, info: "Money left after subtracting product cost from those paid orders." },
+      { label: "Commission pool", value: uniqueOrderSum(scopedEntries, (entry) => entry.commissionPoolCents), icon: WalletCards, info: "Total amount reserved for commissions from those orders." },
+      { label: "Pending payouts", value: sum(scopedEntries, (entry) => entry.status === "PENDING"), icon: Clock3, info: "Commissions that are calculated but not ready or marked paid yet." },
+      { label: "Approved payouts", value: sum(scopedEntries, (entry) => entry.status === "APPROVED"), icon: CheckCircle2, info: "Commissions approved and ready to be paid." }
     ];
   }
 
   if (scope === "partner") {
     return [
-      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Captured order totals for your network in the current filters." },
-      { label: "Partner profit", value: sum(ownEntries, () => true), icon: DollarSign, info: "Commission splits assigned to the partner role." },
-      { label: "Team payouts", value: sum(teamEntries, () => true), icon: WalletCards, info: "Manager, leader, and seller splits funded from the partner payout flow." },
-      { label: "Pending", value: pending, icon: Clock3, info: "Your own partner splits still pending." },
-      { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Your own partner splits approved or already paid." }
+      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Total money collected from paid orders in your network." },
+      { label: "Partner profit", value: sum(ownEntries, () => true), icon: DollarSign, info: "Your partner commission from those paid orders." },
+      { label: "Team payouts", value: sum(teamEntries, () => true), icon: WalletCards, info: "Commissions owed to managers, leaders, and sellers." },
+      { label: "Pending", value: pending, icon: Clock3, info: "Your commissions that are calculated but not ready or marked paid yet." },
+      { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Your commissions approved or already marked paid." }
     ];
   }
 
   if (scope === "manager") {
     return [
-      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Captured order totals for your managed team in the current filters." },
-      { label: "Personal earnings", value: sum(ownEntries, () => true), icon: DollarSign, info: "Commission splits assigned to this manager." },
-      { label: "Group payouts", value: sum(teamEntries, () => true), icon: WalletCards, info: "Leader and seller commission splits under this manager." },
-      { label: "Pending", value: pending, icon: Clock3, info: "Manager splits still pending." },
-      { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Manager splits approved or already paid." }
+      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Total money collected from paid orders in your team." },
+      { label: "Personal earnings", value: sum(ownEntries, () => true), icon: DollarSign, info: "Your manager commission from those paid orders." },
+      { label: "Group payouts", value: sum(teamEntries, () => true), icon: WalletCards, info: "Commissions owed to leaders and sellers under you." },
+      { label: "Pending", value: pending, icon: Clock3, info: "Your commissions that are calculated but not ready or marked paid yet." },
+      { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Your commissions approved or already marked paid." }
     ];
   }
 
   if (scope === "group_leader") {
     return [
-      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Captured order totals for this leader team in the current filters." },
-      { label: "Personal earnings", value: sum(ownEntries, () => true), icon: DollarSign, info: "Commission splits assigned to this leader." },
-      { label: "Seller payouts", value: sum(teamEntries, () => true), icon: WalletCards, info: "Seller commission splits under this leader." },
-      { label: "Pending", value: pending, icon: Clock3, info: "Leader splits still pending." },
-      { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Leader splits approved or already paid." }
+      { label: "Collected revenue", value: uniqueOrderSum(scopedEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Total money collected from paid orders in your team." },
+      { label: "Personal earnings", value: sum(ownEntries, () => true), icon: DollarSign, info: "Your leader commission from those paid orders." },
+      { label: "Seller payouts", value: sum(teamEntries, () => true), icon: WalletCards, info: "Commissions owed to sellers under you." },
+      { label: "Pending", value: pending, icon: Clock3, info: "Your commissions that are calculated but not ready or marked paid yet." },
+      { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Your commissions approved or already marked paid." }
     ];
   }
 
   return [
-    { label: "Collected revenue", value: uniqueOrderSum(ownEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Captured order totals from your sales in the current filters." },
-    { label: "Your commission", value: sum(ownEntries, () => true), icon: DollarSign, info: "Your seller commission splits from captured orders." },
-    { label: "Pending", value: pending, icon: Clock3, info: "Your seller commission splits still pending." },
-    { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Your seller commission splits approved or already paid." },
-    { label: "Deferred", value: deferred, icon: FileText, info: "Your seller commission splits rejected, refunded, or no longer payable." }
+    { label: "Collected revenue", value: uniqueOrderSum(ownEntries, (entry) => entry.orderTotalCents), icon: DollarSign, info: "Total money collected from your paid sales." },
+    { label: "Your commission", value: sum(ownEntries, () => true), icon: DollarSign, info: "Your commission from those paid sales." },
+    { label: "Pending", value: pending, icon: Clock3, info: "Your commissions that are calculated but not ready or marked paid yet." },
+    { label: "Approved", value: approved + paid, icon: CheckCircle2, info: "Your commissions approved or already marked paid." },
+    { label: "Deferred", value: deferred, icon: FileText, info: "Commissions that were rejected, refunded, or no longer payable." }
   ];
 }
 
@@ -238,7 +238,7 @@ export function CommissionLedger({ entries, scope, title, description, filters, 
               <div key={metric.label} className="rounded-[28px] border border-border bg-white p-5 shadow-sm">
                 <div className="flex items-center justify-between gap-4">
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{metric.label}</p>
-                  <KpiInfo label={metric.label} description={`${metric.info} Date range: ${dateRangeLabel}.`} />
+                  <KpiInfo label={metric.label} description={`${metric.info} Dates shown: ${dateRangeLabel}.`} />
                 </div>
                 <div className="mt-4 flex items-end justify-between gap-3">
                   <p className="text-3xl font-semibold text-clinic-navy">{dollars(metric.value)}</p>

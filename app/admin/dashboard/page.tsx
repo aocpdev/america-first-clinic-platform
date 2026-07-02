@@ -51,10 +51,10 @@ export default async function AdminDashboardPage({
     <SidebarShell nav={adminNav} eyebrow="Company admin" title="Revenue command center">
       <DashboardDateRangeFilter range={dateRange} resetHref="/admin/dashboard" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <MetricCard label="Collected revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders`} info="Sum of captured order totals inside the selected date range." />
-        <MetricCard label="Gross margin" value={currency(metrics.grossProfitCents / 100)} change="Total margin from captured payments" tone="green" info="Captured revenue minus internal product cost for paid orders in the selected date range." />
-        <MetricCard label="Admin direct profit" value={currency(metrics.adminDirectProfitCents / 100)} change={`${metrics.adminDirectOrderCount} admin direct sales`} tone="green" info="Gross margin from paid orders created directly by admin without partner, manager, leader, or seller attribution." />
-        <MetricCard label="Pending payouts" value={currency(metrics.pendingPayoutCents / 100)} change="Commission splits awaiting payout" tone="red" info="Commission split amounts still marked pending for captured orders in this date range." />
+        <MetricCard label="Collected revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders`} info="Total money collected from paid orders in this date range." />
+        <MetricCard label="Gross margin" value={currency(metrics.grossProfitCents / 100)} change="Total margin from captured payments" tone="green" info="Money left after subtracting product cost from paid orders." />
+        <MetricCard label="Admin direct profit" value={currency(metrics.adminDirectProfitCents / 100)} change={`${metrics.adminDirectOrderCount} admin direct sales`} tone="green" info="Profit from paid orders created directly by admin, without a seller or partner attached." />
+        <MetricCard label="Pending payouts" value={currency(metrics.pendingPayoutCents / 100)} change="Commission splits awaiting payout" tone="red" info="Commissions that are calculated but not ready or marked paid yet." />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.4fr_.6fr]">
         <Card>
