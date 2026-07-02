@@ -43,7 +43,6 @@ export function ReportExportMenu({ exports }: { exports: ReportExport[] }) {
         className="inline-flex h-12 items-center gap-2 rounded-2xl border border-border bg-white px-4 text-sm font-semibold text-clinic-navy shadow-sm transition hover:border-clinic-blue/30 hover:bg-clinic-mist focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue-100"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((current) => !current)}
-        onFocus={() => setIsOpen(true)}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             setIsOpen(false);

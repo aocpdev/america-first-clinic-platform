@@ -41,7 +41,6 @@ export function KpiInfo({ label, description }: { label: string; description: st
         aria-label={`Explain ${label}`}
         className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-white/90 text-slate-500 shadow-sm outline-none transition hover:border-clinic-blue/40 hover:bg-clinic-mist hover:text-clinic-navy focus-visible:ring-4 focus-visible:ring-blue-100"
         onClick={() => setIsOpen((current) => !current)}
-        onFocus={() => setIsOpen(true)}
         onKeyDown={(event) => {
           if (event.key === "Escape") {
             setIsOpen(false);
