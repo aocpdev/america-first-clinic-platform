@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { BarChart3, Download, FileDown, LineChart, Package, TrendingUp, Users } from "lucide-react";
+import { BarChart3, LineChart, Package, TrendingUp, Users } from "lucide-react";
 import { DashboardDateRangeFilter } from "@/components/dashboard/date-range-filter";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
+import { ReportExportMenu } from "@/components/reports/report-export-menu";
 import { Card } from "@/components/ui/card";
 import { KpiInfo } from "@/components/ui/kpi-info";
 import type { DashboardDateRange } from "@/lib/dashboard/date-range";
@@ -103,11 +104,15 @@ export function ReportsWorkspace({
   scopeDescription,
   data
 }: ReportsWorkspaceProps) {
-  const exportCards = [
-    { type: "sales", label: "Sales CSV", description: "Order, customer, originator, revenue, and earnings." },
+  const exportOptions = [
+    { type: "sales", label: "Sales CSV", description: "Orders, customers, sellers, revenue, and earnings." },
     { type: "products", label: "Products CSV", description: "Product mix, quantity sold, SKU, and revenue." },
-    { type: "team", label: "Team CSV", description: "Originator performance across your visible scope." }
-  ];
+    { type: "team", label: "Team CSV", description: "Performance by seller and visible team scope." }
+  ].map((item) => ({
+    href: exportHref(exportBaseHref, item.type, range),
+    label: item.label,
+    description: item.description
+  }));
   const comparisonRows =
     comparisonView === "leaders"
       ? data.leaderRows ?? []
@@ -123,39 +128,24 @@ export function ReportsWorkspace({
 
   return (
     <div className="space-y-6">
-      <section className="overflow-hidden rounded-[2rem] border border-white/80 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.08)]">
-        <div className="grid gap-6 p-5 lg:grid-cols-[1fr_auto] lg:p-7">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">{eyebrow}</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-clinic-ink sm:text-4xl">{title}</h2>
-            <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-500">{scopeDescription}</p>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[520px]">
-            {exportCards.map((item) => (
-              <Link
-                key={item.type}
-                href={exportHref(exportBaseHref, item.type, range)}
-                className="group rounded-3xl border border-border bg-clinic-mist p-4 transition hover:-translate-y-0.5 hover:bg-white hover:shadow-line"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <span className="grid size-10 place-items-center rounded-2xl bg-white text-clinic-navy shadow-sm group-hover:bg-clinic-navy group-hover:text-white">
-                    <Download className="size-4" />
-                  </span>
-                  <FileDown className="size-4 text-slate-400" />
-                </div>
-                <p className="mt-4 text-sm font-semibold text-clinic-ink">{item.label}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">{item.description}</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <DashboardDateRangeFilter
         range={range}
         resetHref={resetHref}
         hiddenParams={comparisonBaseHref ? { compare: comparisonView } : undefined}
       />
+
+      <section className="overflow-visible rounded-[2rem] border border-white/80 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.08)]">
+        <div className="flex flex-col gap-5 p-5 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">{eyebrow}</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-clinic-ink sm:text-3xl">{title}</h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{scopeDescription}</p>
+          </div>
+          <div className="flex shrink-0 justify-start lg:justify-end">
+            <ReportExportMenu exports={exportOptions} />
+          </div>
+        </div>
+      </section>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card className="rounded-[1.75rem] p-5">
