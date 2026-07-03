@@ -10,6 +10,12 @@ function agencyFeeAmount(sourceAmountCents: number, feeBps: number) {
   return Math.max(0, Math.round((sourceAmountCents * feeBps) / 10000));
 }
 
+function agencyFeeBasisCents(order: {
+  grossMarginCents: number;
+}) {
+  return Math.max(0, order.grossMarginCents);
+}
+
 function transferGroup(orderId: string) {
   return `order_${orderId}`;
 }
@@ -65,7 +71,7 @@ export async function processAgencyFeeTransfer({
     return;
   }
 
-  const sourceAmountCents = order.grossMarginCents;
+  const sourceAmountCents = agencyFeeBasisCents(order);
   const amountCents = agencyFeeAmount(sourceAmountCents, setting.feeBps);
   if (amountCents <= 0) {
     await prisma.order.update({
@@ -206,7 +212,7 @@ export async function processAgencyFeeReversal({
         amountCents: reversalAmountCents,
         feeBps: order.agencyFeeBps,
         basis: "GROSS_MARGIN",
-        sourceAmountCents: order.grossMarginCents,
+        sourceAmountCents: agencyFeeBasisCents(order),
         stripeTransferId: transfer.stripeTransferId,
         status: "CONFIGURATION_REQUIRED",
         rawEvent: jsonSafe({ reason: "stripe_secret_missing", mode: config.mode, sourceEvent: rawEvent })
@@ -247,7 +253,7 @@ export async function processAgencyFeeReversal({
         amountCents: reversalAmountCents,
         feeBps: order.agencyFeeBps,
         basis: transfer.basis,
-        sourceAmountCents: order.grossMarginCents,
+        sourceAmountCents: agencyFeeBasisCents(order),
         stripeTransferId: transfer.stripeTransferId,
         stripeReversalId: reversal.id,
         status: "REVERSED",

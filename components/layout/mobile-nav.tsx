@@ -33,7 +33,6 @@ const iconByLabel = {
   Products: Boxes,
   Customers: Users,
   Agents: BriefcaseBusiness,
-  Agents: BriefcaseBusiness,
   Commissions: HandCoins,
   Payouts: CircleDollarSign,
   Rewards: Gift,

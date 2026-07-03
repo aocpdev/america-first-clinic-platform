@@ -8,6 +8,7 @@ export const DISCOUNT_FUNDING_STRATEGIES = [
 export type DiscountFundingStrategy = (typeof DISCOUNT_FUNDING_STRATEGIES)[number];
 
 export const DEFAULT_DISCOUNT_FUNDING_STRATEGY: DiscountFundingStrategy = "ORIGINATOR_FUNDED";
+export const AGENCY_FEE_BPS = 800;
 
 export function isDiscountFundingStrategy(value: unknown): value is DiscountFundingStrategy {
   return typeof value === "string" && DISCOUNT_FUNDING_STRATEGIES.includes(value as DiscountFundingStrategy);
@@ -56,9 +57,14 @@ export type AppliedDiscount = {
   totalCents: number;
   grossMarginCents: number;
   ownerProtectedProfitCents: number;
+  agencyFeeEstimatedCents: number;
   commissionableMarginCents: number;
   ownerProfitCents: number;
 };
+
+export function agencyFeeFromMarginCents(grossMarginCents: number, feeBps = AGENCY_FEE_BPS) {
+  return Math.max(0, Math.round((Math.max(0, grossMarginCents) * feeBps) / 10000));
+}
 
 export function normalizeDiscountCode(value: string) {
   return value.trim().toUpperCase().replace(/\s+/g, "");
@@ -95,13 +101,16 @@ export function calculateDiscountApplication(discount: DiscountLike, lines: Disc
     discount.discountType === "PERCENT"
       ? Math.round((eligibleSubtotalCents * discount.valueBps) / 10000)
       : Math.min(discount.amountCents, eligibleSubtotalCents);
-  const maxDiscountByOwnerProtection = Math.max(0, subtotalCents - internalCostCents - discount.ownerProtectedProfitCents);
+  const preDiscountGrossMarginCents = Math.max(0, subtotalCents - internalCostCents);
+  const ownerProtectedProfitCents = discount.ownerProtectedProfitCents;
+  const maxDiscountByOwnerProtection = Math.max(0, preDiscountGrossMarginCents - ownerProtectedProfitCents);
   const discountCents = Math.max(0, Math.min(requestedDiscountCents, maxDiscountByOwnerProtection, subtotalCents));
   const totalCents = Math.max(0, subtotalCents - discountCents);
   const grossMarginCents = Math.max(0, totalCents - internalCostCents);
+  const agencyFeeEstimatedCents = agencyFeeFromMarginCents(grossMarginCents);
   const fundingStrategy = normalizeDiscountFundingStrategy(discount.fundingStrategy, discount.affectsCommissions);
   const commissionableMarginCents = fundingStrategy === "SHARED_POOL"
-    ? Math.max(0, grossMarginCents - discount.ownerProtectedProfitCents)
+    ? Math.max(0, grossMarginCents - ownerProtectedProfitCents)
     : grossMarginCents;
   const ownerProfitCents = Math.max(0, grossMarginCents - commissionableMarginCents);
 
@@ -114,7 +123,8 @@ export function calculateDiscountApplication(discount: DiscountLike, lines: Disc
     discountCents,
     totalCents,
     grossMarginCents,
-    ownerProtectedProfitCents: discount.ownerProtectedProfitCents,
+    ownerProtectedProfitCents,
+    agencyFeeEstimatedCents,
     commissionableMarginCents,
     ownerProfitCents
   };

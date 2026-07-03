@@ -150,7 +150,8 @@ export default async function AdminDiscountsPage() {
                         <Metric label="Eligible subtotal" value={formatCurrency(preview.eligibleSubtotalCents)} />
                         <Metric label="Discount applied" value={formatCurrency(preview.discountCents)} />
                         <Metric label="Gross margin after discount" value={formatCurrency(preview.grossMarginCents)} />
-                        <Metric label="Estimated owner profit" value={formatCurrency(preview.grossMarginCents)} />
+                        <Metric label="Agency fee estimate" value={formatCurrency(preview.agencyFeeEstimatedCents)} />
+                        <Metric label="Profit after agency fee" value={formatCurrency(Math.max(0, preview.grossMarginCents - preview.agencyFeeEstimatedCents))} />
                         <Metric label="Commissionable margin" value={formatCurrency(preview.commissionableMarginCents)} />
                       </div>
                     ) : (

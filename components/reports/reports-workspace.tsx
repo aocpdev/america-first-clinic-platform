@@ -234,7 +234,7 @@ export function ReportsWorkspace({
           <Card className="rounded-[1.75rem] p-5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Agency fee</p>
-              <KpiInfo label="Agency fee" description="Informational admin-only value. Stripe transfers it automatically from 100% of gross margin on captured orders." />
+              <KpiInfo label="Agency fee" description="Admin-only value transferred automatically from the gross margin that remains after discounts." />
             </div>
             <p className="mt-3 text-3xl font-semibold text-clinic-navy">{currency(data.totalAgencyFeeCents / 100)}</p>
             <p className="mt-2 text-sm text-slate-500">Hidden from customers and sales roles</p>

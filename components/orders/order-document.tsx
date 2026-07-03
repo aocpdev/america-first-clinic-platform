@@ -115,6 +115,7 @@ function discountDetails(order: OrderListRecord) {
     affectsCommissions: booleanValue(discount, "affectsCommissions"),
     fundingStrategy: discountFundingLabel(stringValue(discount, "fundingStrategy"), booleanValue(discount, "affectsCommissions")),
     ownerProtectedProfitCents: numberValue(discount, "ownerProtectedProfitCents"),
+    agencyFeeEstimatedCents: numberValue(discount, "agencyFeeEstimatedCents"),
     commissionableMarginCents: numberValue(discount, "commissionableMarginCents")
   };
 }
@@ -318,13 +319,17 @@ export function OrderDocument({
                 ) : null}
               </div>
               {discount && !isReceipt && mode === "admin" ? (
-                <div className="mt-4 grid gap-3 rounded-2xl bg-white/80 p-3 sm:grid-cols-3">
+                <div className="mt-4 grid gap-3 rounded-2xl bg-white/80 p-3 sm:grid-cols-4">
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Commission impact</p>
                     <p className="mt-1 font-semibold text-clinic-ink">{discount.fundingStrategy}</p>
                   </div>
                   <div>
-                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Protected profit</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Agency estimate</p>
+                    <p className="mt-1 font-semibold text-clinic-ink">{money(discount.agencyFeeEstimatedCents ?? 0)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Protected total</p>
                     <p className="mt-1 font-semibold text-clinic-ink">{money(discount.ownerProtectedProfitCents ?? 0)}</p>
                   </div>
                   <div>

@@ -47,7 +47,7 @@ export function AgencyFeeSettings({ setting }: { setting: AgencyFeeSetting }) {
           <p className="mt-5 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Calculation</p>
           <p className="mt-2 text-3xl font-semibold text-clinic-ink">{feePercent}%</p>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Calculated from 100% of the order gross margin and stored as an order-level snapshot when payment is captured.
+            Calculated from the gross margin that remains after discounts. If a coupon lowers the final margin, the agency fee moves with that remaining profit.
           </p>
         </div>
 
@@ -56,7 +56,7 @@ export function AgencyFeeSettings({ setting }: { setting: AgencyFeeSetting }) {
             <input name="isEnabled" type="checkbox" defaultChecked={enabled} className="mt-1 size-4" />
             <span>
               <span className="block font-semibold text-clinic-ink">Enable automatic agency fee</span>
-              <span className="text-sm leading-6 text-slate-500">When enabled, captured Stripe orders create an internal fee record and a Stripe transfer to the connected agency account automatically.</span>
+              <span className="text-sm leading-6 text-slate-500">When enabled, captured Stripe orders create an internal fee record and a Stripe transfer to the connected agency account automatically, using the post-discount margin basis.</span>
             </span>
           </label>
 

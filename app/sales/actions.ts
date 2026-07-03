@@ -565,6 +565,7 @@ async function createWorkspaceOrder(
         subtotalCents,
         totalCents,
         ownerProtectedProfitCents: appliedDiscount.ownerProtectedProfitCents,
+        agencyFeeEstimatedCents: appliedDiscount.agencyFeeEstimatedCents,
         commissionableMarginCents: appliedDiscount.commissionableMarginCents,
         eligibleSubtotalCents: appliedDiscount.eligibleSubtotalCents,
         affectsCommissions: discount!.affectsCommissions,

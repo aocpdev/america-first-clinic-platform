@@ -6,7 +6,7 @@ import { createDiscount, updateDiscount } from "@/app/admin/discounts/actions";
 import { DiscountMultiSelect } from "@/app/admin/discounts/discount-multi-select";
 import { Input } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { calculateDiscountApplication, normalizeDiscountFundingStrategy, type DiscountFundingStrategy } from "@/lib/discounts/calculations";
+import { AGENCY_FEE_BPS, agencyFeeFromMarginCents, calculateDiscountApplication, normalizeDiscountFundingStrategy, type DiscountFundingStrategy } from "@/lib/discounts/calculations";
 import { formatCurrency } from "@/lib/products/catalog";
 
 type DiscountFormProduct = {
@@ -78,15 +78,19 @@ function buildProductProfitPreview({
         : totalPriceCents > 0
           ? Math.round((fixedAmountCents * product.priceCents) / totalPriceCents)
           : 0;
-    const maxDiscountCents = Math.max(0, product.priceCents - product.internalCostCents);
+    const preDiscountMarginCents = Math.max(0, product.priceCents - product.internalCostCents);
+    const maxDiscountCents = preDiscountMarginCents;
     const discountCents = Math.max(0, Math.min(rawDiscountCents, maxDiscountCents, product.priceCents));
-    const estimatedOwnerProfitCents = Math.max(0, product.priceCents - product.internalCostCents - discountCents);
+    const marginAfterDiscountCents = Math.max(0, preDiscountMarginCents - discountCents);
+    const agencyFeeCents = agencyFeeFromMarginCents(marginAfterDiscountCents);
+    const estimatedOwnerProfitCents = Math.max(0, marginAfterDiscountCents - agencyFeeCents);
 
     return {
       productId: product.id,
       title: product.title,
       priceCents: product.priceCents,
       internalCostCents: product.internalCostCents,
+      agencyFeeCents,
       discountCents,
       estimatedOwnerProfitCents
     };
@@ -162,10 +166,11 @@ export function DiscountForm({
         (totals, product) => ({
           priceCents: totals.priceCents + product.priceCents,
           internalCostCents: totals.internalCostCents + product.internalCostCents,
+          agencyFeeCents: totals.agencyFeeCents + product.agencyFeeCents,
           discountCents: totals.discountCents + product.discountCents,
           estimatedOwnerProfitCents: totals.estimatedOwnerProfitCents + product.estimatedOwnerProfitCents
         }),
-        { priceCents: 0, internalCostCents: 0, discountCents: 0, estimatedOwnerProfitCents: 0 }
+        { priceCents: 0, internalCostCents: 0, agencyFeeCents: 0, discountCents: 0, estimatedOwnerProfitCents: 0 }
       ),
     [productProfitPreview]
   );
@@ -277,7 +282,7 @@ export function DiscountForm({
             <div className="flex items-center gap-2">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Profit by product</p>
               <span
-                title="Estimated owner profit is product price minus internal product cost minus the discount. The preview uses one unit of each selected product."
+                title={`Agency fee is ${percent(AGENCY_FEE_BPS)}% of the gross margin left after the discount is applied.`}
                 className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-clinic-mist text-slate-500"
               >
                 <Info className="h-3.5 w-3.5" />
@@ -288,23 +293,25 @@ export function DiscountForm({
 
           {preview ? (
             <>
-              <div className="grid gap-px bg-border sm:grid-cols-4">
+              <div className="grid gap-px bg-border sm:grid-cols-5">
                 <PreviewMetric label="Revenue" value={formatCurrency(previewTotals.priceCents)} />
                 <PreviewMetric label="Discount" value={`-${formatCurrency(previewTotals.discountCents)}`} tone="green" />
                 <PreviewMetric label="Cost" value={formatCurrency(previewTotals.internalCostCents)} />
-                <PreviewMetric label="Profit" value={formatCurrency(previewTotals.estimatedOwnerProfitCents)} />
+                <PreviewMetric label="Agency fee" value={formatCurrency(previewTotals.agencyFeeCents)} />
+                <PreviewMetric label="Profit after fee" value={formatCurrency(previewTotals.estimatedOwnerProfitCents)} />
               </div>
 
               <div className="overflow-x-auto">
                 <div className="max-h-80 overflow-y-auto">
-                  <table className="w-full min-w-[720px] text-left text-sm">
+                  <table className="w-full min-w-[860px] text-left text-sm">
                     <thead className="sticky top-0 z-10 border-b border-border bg-clinic-mist/95 text-[11px] uppercase tracking-[0.16em] text-slate-500 backdrop-blur">
                       <tr>
                         <th className="px-5 py-3 font-semibold">Product</th>
                         <th className="px-4 py-3 text-right font-semibold">Price</th>
                         <th className="px-4 py-3 text-right font-semibold">Cost</th>
                         <th className="px-4 py-3 text-right font-semibold">Discount</th>
-                        <th className="px-5 py-3 text-right font-semibold">Profit</th>
+                        <th className="px-4 py-3 text-right font-semibold">Agency fee</th>
+                        <th className="px-5 py-3 text-right font-semibold">Profit after fee</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border bg-white">
@@ -316,6 +323,7 @@ export function DiscountForm({
                           <td className="px-4 py-3 text-right font-medium text-slate-600">{formatCurrency(product.priceCents)}</td>
                           <td className="px-4 py-3 text-right font-medium text-slate-600">{formatCurrency(product.internalCostCents)}</td>
                           <td className="px-4 py-3 text-right font-semibold text-emerald-700">-{formatCurrency(product.discountCents)}</td>
+                          <td className="px-4 py-3 text-right font-semibold text-clinic-navy">{formatCurrency(product.agencyFeeCents)}</td>
                           <td className="px-5 py-3 text-right font-semibold text-clinic-ink">{formatCurrency(product.estimatedOwnerProfitCents)}</td>
                         </tr>
                       ))}
@@ -357,8 +365,13 @@ export function DiscountForm({
             </label>
           </div>
           <div className="rounded-xl bg-white p-4 shadow-line">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Formula</p>
-            <p className="mt-2 text-sm font-medium leading-6 text-clinic-ink">Price - cost - discount = estimated profit.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Agency fee estimate</p>
+            <p className="mt-2 text-sm font-medium leading-6 text-clinic-ink">
+              Price - cost - discount = available margin. Agency fee is {percent(AGENCY_FEE_BPS)}% of that remaining margin.
+            </p>
+            <p className="mt-2 text-xs leading-5 text-slate-500">
+              Larger discounts lower the remaining margin, so the agency fee estimate moves with the final order profit.
+            </p>
           </div>
         </div>
       </div>
