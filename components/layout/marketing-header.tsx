@@ -11,7 +11,7 @@ export function MarketingHeader() {
         <nav className="hidden items-center gap-7 text-sm font-semibold text-slate-600 md:flex">
           <Link href="/shop" className="hover:text-clinic-navy">Shop</Link>
           <Link href="/about" className="hover:text-clinic-navy">About</Link>
-          <Link href="/c/john-smith" className="hover:text-clinic-navy">Consultant Portal</Link>
+          <Link href="/c/john-smith" className="hover:text-clinic-navy">Agent Portal</Link>
           <Link href="/admin/dashboard" className="hover:text-clinic-navy">Admin</Link>
         </nav>
         <div className="flex items-center gap-2">

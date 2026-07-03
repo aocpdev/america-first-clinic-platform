@@ -23,7 +23,7 @@ export default async function PartnerProfilePage({
       <ProfileSettings
         user={user}
         title={isGroupLeader ? "Leader profile" : "Partner profile"}
-        description={isGroupLeader ? "Manage your personal CRM profile and account settings." : "Manage the partner identity used for assigned seller visibility, commission reporting, and internal activity."}
+        description={isGroupLeader ? "Manage your personal CRM profile and account settings." : "Manage the partner identity used for assigned agent visibility, commission reporting, and internal activity."}
         error={params.error}
         updated={params.updated}
       >
@@ -31,7 +31,7 @@ export default async function PartnerProfilePage({
           <div>
             <h3 className="text-lg font-semibold text-clinic-ink">Partner company</h3>
             <p className="mt-1 text-sm text-slate-500">
-              Consultants will select this company name when requesting access.
+              Agents will select this company name when requesting access.
             </p>
           </div>
           <form action={updatePartnerCompany} className="mt-5 flex flex-col gap-3 sm:flex-row">

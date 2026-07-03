@@ -32,7 +32,7 @@ function copyForScope(scope: CommissionLedgerScope) {
     return {
       eyebrow: "Group leader",
       title: "Leader commissions",
-      description: "Track your personal leader earnings and the seller commissions connected to your team."
+      description: "Track your personal leader earnings and the agent commissions connected to your team."
     };
   }
 

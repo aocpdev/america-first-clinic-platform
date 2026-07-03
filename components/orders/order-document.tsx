@@ -368,7 +368,7 @@ export function OrderDocument({
               <h3 className="text-lg font-semibold text-clinic-ink">Attribution</h3>
               <div className="mt-3 grid gap-3 rounded-2xl border border-border bg-white p-4 text-sm text-slate-600 sm:grid-cols-3">
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Consultant</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Agent</p>
                   <p className="mt-1 font-semibold text-clinic-ink">{order.consultantProfile ? personName(order.consultantProfile.user) : "Direct sale"}</p>
                 </div>
                 <div>
@@ -467,10 +467,10 @@ export function OrderDocument({
                 {!isAdminDirectSale && canSeePartnerProfit ? <div className="flex justify-between"><span className="text-slate-500">Partner profit</span><span className="font-semibold text-clinic-navy">{money(partnerProfitCents)}</span></div> : null}
                 {!isAdminDirectSale && canSeeManagerProfit ? <div className="flex justify-between"><span className="text-slate-500">Manager earnings</span><span className="font-semibold text-clinic-navy">{money(managerProfitCents)}</span></div> : null}
                 {!isAdminDirectSale && canSeeLeaderProfit ? <div className="flex justify-between"><span className="text-slate-500">Leader profit</span><span className="font-semibold text-clinic-navy">{money(leaderProfitCents)}</span></div> : null}
-                {!isAdminDirectSale && canSeeConsultantCommission ? <div className="flex justify-between"><span className="text-slate-500">Consultant commission</span><span className="font-semibold text-clinic-red">{money(consultantCommissionCents)}</span></div> : null}
+                {!isAdminDirectSale && canSeeConsultantCommission ? <div className="flex justify-between"><span className="text-slate-500">Agent commission</span><span className="font-semibold text-clinic-red">{money(consultantCommissionCents)}</span></div> : null}
                 <div className="border-t border-border pt-3">
                   <div className="flex justify-between"><span className="text-slate-500">Commission status</span><span className="font-semibold text-clinic-ink">{order.commissionStatus}</span></div>
-                  <p className="mt-2 text-xs leading-5 text-slate-500">Seller commissions stay pending until the order is shipped.</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">Agent commissions stay pending until the order is shipped.</p>
                 </div>
               </div>
             </div>

@@ -55,7 +55,7 @@ export const ORDER_PIPELINE_STAGES = [
   {
     value: "SHIPPED",
     label: "Shipped",
-    description: "The product has shipped and seller commissions can be approved."
+    description: "The product has shipped and agent commissions can be approved."
   },
   {
     value: "DEFERRED",

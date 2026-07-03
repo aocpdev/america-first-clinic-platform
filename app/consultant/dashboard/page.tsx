@@ -20,10 +20,10 @@ export default async function ConsultantDashboardPage({
 
   if (!user.companyId || !user.consultantProfile?.id) {
     return (
-      <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales performance">
+      <SidebarShell nav={consultantNav} eyebrow="Agent" title="Sales performance">
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-clinic-ink">Consultant profile required</h2>
-          <p className="mt-2 text-slate-600">Your consultant profile must be approved before performance metrics are available.</p>
+          <h2 className="text-xl font-semibold text-clinic-ink">Agent profile required</h2>
+          <p className="mt-2 text-slate-600">Your agent profile must be approved before performance metrics are available.</p>
         </Card>
       </SidebarShell>
     );
@@ -32,13 +32,13 @@ export default async function ConsultantDashboardPage({
   const metrics = await getConsultantDashboardMetrics(user.companyId, user.consultantProfile.id, dateRange);
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales performance">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Sales performance">
       <DashboardDateRangeFilter range={dateRange} resetHref="/consultant/dashboard" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Collected revenue" value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders`} info="Total money collected from your paid sales in this date range." />
         <MetricCard label="Commission earned" value={currency(metrics.commissionCents / 100)} change="Real earnings from captured payments" tone="green" info="Your commission from paid orders in this date range." />
         <MetricCard label="Pending commissions" value={currency(metrics.pendingCommissionCents / 100)} change="Awaiting payout approval" tone="red" info="Your commissions that are calculated but not ready or marked paid yet." />
-        <MetricCard label="Assigned customers" value={`${metrics.customerCount}`} change="Customers assigned to you" info="Customers currently assigned to your seller profile." />
+        <MetricCard label="Assigned customers" value={`${metrics.customerCount}`} change="Customers assigned to you" info="Customers currently assigned to your agent profile." />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1.2fr_.8fr]">
         <Card>

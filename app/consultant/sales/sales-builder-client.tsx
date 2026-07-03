@@ -96,7 +96,7 @@ type SalesBuilderClientProps = {
 };
 
 const errorCopy: Record<string, string> = {
-  consultant_profile_required: "Your consultant profile is not ready yet.",
+  consultant_profile_required: "Your agent profile is not ready yet.",
   commission_setup_required: "Commission setup must be completed before orders can be created.",
   empty_order: "Select at least one product before creating an order.",
   invalid_customer: "Customer information is incomplete.",

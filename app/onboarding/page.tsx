@@ -12,13 +12,13 @@ export default function OnboardingPage() {
         <div className="mt-8 grid gap-5 md:grid-cols-2">
           <Card className="p-6">
             <h2 className="text-xl font-semibold text-clinic-ink">Company onboarding</h2>
-            <p className="mt-3 text-slate-600">Set up branding, products, commissions, consultant invites, and payment configuration.</p>
+            <p className="mt-3 text-slate-600">Set up branding, products, commissions, agent invites, and payment configuration.</p>
             <Link href="/onboarding/company"><Button className="mt-6" variant="accent">Start company setup</Button></Link>
           </Card>
           <Card className="p-6">
-            <h2 className="text-xl font-semibold text-clinic-ink">Consultant onboarding</h2>
+            <h2 className="text-xl font-semibold text-clinic-ink">Agent onboarding</h2>
             <p className="mt-3 text-slate-600">Create your profile, referral slug, payment placeholder, agreements, and dashboard tutorial.</p>
-            <Link href="/onboarding/consultant"><Button className="mt-6">Start consultant setup</Button></Link>
+            <Link href="/onboarding/consultant"><Button className="mt-6">Start agent setup</Button></Link>
           </Card>
         </div>
       </main>

@@ -23,7 +23,7 @@ export const defaultRewardLevels = [
     accentColor: "#0A5EA8",
     reward: {
       title: "Wellness Credit",
-      description: "A small performance credit for sellers who build consistent sales activity.",
+      description: "A small performance credit for agents who build consistent sales activity.",
       valueCents: 7500,
       imageUrl: ""
     }
@@ -35,7 +35,7 @@ export const defaultRewardLevels = [
     accentColor: "#0E7C66",
     reward: {
       title: "Go Virtual Health Gear",
-      description: "Premium branded gear for sellers who consistently convert qualified customers.",
+      description: "Premium branded gear for agents who consistently convert qualified customers.",
       valueCents: 15000,
       imageUrl: ""
     }
@@ -47,19 +47,19 @@ export const defaultRewardLevels = [
     accentColor: "#B7791F",
     reward: {
       title: "Performance Bonus Gift",
-      description: "A higher-value reward for sellers reaching a meaningful monthly-style milestone.",
+      description: "A higher-value reward for agents reaching a meaningful monthly-style milestone.",
       valueCents: 30000,
       imageUrl: ""
     }
   },
   {
     level: 5,
-    name: "Elite Seller",
+    name: "Elite Agent",
     salesThreshold: 50,
     accentColor: "#DC1F2A",
     reward: {
       title: "Elite Sales Package",
-      description: "Premium recognition package for sellers producing strong captured order volume.",
+      description: "Premium recognition package for agents producing strong captured order volume.",
       valueCents: 60000,
       imageUrl: ""
     }
@@ -179,7 +179,7 @@ function clampDate(date: Date, min: Date, max: Date) {
   return date;
 }
 
-export async function getSellerSalesCount(input: {
+export async function getAgentSalesCount(input: {
   companyId: string;
   partnerProfileId?: string | null;
   managerProfileId?: string | null;
@@ -232,7 +232,7 @@ export async function getSellerSalesCount(input: {
 
 export async function getRewardProgress(input: {
   companyId: string;
-  sellerName: string;
+  agentName: string;
   avatarUrl?: string | null;
   partnerProfileId?: string | null;
   managerProfileId?: string | null;
@@ -241,7 +241,7 @@ export async function getRewardProgress(input: {
 }) {
   const [levels, salesCount] = await Promise.all([
     getRewardLevels(input.companyId),
-    getSellerSalesCount(input)
+    getAgentSalesCount(input)
   ]);
 
   const currentLevel = [...levels].reverse().find((level) => salesCount >= level.salesThreshold) ?? null;
@@ -253,7 +253,7 @@ export async function getRewardProgress(input: {
   const progressPercent = nextLevel ? Math.round((progressNumerator / progressDenominator) * 100) : 100;
 
   return {
-    sellerName: input.sellerName,
+    agentName: input.agentName,
     avatarUrl: input.avatarUrl ?? null,
     salesCount,
     levels,
@@ -292,8 +292,8 @@ export async function getCompanyRewardLeaderboard(companyId: string) {
       name: displayName(profile.user),
       email: profile.user.email,
       avatarUrl: profile.user.avatarUrl,
-      role: "Consultant",
-      salesCount: await getSellerSalesCount({ companyId, consultantProfileId: profile.id })
+      role: "Agent",
+      salesCount: await getAgentSalesCount({ companyId, consultantProfileId: profile.id })
     }))
   );
 
@@ -304,7 +304,7 @@ export async function getCompanyRewardLeaderboard(companyId: string) {
       email: profile.user.email,
       avatarUrl: profile.user.avatarUrl,
       role: "Group leader",
-      salesCount: await getSellerSalesCount({ companyId, groupLeaderProfileId: profile.id })
+      salesCount: await getAgentSalesCount({ companyId, groupLeaderProfileId: profile.id })
     }))
   );
 
@@ -315,7 +315,7 @@ export async function getCompanyRewardLeaderboard(companyId: string) {
       email: profile.user.email,
       avatarUrl: profile.user.avatarUrl,
       role: "Manager",
-      salesCount: await getSellerSalesCount({ companyId, managerProfileId: profile.id })
+      salesCount: await getAgentSalesCount({ companyId, managerProfileId: profile.id })
     }))
   );
 
@@ -379,8 +379,8 @@ export async function getScopedRewardLeaderboard(input: {
       name: displayName(profile.user),
       email: profile.user.email,
       avatarUrl: profile.user.avatarUrl,
-      role: "Consultant",
-      salesCount: await getSellerSalesCount({ companyId: input.companyId, consultantProfileId: profile.id })
+      role: "Agent",
+      salesCount: await getAgentSalesCount({ companyId: input.companyId, consultantProfileId: profile.id })
     }))
   );
 
@@ -391,7 +391,7 @@ export async function getScopedRewardLeaderboard(input: {
       email: profile.user.email,
       avatarUrl: profile.user.avatarUrl,
       role: "Group leader",
-      salesCount: await getSellerSalesCount({ companyId: input.companyId, groupLeaderProfileId: profile.id })
+      salesCount: await getAgentSalesCount({ companyId: input.companyId, groupLeaderProfileId: profile.id })
     }))
   );
 
@@ -402,7 +402,7 @@ export async function getScopedRewardLeaderboard(input: {
       email: profile.user.email,
       avatarUrl: profile.user.avatarUrl,
       role: "Manager",
-      salesCount: await getSellerSalesCount({ companyId: input.companyId, managerProfileId: profile.id })
+      salesCount: await getAgentSalesCount({ companyId: input.companyId, managerProfileId: profile.id })
     }))
   );
 

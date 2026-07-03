@@ -62,7 +62,7 @@ export default async function PartnerOrdersPage({ searchParams }: { searchParams
             <p className="mt-3 text-3xl font-semibold text-clinic-navy">{currency(profitCents / 100)}</p>
           </Card>
           <Card className="p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Consultant commissions</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Agent commissions</p>
             <p className="mt-3 text-3xl font-semibold text-clinic-red">{currency(consultantCommissionCents / 100)}</p>
           </Card>
         </div>

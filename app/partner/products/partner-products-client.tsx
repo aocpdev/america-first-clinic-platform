@@ -98,7 +98,7 @@ export function PartnerProductsClient({
             <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">Partner catalog</Badge>
             <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Product visibility</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Review active catalog items, pricing, margin, and product details. Sales figures only include consultants assigned to your partner profile.
+              Review active catalog items, pricing, margin, and product details. Sales figures only include agents assigned to your partner profile.
             </p>
           </div>
         </div>

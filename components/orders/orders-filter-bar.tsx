@@ -50,7 +50,7 @@ export function OrdersFilterBar({ filters, selects, resetHref, visibleCount, tot
             <input
               name="q"
               defaultValue={normalized.q}
-              placeholder="Search orders, customers, products, sellers..."
+              placeholder="Search orders, customers, products, agents..."
               className="h-12 w-full rounded-2xl border border-border bg-white pl-12 pr-4 text-sm font-semibold text-clinic-ink shadow-sm outline-none transition placeholder:text-slate-400 focus:border-clinic-blue/40 focus:ring-4 focus:ring-blue-100"
             />
           </label>

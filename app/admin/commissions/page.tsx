@@ -20,7 +20,7 @@ export default async function AdminCommissionsPage({ searchParams }: { searchPar
         entries={entries}
         scope="admin"
         title="Company commission control"
-        description="Review every commission split across partners, managers, leaders, and sellers with full margin visibility."
+        description="Review every commission split across partners, managers, leaders, and agents with full margin visibility."
         filters={filters}
         dateRangeLabel={dateRange.label}
       />

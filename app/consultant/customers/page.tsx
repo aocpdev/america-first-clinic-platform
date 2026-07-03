@@ -19,7 +19,7 @@ export default async function ConsultantCustomersPage({ searchParams }: { search
     : [];
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Customers">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Customers">
       <CustomerList customers={mapCustomerRows(customers)} mode="consultant" filters={filters} />
     </SidebarShell>
   );

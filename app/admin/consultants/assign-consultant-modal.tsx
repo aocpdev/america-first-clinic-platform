@@ -68,10 +68,10 @@ export function AssignConsultantModal({
           <div className="mx-auto max-h-[92vh] w-full max-w-2xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
             <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Seller assignment</p>
-                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Assign seller</h3>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Agent assignment</p>
+                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Assign agent</h3>
                 <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-                  Move this seller directly under the partner or assign them to a group leader. Customer ownership follows the seller automatically.
+                  Move this agent directly under the partner or assign them to a group leader. Customer ownership follows the agent automatically.
                 </p>
               </div>
               <button
@@ -141,7 +141,7 @@ export function AssignConsultantModal({
                 <div>
                   <p className="font-semibold text-clinic-ink">Role protected assignment</p>
                   <p className="mt-1 text-slate-600">
-                    Admins and partners can move sellers inside the partner network. Group leaders can view their own team, but cannot move sellers.
+                    Admins and partners can move agents inside the partner network. Group leaders can view their own team, but cannot move agents.
                   </p>
                 </div>
               </div>
@@ -149,7 +149,7 @@ export function AssignConsultantModal({
               <div className="rounded-3xl border border-amber-100 bg-amber-50/80 p-4">
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-800">Pending commission handling</p>
                 <p className="mt-2 text-sm leading-6 text-slate-700">
-                  If this seller has pending leader commissions, choose whether those pending leader earnings stay with the original leader or move to the newly selected leader.
+                  If this agent has pending leader commissions, choose whether those pending leader earnings stay with the original leader or move to the newly selected leader.
                 </p>
                 <div className="mt-4 grid gap-3">
                   <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white bg-white p-4 shadow-line">
@@ -163,7 +163,7 @@ export function AssignConsultantModal({
                     <input type="radio" name="pendingLeaderCommissionMode" value="move" className="mt-1 h-4 w-4 accent-clinic-navy" />
                     <span>
                       <span className="block font-semibold text-clinic-ink">Move pending leader commissions to the selected leader</span>
-                      <span className="mt-1 block text-sm text-slate-500">Only applies when assigning the seller to a leader and only affects pending leader splits.</span>
+                      <span className="mt-1 block text-sm text-slate-500">Only applies when assigning the agent to a leader and only affects pending leader splits.</span>
                     </span>
                   </label>
                 </div>

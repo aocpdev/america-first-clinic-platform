@@ -36,13 +36,13 @@ const roleCopy: Record<CommissionParticipantRole, string> = {
   PARTNER: "Partner",
   MANAGER: "Manager",
   GROUP_LEADER: "Leader",
-  CONSULTANT: "Seller"
+  CONSULTANT: "Agent"
 };
 
 const rewardRoleCopy = {
   MANAGER: "Manager",
   GROUP_LEADER: "Leader",
-  CONSULTANT: "Seller"
+  CONSULTANT: "Agent"
 } as const;
 
 const rewardStatusCopy = {
@@ -247,7 +247,7 @@ function copyForScope(scope: CommissionLedgerScope) {
     return {
       eyebrow: "Company payout control",
       title: "Partner payout center",
-      description: "The company pays partners only. Partners then manage payouts for managers, leaders, and sellers from their partner pool.",
+      description: "The company pays partners only. Partners then manage payouts for managers, leaders, and agents from their partner pool.",
       owedLabel: "Partner payouts owed",
       readyLabel: "Ready to pay",
       paidLabel: "Paid to partners",
@@ -260,7 +260,7 @@ function copyForScope(scope: CommissionLedgerScope) {
     return {
       eyebrow: "Partner payout desk",
       title: "Team payout center",
-      description: "Pay managers, leaders, and sellers from your partner pool. The company only pays your partner payout.",
+      description: "Pay managers, leaders, and agents from your partner pool. The company only pays your partner payout.",
       owedLabel: "Team payouts owed",
       readyLabel: "Ready to pay",
       paidLabel: "Paid to team",
@@ -286,7 +286,7 @@ function copyForScope(scope: CommissionLedgerScope) {
     return {
       eyebrow: "Leader payout status",
       title: "Your payout tracker",
-      description: "Review personal leader earnings and payout status. Seller payout management belongs to the partner.",
+      description: "Review personal leader earnings and payout status. Agent payout management belongs to the partner.",
       owedLabel: "Pending earnings",
       readyLabel: "Approved earnings",
       paidLabel: "Paid earnings",
@@ -296,13 +296,13 @@ function copyForScope(scope: CommissionLedgerScope) {
   }
 
   return {
-    eyebrow: "Seller payout status",
+    eyebrow: "Agent payout status",
     title: "Your payout tracker",
     description: "Track your own commissions from pending review to approved and paid. Internal split details are hidden.",
     owedLabel: "Pending commission",
     readyLabel: "Approved commission",
     paidLabel: "Paid commission",
-    empty: "No seller payout activity yet.",
+    empty: "No agent payout activity yet.",
     showActions: false
   };
 }
@@ -513,7 +513,7 @@ function PartnerPayoutOverview({
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-clinic-red">Partner settlement</p>
             <h3 className="mt-3 text-3xl font-semibold tracking-tight text-clinic-ink">Company money in, team payouts out</h3>
             <p className="mt-3 max-w-4xl text-base leading-7 text-slate-600">
-              The partner receives the company-funded partner payout packet. From that packet, the partner pays managers, leaders, and sellers. Cash rewards are tracked as a separate pass-through payout.
+              The partner receives the company-funded partner payout packet. From that packet, the partner pays managers, leaders, and agents. Cash rewards are tracked as a separate pass-through payout.
             </p>
           </div>
           <div className="rounded-[26px] border border-blue-100 bg-blue-50 px-5 py-4 text-clinic-navy">
@@ -537,7 +537,7 @@ function PartnerPayoutOverview({
         <div className="rounded-[26px] bg-emerald-50 p-5">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Team to distribute</p>
           <p className="mt-4 text-3xl font-semibold text-emerald-700">{dollars(teamCommissions)}</p>
-          <p className="mt-2 text-sm leading-6 text-slate-500">Managers, leaders, and sellers paid by the partner.</p>
+          <p className="mt-2 text-sm leading-6 text-slate-500">Managers, leaders, and agents paid by the partner.</p>
         </div>
         <div className="rounded-[26px] bg-amber-50 p-5">
           <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Cash rewards</p>
@@ -638,7 +638,7 @@ function PartnerPayeeLedger({
       ) : (
         <div className="p-10 text-center">
           <h3 className="text-xl font-semibold text-clinic-ink">No team payouts match these filters</h3>
-          <p className="mt-2 text-slate-600">When managers, leaders, or sellers have payable commissions, their grouped totals will appear here.</p>
+          <p className="mt-2 text-slate-600">When managers, leaders, or agents have payable commissions, their grouped totals will appear here.</p>
         </div>
       )}
     </Card>
@@ -679,7 +679,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
     { label: "Partners", value: "PARTNER" },
     { label: "Managers", value: "MANAGER" },
     { label: "Leaders", value: "GROUP_LEADER" },
-    { label: "Sellers", value: "CONSULTANT" }
+    { label: "Agents", value: "CONSULTANT" }
   ];
 
   return (
@@ -844,7 +844,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Cash reward distribution</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Rewards paid through partner payout</h3>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  Cash rewards are funded to the partner, then the partner pays the manager, leader, or seller who earned the reward. Non-cash rewards stay in the admin fulfillment workflow.
+                  Cash rewards are funded to the partner, then the partner pays the manager, leader, or agent who earned the reward. Non-cash rewards stay in the admin fulfillment workflow.
                 </p>
               </div>
               <div className="rounded-[24px] bg-white px-5 py-4 shadow-line">
@@ -968,7 +968,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
           <div className="p-6">
             <ShieldCheck className="h-6 w-6 text-clinic-red" />
             <h3 className="mt-4 text-xl font-semibold text-clinic-ink">Role privacy</h3>
-            <p className="mt-2 text-slate-600">Sellers only see their own payout. Managers and leaders see their own status. Partners manage the network payout queue.</p>
+            <p className="mt-2 text-slate-600">Agents only see their own payout. Managers and leaders see their own status. Partners manage the network payout queue.</p>
           </div>
         </div>
       </Card>

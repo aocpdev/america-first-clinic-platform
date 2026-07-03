@@ -118,13 +118,13 @@ function metadata(order: ReportOrder) {
 
 function originator(order: ReportOrder) {
   const commissionMode = metadata(order)?.commissionMode;
-  if (commissionMode === "CONSULTANT_PARTNER_SPLIT") return { name: personName(order.consultantProfile?.user ?? order.customer), role: "Seller" };
+  if (commissionMode === "CONSULTANT_PARTNER_SPLIT") return { name: personName(order.consultantProfile?.user ?? order.customer), role: "Agent" };
   if (commissionMode === "GROUP_LEADER_DIRECT") return { name: personName(order.groupLeaderProfile?.user ?? order.customer), role: "Leader" };
   if (commissionMode === "MANAGER_DIRECT") return { name: personName(order.managerProfile?.user ?? order.customer), role: "Manager" };
   if (commissionMode === "PARTNER_DIRECT") return { name: personName(order.partnerProfile?.user ?? order.customer), role: "Partner" };
   if (commissionMode === "ADMIN_DIRECT") return { name: "Admin direct", role: "Admin" };
 
-  if (order.consultantProfile) return { name: personName(order.consultantProfile.user), role: "Seller" };
+  if (order.consultantProfile) return { name: personName(order.consultantProfile.user), role: "Agent" };
   if (order.groupLeaderProfile) return { name: personName(order.groupLeaderProfile.user), role: "Leader" };
   if (order.managerProfile) return { name: personName(order.managerProfile.user), role: "Manager" };
   if (order.partnerProfile) return { name: personName(order.partnerProfile.user), role: "Partner" };
@@ -162,10 +162,10 @@ function leaderForOrder(order: ReportOrder) {
   return { id: profile.id, name: profile.displayName || personName(profile.user), role: "Leader" };
 }
 
-function sellerForOrder(order: ReportOrder) {
+function agentForOrder(order: ReportOrder) {
   const profile = order.consultantProfile ?? null;
   if (!profile) return null;
-  return { id: profile.id, name: personName(profile.user), role: "Seller" };
+  return { id: profile.id, name: personName(profile.user), role: "Agent" };
 }
 
 type PerformanceEntity = {
@@ -256,7 +256,7 @@ function splitAmount(order: ReportOrder, role: CommissionParticipantRole) {
 }
 
 function agentParticipantRole(role: string): CommissionParticipantRole | null {
-  if (role === "Seller") return "CONSULTANT";
+  if (role === "Agent") return "CONSULTANT";
   if (role === "Leader") return "GROUP_LEADER";
   if (role === "Manager") return "MANAGER";
   if (role === "Partner") return "PARTNER";
@@ -296,7 +296,7 @@ export async function getReportData(input: ReportInput) {
   const teamMap = new Map<string, TeamReportRow>();
   const managerMap = new Map<string, PerformanceAccumulator>();
   const leaderMap = new Map<string, PerformanceAccumulator>();
-  const sellerMap = new Map<string, PerformanceAccumulator>();
+  const agentMap = new Map<string, PerformanceAccumulator>();
   const bucketMap = new Map(recentMonthBuckets().map((bucket) => [bucket.key, bucket]));
 
   for (const order of orders) {
@@ -307,16 +307,16 @@ export async function getReportData(input: ReportInput) {
       bucket.earnings += orderEarningsCents / 100;
     }
 
-    const seller = originator(order);
+    const agent = originator(order);
     const partnerName = partnerForOrder(order);
-    const agentRole = agentParticipantRole(seller.role);
+    const agentRole = agentParticipantRole(agent.role);
     const partnerAmountCents = splitAmount(order, "PARTNER");
     const managerAmountCents = splitAmount(order, "MANAGER");
     const leaderAmountCents = splitAmount(order, "GROUP_LEADER");
     const agentCommissionCents = agentRole ? splitAmount(order, agentRole) : 0;
-    const teamKey = `${partnerName}:${seller.role}:${seller.name}`;
+    const teamKey = `${partnerName}:${agent.role}:${agent.name}`;
     const teamCurrent = teamMap.get(teamKey) ?? {
-      ...seller,
+      ...agent,
       partnerName,
       orders: 0,
       revenueCents: 0,
@@ -339,7 +339,7 @@ export async function getReportData(input: ReportInput) {
 
     addPerformanceRow(managerMap, managerForOrder(order), order, orderEarningsCents);
     addPerformanceRow(leaderMap, leaderForOrder(order), order, orderEarningsCents);
-    addPerformanceRow(sellerMap, sellerForOrder(order), order, orderEarningsCents);
+    addPerformanceRow(agentMap, agentForOrder(order), order, orderEarningsCents);
 
     for (const item of order.items) {
       const current = productMap.get(item.productId) ?? { title: item.product.title, sku: item.product.sku, quantity: 0, revenueCents: 0 };
@@ -353,10 +353,10 @@ export async function getReportData(input: ReportInput) {
   const teamRows = Array.from(teamMap.values()).sort((a, b) => b.revenueCents - a.revenueCents);
   const managerRows = performanceRows(managerMap);
   const leaderRows = performanceRows(leaderMap);
-  const sellerRows = performanceRows(sellerMap);
+  const agentRows = performanceRows(agentMap);
   const orderRows = orders.map((order) => {
-    const seller = originator(order);
-    const agentRole = agentParticipantRole(seller.role);
+    const agent = originator(order);
+    const agentRole = agentParticipantRole(agent.role);
     const partnerAmountCents = splitAmount(order, "PARTNER");
     const managerAmountCents = splitAmount(order, "MANAGER");
     const leaderAmountCents = splitAmount(order, "GROUP_LEADER");
@@ -366,8 +366,8 @@ export async function getReportData(input: ReportInput) {
       createdAt: order.createdAt,
       customerName: personName(order.customer),
       customerEmail: order.customer.email,
-      sellerName: seller.name,
-      sellerRole: seller.role,
+      agentName: agent.name,
+      agentRole: agent.role,
       partnerName: partnerForOrder(order),
       totalCents: order.totalCents,
       agencyFeeCents: input.role === "admin" ? order.agencyFeeCents : 0,
@@ -395,7 +395,7 @@ export async function getReportData(input: ReportInput) {
     recentOrders: orderRows.slice(0, 12),
     managerRows,
     leaderRows,
-    sellerRows,
+    agentRows,
     exportProducts: productRows,
     exportTeamRows: teamRows,
     exportOrders: orderRows
@@ -461,9 +461,9 @@ export async function getReportCsv(input: ReportInput, type: ReportExportType) {
       row.createdAt.toISOString(),
       row.customerName,
       row.customerEmail,
-      row.sellerName,
+      row.agentName,
       row.partnerName,
-      row.sellerRole,
+      row.agentRole,
       row.products,
       (row.totalCents / 100).toFixed(2),
       (row.agentCommissionCents / 100).toFixed(2),

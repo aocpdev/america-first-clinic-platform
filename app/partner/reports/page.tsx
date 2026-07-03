@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db/prisma";
 import { getReportData } from "@/lib/reports/queries";
 
 function comparisonView(value?: string) {
-  return value === "leaders" || value === "sellers" || value === "managers" ? value : "managers";
+  return value === "leaders" || value === "agents" || value === "managers" ? value : "managers";
 }
 
 export default async function PartnerReportsPage({
@@ -51,7 +51,7 @@ export default async function PartnerReportsPage({
     <SidebarShell nav={nav} eyebrow={leader ? "Group leader" : "Partner"} title="Reports">
       <ReportsWorkspace
         eyebrow={leader ? "Leader reporting" : "Partner reporting"}
-        title={leader ? "Team sales and seller performance" : "Partner network reporting"}
+        title={leader ? "Team sales and agent performance" : "Partner network reporting"}
         range={range}
         resetHref="/partner/reports"
         exportBaseHref="/api/reports/export"
@@ -61,8 +61,8 @@ export default async function PartnerReportsPage({
         directLabel={leader ? "Leader direct revenue" : "Partner direct revenue"}
         partnerPayoutLabel={leader ? "Partner Override" : "Partner Commission"}
         scopeDescription={leader
-          ? "Leader reports include your personal sales and the sellers assigned under your leadership. Partner-only payout reconciliation is intentionally outside this view."
-          : "Partner reports include the full hierarchy you control: your own sales, managers, leaders, sellers, product performance, and CSV exports for payout reconciliation."}
+          ? "Leader reports include your personal sales and the agents assigned under your leadership. Partner-only payout reconciliation is intentionally outside this view."
+          : "Partner reports include the full hierarchy you control: your own sales, managers, leaders, agents, product performance, and CSV exports for payout reconciliation."}
         data={data}
       />
     </SidebarShell>

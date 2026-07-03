@@ -152,12 +152,12 @@ export function CreateLeaderModal({
                         <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue="0" className="pr-10" required />
                         <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
                       </div>
-                      <p className="text-xs leading-5 text-slate-500">Optional team override when sellers under this leader close sales. Max 50% of partner pool.</p>
+                      <p className="text-xs leading-5 text-slate-500">Optional team override when agents under this leader close sales. Max 50% of partner pool.</p>
                     </Field>
                   </>
                 ) : (
                   <div className="rounded-2xl border border-border bg-clinic-mist p-4 text-sm leading-6 text-slate-600 xl:col-span-2">
-                    The partner controls leader and consultant commission percentages from their partner workspace.
+                    The partner controls leader and agent commission percentages from their partner workspace.
                   </div>
                 )}
               </div>
@@ -209,7 +209,7 @@ export function EditLeaderModal({
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Leader profile</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">{leader.displayName}</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Edit identity, contact information, and leader payout rules for direct sales and seller overrides.
+                  Edit identity, contact information, and leader payout rules for direct sales and agent overrides.
                 </p>
               </div>
               <button
@@ -288,12 +288,12 @@ export function EditLeaderModal({
                         </div>
                         <p className="text-xs leading-5 text-slate-500">What this leader earns when they personally close a sale. Max 50% of partner pool.</p>
                       </Field>
-                      <Field label="Consultant override">
+                      <Field label="Agent override">
                         <div className="relative">
                           <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue={leader.consultantOverrideBps / 100} className="pr-10" required />
                           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
                         </div>
-                        <p className="text-xs leading-5 text-slate-500">Optional team override when sellers under this leader close sales. Max 50% of partner pool.</p>
+                        <p className="text-xs leading-5 text-slate-500">Optional team override when agents under this leader close sales. Max 50% of partner pool.</p>
                       </Field>
                     </div>
                   ) : (
@@ -308,7 +308,7 @@ export function EditLeaderModal({
                     type="submit"
                     formAction={deleteGroupLeaderProfile}
                     onClick={(event) => {
-                      if (!window.confirm("Delete this leader? Sellers under this leader will move to the assigned manager, or directly to the partner if there is no manager.")) {
+                      if (!window.confirm("Delete this leader? Agents under this leader will move to the assigned manager, or directly to the partner if there is no manager.")) {
                         event.preventDefault();
                       }
                     }}
@@ -332,14 +332,14 @@ export function EditLeaderModal({
                 <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Role conversion</p>
-                    <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Convert leader to consultant</h4>
+                    <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Convert leader to agent</h4>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      The leader becomes an active seller. Current sellers under this leader move directly under the partner.
+                      The leader becomes an active agent. Current agents under this leader move directly under the partner.
                     </p>
                   </div>
                   <div className={canManageCommissions ? "grid gap-3 sm:grid-cols-[160px_auto]" : "flex justify-end"}>
                     {canManageCommissions ? (
-                      <Input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" aria-label="Consultant share percent" />
+                      <Input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" aria-label="Agent share percent" />
                     ) : null}
                     <SubmitButton variant="outline" pendingText="Converting...">
                       <ArrowDownRight className="h-4 w-4" />
@@ -441,7 +441,7 @@ export function LeaderSection({
         {leaders.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border bg-white p-6 md:col-span-2 xl:col-span-3">
             <h3 className="text-lg font-semibold text-clinic-ink">No group leaders yet</h3>
-            <p className="mt-2 text-sm text-slate-500">Create the first leader when this partner is ready to organize consultants by group.</p>
+            <p className="mt-2 text-sm text-slate-500">Create the first leader when this partner is ready to organize agents by group.</p>
           </div>
         ) : null}
       </div>

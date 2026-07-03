@@ -33,14 +33,14 @@ type ReportWorkspaceData = {
   }>;
   managerRows?: PerformanceRow[];
   leaderRows?: PerformanceRow[];
-  sellerRows?: PerformanceRow[];
+  agentRows?: PerformanceRow[];
   recentOrders: Array<{
     id: string;
     createdAt: Date;
     customerName: string;
     customerEmail: string;
-    sellerName: string;
-    sellerRole: string;
+    agentName: string;
+    agentRole: string;
     partnerName: string;
     totalCents: number;
     earningsCents: number;
@@ -59,7 +59,7 @@ type PerformanceRow = {
   lastSaleAt: Date | null;
 };
 
-type ComparisonView = "managers" | "leaders" | "sellers";
+type ComparisonView = "managers" | "leaders" | "agents";
 
 type ReportsWorkspaceProps = {
   title: string;
@@ -127,9 +127,9 @@ export function ReportsWorkspace({
   data
 }: ReportsWorkspaceProps) {
   const exportOptions = [
-    { type: "sales", label: "Sales CSV", description: "Orders, customers, sellers, revenue, and earnings." },
+    { type: "sales", label: "Sales CSV", description: "Orders, customers, agents, revenue, and earnings." },
     { type: "products", label: "Products CSV", description: "Product mix, quantity sold, SKU, and revenue." },
-    { type: "team", label: "Team CSV", description: "Performance by seller and visible team scope." }
+    { type: "team", label: "Team CSV", description: "Performance by agent and visible team scope." }
   ].map((item) => ({
     href: exportHref(exportBaseHref, item.type, range),
     label: item.label,
@@ -138,13 +138,13 @@ export function ReportsWorkspace({
   const comparisonRows =
     comparisonView === "leaders"
       ? data.leaderRows ?? []
-      : comparisonView === "sellers"
-        ? data.sellerRows ?? []
+      : comparisonView === "agents"
+        ? data.agentRows ?? []
         : data.managerRows ?? [];
   const comparisonTabs: Array<{ value: ComparisonView; label: string; count: number }> = [
     { value: "managers", label: "Managers", count: data.managerRows?.length ?? 0 },
     { value: "leaders", label: "Leaders", count: data.leaderRows?.length ?? 0 },
-    { value: "sellers", label: "Sellers", count: data.sellerRows?.length ?? 0 }
+    { value: "agents", label: "Agents", count: data.agentRows?.length ?? 0 }
   ];
   const topComparison = comparisonRows[0] ?? null;
   const topAgent = data.teamRows[0] ?? null;
@@ -174,14 +174,14 @@ export function ReportsWorkspace({
     {
       href: "#recent-orders",
       label: "Orders",
-      description: "Recent captured sales and seller attribution.",
+      description: "Recent captured sales and agent attribution.",
       icon: ReceiptText
     },
     ...(comparisonBaseHref
       ? [{
         href: "#network-comparison",
         label: "Network layers",
-        description: "Compare managers, leaders, and sellers.",
+        description: "Compare managers, leaders, and agents.",
         icon: TrendingUp
       }]
       : []),
@@ -299,7 +299,7 @@ export function ReportsWorkspace({
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Network comparison</p>
                 <h3 className="mt-2 text-2xl font-semibold tracking-tight text-clinic-ink">Compare performance by team layer</h3>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-                  Switch between managers, leaders, and sellers to identify who is driving revenue, average order value, and partner earnings.
+                  Switch between managers, leaders, and agents to identify who is driving revenue, average order value, and partner earnings.
                 </p>
               </div>
               {topComparison ? (
@@ -545,7 +545,7 @@ export function ReportsWorkspace({
                     <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{formatDate(order.createdAt)}</p>
                   </div>
                 </div>
-                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.12em] text-clinic-red">{order.sellerRole}: {order.sellerName}</p>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.12em] text-clinic-red">{order.agentRole}: {order.agentName}</p>
               </div>
             )) : (
               <div className="p-5 text-sm text-slate-500">No captured orders in this range.</div>

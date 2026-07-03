@@ -178,9 +178,9 @@ function ProductFormFields({ product, categories }: { product?: ProductView; cat
         <div className="flex items-start justify-between gap-4">
           <div>
             <h4 className="font-semibold text-clinic-ink">Sales enablement guide</h4>
-            <p className="mt-1 text-sm text-slate-500">This is what consultants use during calls. Keep it clear, compliant, and easy to scan.</p>
+            <p className="mt-1 text-sm text-slate-500">This is what agents use during calls. Keep it clear, compliant, and easy to scan.</p>
           </div>
-          <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">Consultant-facing</Badge>
+          <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">Agent-facing</Badge>
         </div>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <div>
@@ -297,7 +297,7 @@ export function ProductCatalogClient({
         <Card className="flex min-h-72 flex-col items-center justify-center p-8 text-center">
           <ImageIcon className="h-12 w-12 text-slate-300" />
           <h3 className="mt-4 text-xl font-semibold text-clinic-ink">No products yet</h3>
-          <p className="mt-2 max-w-md text-sm text-slate-500">Create the first catalog item and add its sales guide so consultants can start building orders.</p>
+          <p className="mt-2 max-w-md text-sm text-slate-500">Create the first catalog item and add its sales guide so agents can start building orders.</p>
           <Button type="button" onClick={() => setAddingProduct(true)} className="mt-5">
             <Plus className="h-4 w-4" />
             Add product

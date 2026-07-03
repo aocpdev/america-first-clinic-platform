@@ -27,7 +27,7 @@ function roleLabel(type: HierarchyNode["type"]) {
   if (type === "PARTNER") return "Partner";
   if (type === "MANAGER") return "Manager";
   if (type === "GROUP_LEADER") return "Group leader";
-  return "Consultant";
+  return "Agent";
 }
 
 function roleInitial(type: HierarchyNode["type"]) {
@@ -458,7 +458,7 @@ export function SalesHierarchyView({ tree, title = "Sales hierarchy" }: { tree: 
                         {managerGroup.directConsultants.length > 0 ? (
                           <BranchItem>
                             <div className="mb-3 rounded-full border border-border bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500 shadow-line">
-                              Direct sellers
+                              Direct agents
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                               {managerGroup.directConsultants.map((consultant) => (

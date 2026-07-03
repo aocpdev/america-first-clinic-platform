@@ -12,7 +12,7 @@ export default async function ConsultantProductsPage() {
 
   if (!companyId) {
     return (
-      <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Products">
+      <SidebarShell nav={consultantNav} eyebrow="Agent" title="Products">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Company setup required</h2>
           <p className="mt-2 text-slate-600">Your account needs to be linked to Go Virtual Health before products are available.</p>
@@ -37,7 +37,7 @@ export default async function ConsultantProductsPage() {
   });
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Products">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Products">
       <ConsultantProductsClient
         products={products.map((product) => ({
           id: product.id,

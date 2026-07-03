@@ -284,7 +284,7 @@ export async function registerUser(formData: FormData) {
 
   const adminIds = await companyAdminUserIds(prisma, company.id);
   const applicantName = personDisplayName({ firstName, lastName, email });
-  const roleLabel = requestedRole === "GROUP_LEADER" ? "group leader" : "seller";
+  const roleLabel = requestedRole === "GROUP_LEADER" ? "group leader" : "agent";
   const managerNotificationUserId = selectedManagerForApproval?.userId ?? selectedLeaderForApproval?.managerProfile?.userId ?? null;
   const managerNotificationName = selectedManagerForApproval?.displayName ?? selectedLeaderForApproval?.managerProfile?.displayName ?? null;
   const directApproverNotifications =
@@ -292,7 +292,7 @@ export async function registerUser(formData: FormData) {
       ? [
           {
             userId: managerNotificationUserId,
-            title: "New seller registration",
+            title: "New agent registration",
             body: `${applicantName} is waiting for approval${managerNotificationName ? ` under ${managerNotificationName}` : ""}.`,
             metadata: {
               type: "registration",
@@ -305,8 +305,8 @@ export async function registerUser(formData: FormData) {
           },
           {
             userId: selectedLeaderForApproval?.userId,
-            title: "New seller registration",
-            body: `${applicantName} is waiting for approval in your seller group.`,
+            title: "New agent registration",
+            body: `${applicantName} is waiting for approval in your agent group.`,
             metadata: {
               type: "registration",
               userId: user.id,
@@ -797,7 +797,7 @@ export async function approveConsultant(formData: FormData) {
   }
 
   const firstName = user.firstName ?? "consultant";
-  const lastName = user.lastName ?? "seller";
+  const lastName = user.lastName ?? "agent";
   let referralSlug = createReferralSlug(firstName, lastName);
   let referralCode = createReferralCode(firstName, lastName);
 
@@ -888,25 +888,25 @@ export async function approveConsultant(formData: FormData) {
   await notifyUsers(prisma, [
     {
       userId: user.id,
-      title: "Seller account approved",
-      body: "Your Go Virtual Health seller workspace is ready.",
+      title: "Agent account approved",
+      body: "Your Go Virtual Health agent workspace is ready.",
       metadata: { type: "approval", userId: user.id, role: "CONSULTANT", partnerProfileId, managerProfileId, groupLeaderProfileId }
     },
     {
       userId: leaderProfile?.userId,
-      title: "New seller approved",
-      body: `${consultantName} has been added to your seller group.`,
+      title: "New agent approved",
+      body: `${consultantName} has been added to your agent group.`,
       metadata: { type: "approval", userId: user.id, role: "CONSULTANT", partnerProfileId, managerProfileId, groupLeaderProfileId }
     },
     {
       userId: managerProfile?.userId,
-      title: "New seller approved",
+      title: "New agent approved",
       body: `${consultantName} is now active${leaderProfile?.displayName ? ` under ${leaderProfile.displayName}` : " in your manager network"}.`,
       metadata: { type: "approval", userId: user.id, role: "CONSULTANT", partnerProfileId, managerProfileId, groupLeaderProfileId }
     },
     {
       userId: partnerProfile?.userId,
-      title: "New seller approved",
+      title: "New agent approved",
       body: `${consultantName} is now active in your network.`,
       metadata: { type: "approval", userId: user.id, role: "CONSULTANT", partnerProfileId, managerProfileId, groupLeaderProfileId }
     }

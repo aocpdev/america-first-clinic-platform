@@ -12,15 +12,15 @@ export default function PrivacyPolicyPage() {
       eyebrow="Privacy"
       title="Privacy Policy"
       updated="May 18, 2026"
-      intro="This Privacy Policy explains how Go Virtual Health, operated by ACV2 Investment Group LLC, collects, uses, and protects information across its website, CRM, checkout, consultant, and customer communication workflows."
+      intro="This Privacy Policy explains how Go Virtual Health, operated by ACV2 Investment Group LLC, collects, uses, and protects information across its website, CRM, checkout, agent, and customer communication workflows."
       sections={[
         {
           title: "Information we collect",
-          body: "We may collect information you provide directly, including name, email, phone number, shipping address, account details, order details, consultant assignment, program interest, notes, payment status, and communications. For healthcare or wellness workflows, additional information may be collected only as needed for eligibility, operational, or provider-related processes."
+          body: "We may collect information you provide directly, including name, email, phone number, shipping address, account details, order details, agent assignment, program interest, notes, payment status, and communications. For healthcare or wellness workflows, additional information may be collected only as needed for eligibility, operational, or provider-related processes."
         },
         {
           title: "How we use information",
-          body: "We use information to create accounts, manage consultant approvals, process orders, support customers, send invoices or receipts, coordinate fulfillment, track sales attribution, calculate commissions, improve internal reporting, prevent fraud, maintain security, and comply with legal, payment, tax, and operational obligations."
+          body: "We use information to create accounts, manage agent approvals, process orders, support customers, send invoices or receipts, coordinate fulfillment, track sales attribution, calculate commissions, improve internal reporting, prevent fraud, maintain security, and comply with legal, payment, tax, and operational obligations."
         },
         {
           title: "Payment information",

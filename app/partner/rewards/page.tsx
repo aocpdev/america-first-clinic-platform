@@ -85,7 +85,7 @@ export default async function PartnerRewardsPage() {
     return (
       <SidebarShell nav={nav} eyebrow={isManager ? "Manager" : isGroupLeader ? "Group leader" : "Partner"} title="Rewards">
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-clinic-ink">Seller profile required</h2>
+          <h2 className="text-xl font-semibold text-clinic-ink">Agent profile required</h2>
           <p className="mt-2 text-slate-600">Your partner, manager, or group leader profile is required before rewards can be viewed.</p>
         </Card>
       </SidebarShell>
@@ -93,11 +93,11 @@ export default async function PartnerRewardsPage() {
   }
 
   if (isManager && user.managerProfile?.id) {
-    const sellerName = user.managerProfile.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+    const agentName = user.managerProfile.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
     const [progress, leaderboard, campaignProgress, claimHistory] = await Promise.all([
       getRewardProgress({
         companyId: user.companyId,
-        sellerName,
+        agentName,
         avatarUrl: user.avatarUrl,
         managerProfileId: user.managerProfile.id
       }),
@@ -118,11 +118,11 @@ export default async function PartnerRewardsPage() {
   }
 
   if (isGroupLeader && user.groupLeaderProfile?.id) {
-    const sellerName = user.groupLeaderProfile.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+    const agentName = user.groupLeaderProfile.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
     const [progress, leaderboard, campaignProgress, claimHistory] = await Promise.all([
       getRewardProgress({
         companyId: user.companyId,
-        sellerName,
+        agentName,
         avatarUrl: user.avatarUrl,
         groupLeaderProfileId: user.groupLeaderProfile.id
       }),
@@ -153,7 +153,7 @@ export default async function PartnerRewardsPage() {
 
   const activeCampaigns = campaigns.filter((campaign) => campaign.isLive);
   const totalSales = networkRows.reduce((sum, row) => sum + row.salesCount, 0);
-  const topSeller = networkRows[0] ?? null;
+  const topAgent = networkRows[0] ?? null;
 
   return (
     <SidebarShell nav={nav} eyebrow="Partner" title="Rewards">
@@ -162,7 +162,7 @@ export default async function PartnerRewardsPage() {
           <div className="grid gap-6 p-6 lg:grid-cols-[1fr_360px] lg:p-8">
             <div className="rounded-[1.75rem] bg-clinic-navy p-6 text-white shadow-soft">
               <p className="text-sm font-semibold text-white/70">Partner rewards command center</p>
-              <h2 className="mt-2 max-w-3xl text-3xl font-semibold">Track reward progress across your seller network.</h2>
+              <h2 className="mt-2 max-w-3xl text-3xl font-semibold">Track reward progress across your agent network.</h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-white/75">
                 Partners do not compete for rewards. This page shows each manager, group leader, and consultant as an individual competitor. Team overrides do not count toward reward progress.
               </p>
@@ -187,14 +187,14 @@ export default async function PartnerRewardsPage() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-xs font-bold uppercase text-slate-500">Top performer</p>
-                    <h3 className="mt-2 truncate text-xl font-semibold text-clinic-ink">{topSeller?.name ?? "No captured sales yet"}</h3>
+                    <h3 className="mt-2 truncate text-xl font-semibold text-clinic-ink">{topAgent?.name ?? "No captured sales yet"}</h3>
                   </div>
                   <div className="grid size-12 place-items-center rounded-2xl bg-white text-clinic-red shadow-line">
                     <Trophy className="h-5 w-5" />
                   </div>
                 </div>
                 <p className="mt-3 text-sm leading-6 text-slate-600">
-                  {topSeller ? `${topSeller.role} · ${topSeller.salesCount} captured sale${topSeller.salesCount === 1 ? "" : "s"}` : "Seller progress will appear as captured payments come in."}
+                  {topAgent ? `${topAgent.role} · ${topAgent.salesCount} captured sale${topAgent.salesCount === 1 ? "" : "s"}` : "Agent progress will appear as captured payments come in."}
                 </p>
               </div>
 
@@ -219,7 +219,7 @@ export default async function PartnerRewardsPage() {
                 <Users className="h-5 w-5 text-clinic-red" />
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Network progress</p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Sellers moving through rewards</h2>
+                  <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Agents moving through rewards</h2>
                 </div>
               </div>
             </div>

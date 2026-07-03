@@ -53,14 +53,14 @@ export function EditConsultantModal({
   managers,
   groupLeaders,
   returnTo,
-  canManageSellerCommission = false
+  canManageAgentCommission = false
 }: {
   consultant: ConsultantForEdit;
   partnerProfileId: string;
   managers: ManagerOption[];
   groupLeaders: LeaderOption[];
   returnTo: string;
-  canManageSellerCommission?: boolean;
+  canManageAgentCommission?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -82,19 +82,19 @@ export function EditConsultantModal({
             <div className="my-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)]">
             <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-5 sm:px-6">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Consultant profile</p>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Agent profile</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">
-                  {[consultant.firstName, consultant.lastName].filter(Boolean).join(" ") || "Edit consultant"}
+                  {[consultant.firstName, consultant.lastName].filter(Boolean).join(" ") || "Edit agent"}
                 </h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Update seller identity, contact details, and the share they receive from the partner pool. Use Assign to move sellers between leaders.
+                  Update agent identity, contact details, and the share they receive from the partner pool. Use Assign to move agents between leaders.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-white text-slate-500 transition hover:bg-clinic-mist hover:text-clinic-ink"
-                aria-label="Close edit consultant modal"
+                aria-label="Close edit agent modal"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -104,8 +104,8 @@ export function EditConsultantModal({
               <form action={updateConsultantCommercials} className="grid gap-5">
                 <input type="hidden" name="consultantProfileId" value={consultant.id} />
                 <input type="hidden" name="partnerProfileId" value={partnerProfileId} />
-                {!canManageSellerCommission ? <input type="hidden" name="managerProfileId" value={consultant.managerProfileId ?? ""} /> : null}
-                {!canManageSellerCommission ? <input type="hidden" name="groupLeaderProfileId" value={consultant.groupLeaderProfileId ?? ""} /> : null}
+                {!canManageAgentCommission ? <input type="hidden" name="managerProfileId" value={consultant.managerProfileId ?? ""} /> : null}
+                {!canManageAgentCommission ? <input type="hidden" name="groupLeaderProfileId" value={consultant.groupLeaderProfileId ?? ""} /> : null}
                 <input type="hidden" name="returnTo" value={returnTo} />
 
                 <section className="rounded-3xl border border-border bg-clinic-mist/50 p-5">
@@ -121,7 +121,7 @@ export function EditConsultantModal({
                       <Input name="lastName" defaultValue={consultant.lastName ?? ""} placeholder="Last name" required />
                     </Field>
                     <Field label="Email">
-                      <Input name="email" type="email" defaultValue={consultant.email} placeholder="consultant@company.com" required />
+                      <Input name="email" type="email" defaultValue={consultant.email} placeholder="agent@company.com" required />
                     </Field>
                     <Field label="Phone">
                       <PhoneInput name="phone" defaultValue={consultant.phone ?? ""} />
@@ -134,10 +134,10 @@ export function EditConsultantModal({
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Partner pool</p>
                     <h4 className="mt-1 text-xl font-semibold text-clinic-ink">Commercial setup</h4>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      This is the seller share from the partner pool. Leaders and consultants never see the full company margin split.
+                      This is the agent share from the partner pool. Leaders and agents never see the full company margin split.
                     </p>
                   </div>
-                  {canManageSellerCommission ? (
+                  {canManageAgentCommission ? (
                     <div className="grid grid-cols-[repeat(auto-fit,minmax(16rem,1fr))] gap-4">
                       <Field label="Manager">
                         <select
@@ -165,9 +165,9 @@ export function EditConsultantModal({
                             </option>
                           ))}
                         </select>
-                        <p className="text-xs leading-5 text-slate-500">Move this seller under a group leader or keep them directly under the partner.</p>
+                        <p className="text-xs leading-5 text-slate-500">Move this agent under a group leader or keep them directly under the partner.</p>
                       </Field>
-                      <Field label="Consultant share">
+                      <Field label="Agent share">
                         <div className="relative">
                           <Input
                             name="consultantCommissionPercent"
@@ -186,7 +186,7 @@ export function EditConsultantModal({
                     </div>
                   ) : (
                     <div className="rounded-2xl border border-border bg-clinic-mist p-4 text-sm leading-6 text-slate-600">
-                      Consultant commission is controlled by the partner. Admins can edit identity and placement only.
+                      Agent commission is controlled by the partner. Admins can edit identity and placement only.
                     </div>
                   )}
                 </section>
@@ -196,7 +196,7 @@ export function EditConsultantModal({
                     type="submit"
                     formAction={deleteConsultantProfile}
                     onClick={(event) => {
-                      if (!window.confirm("Delete this consultant? Their historical customers and orders will stay in the partner hierarchy without an assigned consultant.")) {
+                      if (!window.confirm("Delete this agent? Their historical customers and orders will stay in the partner hierarchy without an assigned agent.")) {
                         event.preventDefault();
                       }
                     }}
@@ -209,7 +209,7 @@ export function EditConsultantModal({
                     <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                       Cancel
                     </Button>
-                    <SubmitButton variant="accent" pendingText="Saving consultant...">Save consultant</SubmitButton>
+                    <SubmitButton variant="accent" pendingText="Saving agent...">Save agent</SubmitButton>
                   </div>
                 </div>
               </form>
@@ -220,13 +220,13 @@ export function EditConsultantModal({
                 <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Role conversion</p>
-                    <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Promote consultant to group leader</h4>
+                    <h4 className="mt-1 text-lg font-semibold text-clinic-ink">Promote agent to group leader</h4>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
                       Keeps historical sales intact and creates an active leader profile. Direct leader sales and team overrides are paid from the partner pool.
                     </p>
                   </div>
-                  <div className={canManageSellerCommission ? "grid gap-3 sm:grid-cols-[150px_150px_auto]" : "flex justify-end"}>
-                    {canManageSellerCommission ? (
+                  <div className={canManageAgentCommission ? "grid gap-3 sm:grid-cols-[150px_150px_auto]" : "flex justify-end"}>
+                    {canManageAgentCommission ? (
                       <>
                         <Input name="leaderCommissionPercent" type="number" min="0" max="50" step="0.01" defaultValue="50" aria-label="Leader direct share of partner pool percent" />
                         <Input name="consultantOverridePercent" type="number" min="0" max="50" step="0.01" defaultValue="0" aria-label="Leader team override from partner pool percent" />

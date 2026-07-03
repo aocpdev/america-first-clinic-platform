@@ -43,7 +43,7 @@ export default async function ConsultantOrderDetailPage({
   if (!order) notFound();
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Order document">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Order document">
       <div className="space-y-6">
         <BackNavigator />
         {paymentStatus === "success" ? (

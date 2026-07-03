@@ -16,11 +16,11 @@ export default function MedicalDisclaimerPage() {
       sections={[
         {
           title: "Information is not medical advice",
-          body: "Website content, product descriptions, consultant scripts, CRM notes, emails, SMS messages, and checkout materials are for general informational and operational purposes only. They are not medical advice, diagnosis, treatment, or a substitute for evaluation by a qualified licensed healthcare professional."
+          body: "Website content, product descriptions, agent scripts, CRM notes, emails, SMS messages, and checkout materials are for general informational and operational purposes only. They are not medical advice, diagnosis, treatment, or a substitute for evaluation by a qualified licensed healthcare professional."
         },
         {
           title: "No provider-patient relationship by website use",
-          body: "Using this website, speaking with a consultant, submitting a form, or placing an order does not automatically create a provider-patient relationship. Any service that requires medical evaluation, prescription review, or clinical supervision must be completed through the appropriate licensed provider workflow."
+          body: "Using this website, speaking with an agent, submitting a form, or placing an order does not automatically create a provider-patient relationship. Any service that requires medical evaluation, prescription review, or clinical supervision must be completed through the appropriate licensed provider workflow."
         },
         {
           title: "Prescription-related and GLP-1 workflows",

@@ -25,12 +25,12 @@ export default async function ConsultantOrdersPage({ searchParams }: { searchPar
   const commissionCents = rows.reduce((sum, order) => sum + order.consultantCommissionCents, 0);
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Orders">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Orders">
       <div className="space-y-6">
         {!consultantProfile ? (
           <Card className="p-6">
-            <h2 className="text-xl font-semibold text-clinic-ink">Consultant profile not configured</h2>
-            <p className="mt-2 text-slate-600">Your account needs an active consultant profile before orders appear here.</p>
+            <h2 className="text-xl font-semibold text-clinic-ink">Agent profile not configured</h2>
+            <p className="mt-2 text-slate-600">Your account needs an active agent profile before orders appear here.</p>
           </Card>
         ) : null}
         <div className="grid gap-4 md:grid-cols-2">

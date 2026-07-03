@@ -36,10 +36,10 @@ export default async function ConsultantSalesPage({
 
   if (!companyId || !consultantProfileId) {
     return (
-      <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales">
+      <SidebarShell nav={consultantNav} eyebrow="Agent" title="Sales">
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-clinic-ink">Consultant setup required</h2>
-          <p className="mt-2 text-slate-600">Your account needs an active consultant profile before orders can be created.</p>
+          <h2 className="text-xl font-semibold text-clinic-ink">Agent setup required</h2>
+          <p className="mt-2 text-slate-600">Your account needs an active agent profile before orders can be created.</p>
         </Card>
       </SidebarShell>
     );
@@ -86,7 +86,7 @@ export default async function ConsultantSalesPage({
   const canCreateOrders = Boolean(user.consultantProfile?.partnerProfileId);
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Sales">
       <SalesBuilderClient
         customers={customers.map((customer) => ({
           id: customer.id,

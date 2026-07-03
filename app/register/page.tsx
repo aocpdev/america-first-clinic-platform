@@ -12,7 +12,7 @@ export default async function RegisterPage({
   const errorMessages: Record<string, string> = {
     duplicate_email: "That email is already registered. Please use another email or log in.",
     duplicate_phone: "That phone number is already registered. Please use another phone number.",
-    invalid_role: "Please choose whether you are registering as a seller or group leader.",
+    invalid_role: "Please choose whether you are registering as a agent or group leader.",
     invalid_partner: "Please select a valid partner company.",
     invalid_manager: "Please select a valid manager for that partner.",
     invalid_group_leader: "Please select a valid group leader for that partner."

@@ -123,7 +123,7 @@ export function CustomerRecord({
                 <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Last purchase</p><p className="mt-1">{customer.lastPurchaseAt ? new Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(customer.lastPurchaseAt) : "No purchases yet"}</p></div>
                 <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Date of birth</p><p className="mt-1">{dateLabel(customer.dateOfBirth)}</p></div>
                 <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Birth sex</p><p className="mt-1">{birthSexLabel(customer.birthSex)}</p></div>
-                <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Consultant</p><p className="mt-1">{customer.consultantName ?? "Unassigned"}</p></div>
+                <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Agent</p><p className="mt-1">{customer.consultantName ?? "Unassigned"}</p></div>
                 <div><p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Leader / Partner</p><p className="mt-1">{customer.leaderName ?? "No leader"} · {customer.partnerName ?? "No partner"}</p></div>
               </div>
             </div>

@@ -68,7 +68,7 @@ export default async function PartnerDashboardPage({
       <div className="mt-4 grid gap-4 md:grid-cols-3">
         {!isLeaderDashboard ? <MetricCard label="Managers" value={`${managerCount}`} change="Manager layer in your network" info="Managers assigned under this partner." /> : null}
         <MetricCard label="Leaders" value={`${leaderCount}`} change={isLeaderDashboard ? "Current leader scope" : "Group leaders in network"} info="Leaders visible in your current role." />
-        <MetricCard label="Consultants" value={`${metrics.consultantCount}`} change={isLeaderDashboard ? "Direct sellers under you" : "Sellers across the partner network"} info="Sellers visible in your current role." />
+        <MetricCard label="Agents" value={`${metrics.consultantCount}`} change={isLeaderDashboard ? "Direct agents under you" : "Agents across the partner network"} info="Agents visible in your current role." />
         <MetricCard label="Personal earnings" value={currency(metrics.personalProfitCents / 100)} change="Only sales personally created by this account" tone="green" info="Your commission from orders you personally created." />
       </div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[1fr_1fr]">
@@ -87,7 +87,7 @@ export default async function PartnerDashboardPage({
             <div className="rounded-2xl border border-border bg-clinic-mist p-4">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Scope</p>
               <p className="mt-2 font-semibold text-clinic-ink">
-                {isLeaderDashboard ? `Consultants assigned to ${groupLeaderProfile!.displayName}` : `Leaders and consultants assigned to ${partnerProfile!.companyName ?? partnerProfile!.displayName}`}
+                {isLeaderDashboard ? `Agents assigned to ${groupLeaderProfile!.displayName}` : `Leaders and agents assigned to ${partnerProfile!.companyName ?? partnerProfile!.displayName}`}
               </p>
             </div>
           </CardContent>

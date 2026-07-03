@@ -12,11 +12,11 @@ export default async function ConsultantProfilePage({
   const params = await searchParams;
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Profile">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Profile">
       <ProfileSettings
         user={user}
-        title="Consultant profile"
-        description="Manage your seller profile, contact details, and profile photo used inside the CRM."
+        title="Agent profile"
+        description="Manage your agent profile, contact details, and profile photo used inside the CRM."
         error={params.error}
         updated={params.updated}
       />

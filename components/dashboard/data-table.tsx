@@ -15,7 +15,7 @@ export function ConsultantTable() {
           <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
             <tr>
               <th className="px-5 py-3">Rank</th>
-              <th className="px-5 py-3">Consultant</th>
+              <th className="px-5 py-3">Agent</th>
               <th className="px-5 py-3">Revenue</th>
               <th className="px-5 py-3">Commissions</th>
               <th className="px-5 py-3">Conversion</th>

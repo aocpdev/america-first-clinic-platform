@@ -191,7 +191,7 @@ export function OrdersTable({
             <tr>
               <th className="px-5 py-3">Order</th>
               <th className="px-5 py-3">Customer</th>
-              {mode !== "consultant" ? <th className="px-5 py-3">Consultant</th> : null}
+              {mode !== "consultant" ? <th className="px-5 py-3">Agent</th> : null}
               {showAdminFinancials || showPartnerFinancials || showManagerFinancials ? <th className="px-5 py-3">Leader</th> : null}
               {showAdminFinancials ? <th className="px-5 py-3">Partner</th> : null}
               <th className="px-5 py-3">Products</th>
@@ -202,7 +202,7 @@ export function OrdersTable({
               {showAdminFinancials || showPartnerFinancials ? <th className="px-5 py-3">Partner profit</th> : null}
               {showAdminFinancials || showPartnerFinancials || showManagerFinancials ? <th className="px-5 py-3">Manager earnings</th> : null}
               {showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials ? <th className="px-5 py-3">Leader profit</th> : null}
-              {(showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials || showConsultantFinancials) ? <th className="px-5 py-3">Consultant commission</th> : null}
+              {(showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials || showConsultantFinancials) ? <th className="px-5 py-3">Agent commission</th> : null}
               <th className="px-5 py-3">Payment</th>
               <th className="px-5 py-3">Step</th>
               <th className="px-5 py-3">Tracking</th>

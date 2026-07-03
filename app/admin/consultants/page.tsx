@@ -43,7 +43,7 @@ const partnerSections = [
   { id: "managers", label: "Managers" },
   { id: "leaders", label: "Leaders" },
   { id: "approval", label: "Approval workflow" },
-  { id: "network", label: "Seller Network" }
+  { id: "network", label: "Agent Network" }
 ] as const;
 
 type PartnerSection = (typeof partnerSections)[number]["id"];
@@ -158,13 +158,13 @@ export default async function AdminConsultantsPage({
   const sectionHref = (section: PartnerSection) =>
     selectedPartner ? `/admin/consultants?partnerId=${selectedPartner.id}&section=${section}` : "/admin/consultants";
   const errorMessages: Record<string, string> = {
-    duplicate_email: "That email is already assigned to another partner, leader, or consultant.",
-    duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant.",
+    duplicate_email: "That email is already assigned to another partner, leader, or agent.",
+    duplicate_phone: "That phone number is already assigned to another partner, leader, or agent.",
     invalid_manager: "That manager does not belong to this partner network.",
     invalid_group_leader: "That leader does not belong to this partner network.",
     application_not_found: "That application could not be found or has already been processed.",
-    consultant_not_found: "That consultant could not be found.",
-    access_denied: "You do not have permission to move that seller."
+    consultant_not_found: "That agent could not be found.",
+    access_denied: "You do not have permission to move that agent."
   };
 
   return (
@@ -186,7 +186,7 @@ export default async function AdminConsultantsPage({
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-2xl font-semibold text-clinic-ink">Partners</h2>
-                <p className="mt-1 text-sm text-slate-500">Open a partner workspace to manage leaders, approvals, and seller hierarchy.</p>
+                <p className="mt-1 text-sm text-slate-500">Open a partner workspace to manage leaders, approvals, and agent hierarchy.</p>
               </div>
               <CreatePartnerModal />
             </div>
@@ -224,7 +224,7 @@ export default async function AdminConsultantsPage({
                       </div>
                       <div className="rounded-2xl bg-clinic-mist px-2 py-3">
                         <p className="text-2xl text-clinic-navy">{partner.consultants.length}</p>
-                        <p className="mt-1">Sellers</p>
+                        <p className="mt-1">Agents</p>
                       </div>
                       <div className="rounded-2xl bg-red-50 px-2 py-3">
                         <p className="text-2xl text-clinic-red">{partnerPendingCount}</p>
@@ -245,7 +245,7 @@ export default async function AdminConsultantsPage({
               {partners.length === 0 ? (
                 <Card className="p-6 md:col-span-2 xl:col-span-3">
                   <h2 className="text-xl font-semibold text-clinic-ink">No partners yet</h2>
-                  <p className="mt-2 text-slate-600">Create the first partner to start building leaders and consultants.</p>
+                  <p className="mt-2 text-slate-600">Create the first partner to start building leaders and agents.</p>
                 </Card>
               ) : null}
             </div>
@@ -307,7 +307,7 @@ export default async function AdminConsultantsPage({
                     </div>
                     <div className="rounded-2xl bg-clinic-mist px-4 py-3">
                       <p className="text-2xl font-semibold text-clinic-navy">{selectedPartner.consultants.length}</p>
-                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Sellers</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Agents</p>
                     </div>
                   </div>
                 </div>
@@ -364,7 +364,7 @@ export default async function AdminConsultantsPage({
                           </Link>
                           <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">{selectedManager.displayName} hierarchy</h2>
                           <p className="mt-1 text-sm text-slate-500">
-                            This view shows leaders and direct sellers assigned under this manager.
+                            This view shows leaders and direct agents assigned under this manager.
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-2">
@@ -402,7 +402,7 @@ export default async function AdminConsultantsPage({
                             Back to leaders
                           </Link>
                           <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">{selectedLeader.displayName} hierarchy</h2>
-                          <p className="mt-1 text-sm text-slate-500">This view only shows consultants assigned under this group leader.</p>
+                          <p className="mt-1 text-sm text-slate-500">This view only shows agents assigned under this group leader.</p>
                         </div>
                         <CreateConsultantModal
                           partnerProfileId={selectedPartner.id}
@@ -452,10 +452,10 @@ export default async function AdminConsultantsPage({
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Assignment control</p>
-                    <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Seller placement</h3>
+                    <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Agent placement</h3>
                     <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
-                      Assign sellers directly to {selectedPartner.companyName || selectedPartner.displayName} or place them under a group leader.
-                      Customer ownership follows the seller when the assignment changes.
+                      Assign agents directly to {selectedPartner.companyName || selectedPartner.displayName} or place them under a group leader.
+                      Customer ownership follows the agent when the assignment changes.
                     </p>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[420px]">
@@ -480,10 +480,10 @@ export default async function AdminConsultantsPage({
               <Card className="p-5">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Seller network</p>
-                    <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Consultants</h3>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Agent network</p>
+                    <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Agents</h3>
                     <p className="mt-1 text-sm text-slate-500">
-                      Add a seller directly under this partner or assign them to a group leader.
+                      Add a agent directly under this partner or assign them to a group leader.
                     </p>
                   </div>
                   <CreateConsultantModal
@@ -499,21 +499,21 @@ export default async function AdminConsultantsPage({
                       managerName: leader.managerProfile?.displayName ?? null
                     }))}
                     returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=network`}
-                    canManageSellerCommission={canManageCommissions}
+                    canManageAgentCommission={canManageCommissions}
                   />
                 </div>
               </Card>
 
               <Card className="overflow-hidden">
                 <div className="border-b border-border p-5">
-                  <Badge>Seller network</Badge>
-                  <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Consultants</h3>
+                  <Badge>Agent network</Badge>
+                  <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Agents</h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[980px] text-left text-sm">
                     <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
                       <tr>
-                        <th className="px-5 py-3">Consultant</th>
+                        <th className="px-5 py-3">Agent</th>
                         <th className="px-5 py-3">Leader</th>
                         <th className="px-5 py-3">Manager</th>
                         <th className="px-5 py-3">Referral</th>
@@ -577,7 +577,7 @@ export default async function AdminConsultantsPage({
                                   managerProfileId: leader.managerProfileId
                                 }))}
                                 returnTo={`/admin/consultants?partnerId=${selectedPartner.id}&section=network&updated=consultant_updated`}
-                                canManageSellerCommission={canManageCommissions}
+                                canManageAgentCommission={canManageCommissions}
                               />
                             </div>
                           </td>
@@ -585,7 +585,7 @@ export default async function AdminConsultantsPage({
                       ))}
                       {selectedPartner.consultants.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="px-5 py-8 text-center text-slate-500">No consultants are assigned to this partner yet.</td>
+                          <td colSpan={6} className="px-5 py-8 text-center text-slate-500">No agents are assigned to this partner yet.</td>
                         </tr>
                       )}
                     </tbody>
@@ -610,7 +610,7 @@ export default async function AdminConsultantsPage({
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="font-semibold text-clinic-ink">{displayUserName(user)}</p>
                             <Badge className={isLeaderApplication ? "border-blue-100 bg-blue-50 text-clinic-navy" : "border-emerald-100 bg-emerald-50 text-emerald-700"}>
-                              {isLeaderApplication ? "Group leader" : "Seller"}
+                              {isLeaderApplication ? "Group leader" : "Agent"}
                             </Badge>
                           </div>
                           <p className="mt-1 text-sm text-slate-500">{user.email}</p>
@@ -651,7 +651,7 @@ export default async function AdminConsultantsPage({
                                   ))}
                                 </select>
                                 <span className="rounded-lg border border-border bg-clinic-mist px-3 py-2 text-xs font-semibold text-slate-600">
-                                  Partner sets seller commission
+                                  Partner sets agent commission
                                 </span>
                               </>
                             )}

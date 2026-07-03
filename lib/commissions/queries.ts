@@ -12,9 +12,9 @@ export type CommissionLedgerEntry = {
   orderNumber: string;
   customerName: string;
   customerEmail: string;
-  sellerName: string;
-  sellerEmail: string;
-  sellerRole: "Seller" | "Leader" | "Manager" | "Partner" | "Admin";
+  agentName: string;
+  agentEmail: string;
+  agentRole: "Agent" | "Leader" | "Manager" | "Partner" | "Admin";
   participantRole: CommissionParticipantRole;
   participantName: string;
   participantEmail: string;
@@ -159,13 +159,13 @@ function saleOriginatorFor(split: CommissionSplitWithRelations) {
   return {
     name: personName(split.order.consultantProfile?.user),
     email: split.order.consultantProfile?.user.email || "",
-    role: "Seller" as const
+    role: "Agent" as const
   };
 }
 
 export function mapCommissionSplit(split: CommissionSplitWithRelations): CommissionLedgerEntry {
   const participant = participantFor(split);
-  const seller = saleOriginatorFor(split);
+  const agent = saleOriginatorFor(split);
 
   return {
     id: split.id,
@@ -173,9 +173,9 @@ export function mapCommissionSplit(split: CommissionSplitWithRelations): Commiss
     orderNumber: orderNumber(split.orderId),
     customerName: personName(split.order.customer),
     customerEmail: split.order.customer.email,
-    sellerName: seller.name,
-    sellerEmail: seller.email,
-    sellerRole: seller.role,
+    agentName: agent.name,
+    agentEmail: agent.email,
+    agentRole: agent.role,
     participantRole: split.participantRole,
     participantName: participant.name,
     participantEmail: participant.email,

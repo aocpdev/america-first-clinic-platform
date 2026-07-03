@@ -10,20 +10,20 @@ export default async function ConsultantRewardsPage() {
 
   if (!user.companyId || !user.consultantProfile?.id) {
     return (
-      <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Rewards">
+      <SidebarShell nav={consultantNav} eyebrow="Agent" title="Rewards">
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-clinic-ink">Consultant profile required</h2>
-          <p className="mt-2 text-slate-600">Your approved consultant profile is required before rewards can be calculated.</p>
+          <h2 className="text-xl font-semibold text-clinic-ink">Agent profile required</h2>
+          <p className="mt-2 text-slate-600">Your approved agent profile is required before rewards can be calculated.</p>
         </Card>
       </SidebarShell>
     );
   }
 
-  const sellerName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+  const agentName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
   const [progress, leaderboard, campaignProgress, claimHistory] = await Promise.all([
     getRewardProgress({
       companyId: user.companyId,
-      sellerName,
+      agentName,
       avatarUrl: user.avatarUrl,
       consultantProfileId: user.consultantProfile.id
     }),
@@ -37,7 +37,7 @@ export default async function ConsultantRewardsPage() {
   ]);
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Rewards">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Rewards">
       <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} claimHistory={claimHistory} />
     </SidebarShell>
   );

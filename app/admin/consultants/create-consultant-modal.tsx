@@ -33,8 +33,8 @@ export function CreateConsultantModal({
   groupLeaderName,
   groupLeaders = [],
   returnTo,
-  buttonLabel = "Create consultant",
-  canManageSellerCommission = false
+  buttonLabel = "Create agent",
+  canManageAgentCommission = false
 }: {
   partnerProfileId: string;
   managerProfileId?: string | null;
@@ -53,7 +53,7 @@ export function CreateConsultantModal({
   }>;
   returnTo?: string;
   buttonLabel?: string;
-  canManageSellerCommission?: boolean;
+  canManageAgentCommission?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -69,19 +69,19 @@ export function CreateConsultantModal({
           <div className="mx-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
             <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Seller network</p>
-                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Create consultant</h3>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Agent network</p>
+                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Create agent</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                   {groupLeaderName
-                    ? `This consultant will be assigned under ${groupLeaderName}.`
-                    : "Create a consultant and assign them directly to the partner or under a group leader."}
+                    ? `This agent will be assigned under ${groupLeaderName}.`
+                    : "Create an agent and assign them directly to the partner or under a group leader."}
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-white text-slate-500 transition hover:bg-clinic-mist hover:text-clinic-ink"
-                aria-label="Close add consultant modal"
+                aria-label="Close add agent modal"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -100,7 +100,7 @@ export function CreateConsultantModal({
                   <Input name="lastName" placeholder="Johnson" required />
                 </Field>
                 <Field label="Email">
-                  <Input name="email" type="email" placeholder="consultant@company.com" required />
+                  <Input name="email" type="email" placeholder="agent@company.com" required />
                 </Field>
                 <Field label="Phone">
                   <PhoneInput name="phone" />
@@ -144,8 +144,8 @@ export function CreateConsultantModal({
                   </Field>
                   </>
                 ) : null}
-                {canManageSellerCommission ? (
-                  <Field label="Consultant share">
+                {canManageAgentCommission ? (
+                  <Field label="Agent share">
                     <div className="relative">
                       <Input name="consultantCommissionPercent" type="number" min="0" max="100" step="0.01" defaultValue="50" className="pr-10" required />
                       <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm font-semibold text-slate-400">%</span>
@@ -154,7 +154,7 @@ export function CreateConsultantModal({
                   </Field>
                 ) : (
                   <div className="rounded-2xl border border-border bg-clinic-mist p-4 text-sm leading-6 text-slate-600">
-                    Consultant commission is controlled by the partner from their workspace.
+                    Agent commission is controlled by the partner from their workspace.
                   </div>
                 )}
               </div>
@@ -163,7 +163,7 @@ export function CreateConsultantModal({
                 <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                   Cancel
                 </Button>
-                <SubmitButton variant="accent" pendingText="Creating consultant...">Create consultant</SubmitButton>
+                <SubmitButton variant="accent" pendingText="Creating agent...">Create agent</SubmitButton>
               </div>
             </form>
           </div>

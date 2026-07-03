@@ -12,7 +12,7 @@ export default function TermsOfServicePage() {
       eyebrow="Legal"
       title="Terms of Service"
       updated="May 18, 2026"
-      intro="These Terms of Service govern access to Go Virtual Health websites, checkout flows, consultant portals, customer communications, and related services operated by ACV2 Investment Group LLC."
+      intro="These Terms of Service govern access to Go Virtual Health websites, checkout flows, agent portals, customer communications, and related services operated by ACV2 Investment Group LLC."
       sections={[
         {
           title: "Operator and brand use",
@@ -20,7 +20,7 @@ export default function TermsOfServicePage() {
         },
         {
           title: "Eligibility and accounts",
-          body: "You must provide accurate information when creating an account, placing an order, requesting consultant access, or interacting with our team. Consultant accounts require approval before accessing sales tools. We may suspend or restrict access if information is inaccurate, a user violates these terms, or continued access creates operational, compliance, payment, or security risk."
+          body: "You must provide accurate information when creating an account, placing an order, requesting agent access, or interacting with our team. Agent accounts require approval before accessing sales tools. We may suspend or restrict access if information is inaccurate, a user violates these terms, or continued access creates operational, compliance, payment, or security risk."
         },
         {
           title: "Healthcare and wellness services",
@@ -28,11 +28,11 @@ export default function TermsOfServicePage() {
         },
         {
           title: "Orders, payments, and subscriptions",
-          body: "Prices, product availability, subscription terms, and program requirements may change. Orders are subject to review, payment authorization, product availability, fraud screening, and any required healthcare eligibility checks. Payment may be processed by third-party providers, including card, ACH, invoice, or future healthcare payment processors. We do not authorize consultants or users to store raw payment card details outside approved payment systems."
+          body: "Prices, product availability, subscription terms, and program requirements may change. Orders are subject to review, payment authorization, product availability, fraud screening, and any required healthcare eligibility checks. Payment may be processed by third-party providers, including card, ACH, invoice, or future healthcare payment processors. We do not authorize agents or users to store raw payment card details outside approved payment systems."
         },
         {
-          title: "Consultant and partner access",
-          body: "Consultants, partners, managers, and administrators may access different information based on their role. Users are responsible for keeping login credentials secure and may only access customer, order, sales, and commission information they are authorized to view. Unauthorized access, data export, sharing, or misuse is prohibited."
+          title: "Agent and partner access",
+          body: "Agents, partners, managers, and administrators may access different information based on their role. Users are responsible for keeping login credentials secure and may only access customer, order, sales, and commission information they are authorized to view. Unauthorized access, data export, sharing, or misuse is prohibited."
         },
         {
           title: "No guarantee of results",
@@ -40,7 +40,7 @@ export default function TermsOfServicePage() {
         },
         {
           title: "Acceptable use",
-          body: "You may not use the platform for unlawful activity, misrepresentation, unauthorized medical claims, payment fraud, scraping, interference with service operations, or violation of privacy, healthcare, consumer protection, or payment network rules. Consultants must use approved product information and may not promise medical outcomes or make unsupported claims."
+          body: "You may not use the platform for unlawful activity, misrepresentation, unauthorized medical claims, payment fraud, scraping, interference with service operations, or violation of privacy, healthcare, consumer protection, or payment network rules. Agents must use approved product information and may not promise medical outcomes or make unsupported claims."
         },
         {
           title: "Limitation of liability",

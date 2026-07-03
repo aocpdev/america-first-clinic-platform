@@ -82,7 +82,7 @@ export function CustomerList({
 
       <RecordFilters
         title="Customer filters"
-        description="Search by name, email, phone, seller, partner, or pipeline state."
+        description="Search by name, email, phone, agent, partner, or pipeline state."
         searchPlaceholder="Search customers, emails, phones..."
         filters={filters ?? {}}
         resetHref={`${basePath}/customers`}

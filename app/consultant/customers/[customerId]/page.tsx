@@ -27,7 +27,7 @@ export default async function ConsultantCustomerRecordPage({
   if (!customer) notFound();
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Customer record">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Customer record">
       <div className="space-y-6">
         <BackNavigator />
         <CustomerRecord customer={mapCustomerRecord(customer)} mode="consultant" />

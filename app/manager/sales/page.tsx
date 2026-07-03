@@ -198,7 +198,7 @@ export default async function ManagerSalesPage({
             <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">Manager scope</Badge>
             <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">Manager sales workspace</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              Includes your direct manager sales plus orders from leaders and sellers assigned to your manager profile.
+              Includes your direct manager sales plus orders from leaders and agents assigned to your manager profile.
             </p>
           </div>
           <div className="overflow-x-auto">
@@ -206,7 +206,7 @@ export default async function ManagerSalesPage({
               <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
                 <tr>
                   <th className="px-5 py-3">Customer</th>
-                  <th className="px-5 py-3">Seller</th>
+                  <th className="px-5 py-3">Agent</th>
                   <th className="px-5 py-3">Products</th>
                   <th className="px-5 py-3">Total</th>
                   <th className="px-5 py-3">Manager earnings</th>

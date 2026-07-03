@@ -68,7 +68,7 @@ export function RegisterForm({
   return (
     <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.12)]">
       <div className="border-b border-border bg-gradient-to-b from-white to-clinic-mist/40 p-6">
-        <Badge className="border-blue-100 bg-white text-clinic-navy">Seller access</Badge>
+        <Badge className="border-blue-100 bg-white text-clinic-navy">Agent access</Badge>
         <h1 className="mt-5 text-3xl font-semibold tracking-tight text-clinic-ink">Create your account</h1>
         <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
           Choose the access type that matches your role. Accounts are reviewed by the assigned partner or company admin before the CRM opens.
@@ -90,7 +90,7 @@ export function RegisterForm({
                 <BriefcaseBusiness className="h-5 w-5" />
               </span>
               <div>
-                <p className="font-semibold text-clinic-ink">Seller</p>
+                <p className="font-semibold text-clinic-ink">Agent</p>
                 <p className="mt-1 text-xs leading-5 text-slate-500">Join a partner and optionally select your group leader.</p>
               </div>
             </div>
@@ -191,7 +191,7 @@ export function RegisterForm({
           ) : null}
 
           <SubmitButton className="sm:col-span-2 mt-1 h-12 w-full rounded-2xl" pendingText="Creating account..." variant="accent">
-            Request {requestedRole === "GROUP_LEADER" ? "leader" : "seller"} access
+            Request {requestedRole === "GROUP_LEADER" ? "leader" : "agent"} access
           </SubmitButton>
         </form>
 

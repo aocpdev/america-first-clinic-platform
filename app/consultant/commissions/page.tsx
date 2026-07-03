@@ -14,13 +14,13 @@ export default async function ConsultantCommissionsPage({ searchParams }: { sear
   const entries = await getConsultantCommissionLedger(user, dateRange);
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Commissions">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Commissions">
       <DashboardDateRangeFilter range={dateRange} resetHref="/consultant/commissions" hiddenParams={{ q: filters.q ?? "", status: filters.status ?? "ALL", role: filters.role ?? "ALL" }} />
       <CommissionLedger
         entries={entries}
         scope="consultant"
         title="Your commission tracker"
-        description="Follow every seller commission from pending review to approved payout without exposing internal network splits."
+        description="Follow every agent commission from pending review to approved payout without exposing internal network splits."
         filters={filters}
         dateRangeLabel={dateRange.label}
       />

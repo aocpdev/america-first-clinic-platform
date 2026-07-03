@@ -30,7 +30,7 @@ export function AgencyFeeSettings({ setting }: { setting: AgencyFeeSetting }) {
             <Badge>Admin only</Badge>
             <h2 className="mt-3 text-3xl font-semibold text-clinic-ink">Agency fee</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-              Automatically transfer a private agency fee from captured Stripe payments. This is hidden from customers, sellers, leaders, managers, and partners, and does not create a manual payout task.
+              Automatically transfer a private agency fee from captured Stripe payments. This is hidden from customers, agents, leaders, managers, and partners, and does not create a manual payout task.
             </p>
           </div>
           <div className={`rounded-2xl border px-4 py-3 text-sm font-semibold ${ready ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>

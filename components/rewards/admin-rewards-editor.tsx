@@ -206,7 +206,7 @@ function LevelModal({ level, onClose }: { level: RewardLevel; onClose: () => voi
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Level {level.level}</p>
             <h3 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Edit level and reward</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">Update the seller milestone, reward details, image, and visible value.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Update the agent milestone, reward details, image, and visible value.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-clinic-navy">
             Close
@@ -397,7 +397,7 @@ function CampaignModal({
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Timed campaign</p>
             <h3 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">{campaign ? "Edit reward campaign" : "Create reward campaign"}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">Choose products, quantities, a custom date window, and the reward sellers unlock.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Choose products, quantities, a custom date window, and the reward agents unlock.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-clinic-navy">
             Close
@@ -491,7 +491,7 @@ function CampaignModal({
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-clinic-ink">Rolling day sprint</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">The seller must hit the target inside any rolling X-day window during this campaign.</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">The agent must hit the target inside any rolling X-day window during this campaign.</p>
                     {windowMode === "ROLLING_DAYS" ? (
                       <Input
                         name="rollingWindowDays"
@@ -558,7 +558,7 @@ function CampaignModal({
                   <div>
                     <p className="text-sm font-semibold text-clinic-ink">Any selected product target</p>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Sellers can sell any combination of the selected products. The reward unlocks when the total reaches this quantity.
+                      Agents can sell any combination of the selected products. The reward unlocks when the total reaches this quantity.
                     </p>
                   </div>
                   <label className="space-y-2">
@@ -686,7 +686,7 @@ function CampaignModal({
                     {overlapSummary.overlapping.length ? `${overlapSummary.overlapping.length} campaign overlap detected` : "No campaign overlap detected"}
                   </h4>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    This estimates company net if sellers qualify for this reward and the overlapping campaigns in the same period.
+                    This estimates company net if agents qualify for this reward and the overlapping campaigns in the same period.
                   </p>
                 </div>
               </div>
@@ -744,7 +744,7 @@ function CampaignModal({
               />
             </label>
             <label className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Wins per seller</span>
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Wins per agent</span>
               <Input
                 name="maxWinsPerParticipant"
                 type="number"
@@ -773,7 +773,7 @@ function CampaignModal({
             <div className="rounded-[1.5rem] border border-border bg-clinic-mist p-4 md:col-span-2">
               <p className="text-sm font-semibold text-clinic-ink">Limit behavior</p>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                Participants can win this campaign up to the seller limit. If the total campaign cap is reached, the campaign stops issuing new rewards while keeping all history visible.
+                Participants can win this campaign up to the agent limit. If the total campaign cap is reached, the campaign stops issuing new rewards while keeping all history visible.
               </p>
             </div>
             <label className="space-y-2 md:col-span-2">
@@ -1048,7 +1048,7 @@ export function AdminRewardsEditor({
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl bg-clinic-mist p-4">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Wins per seller</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Wins per agent</p>
                     <p className="mt-1 font-semibold text-clinic-navy">{campaign.maxWinsPerParticipant}</p>
                   </div>
                   <div className="rounded-2xl bg-clinic-mist p-4">

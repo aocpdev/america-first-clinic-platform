@@ -233,7 +233,7 @@ export function EditManagerModal({ manager, returnTo }: { manager: Manager; retu
                   type="submit"
                   formAction={deleteManagerProfile}
                   onClick={(event) => {
-                    if (!window.confirm("Delete this manager? Leaders and sellers under this manager will move directly under the partner.")) {
+                    if (!window.confirm("Delete this manager? Leaders and agents under this manager will move directly under the partner.")) {
                       event.preventDefault();
                     }
                   }}

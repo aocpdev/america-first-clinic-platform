@@ -13,7 +13,7 @@ export default function CompanyOnboardingPage() {
             "Branding Setup",
             "Product Setup",
             "Commission Setup",
-            "Invite Consultants",
+            "Invite Agents",
             "Payment Configuration",
             "Dashboard Ready"
           ]}

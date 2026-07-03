@@ -335,8 +335,8 @@ export async function saveRewardCampaignWithState(
       ok: true,
       message:
         result.mode === "created"
-          ? "Campaign created successfully. Seller progress is now tracking."
-          : "Campaign saved successfully. Seller progress has been refreshed.",
+          ? "Campaign created successfully. Agent progress is now tracking."
+          : "Campaign saved successfully. Agent progress has been refreshed.",
       error: null,
       savedAt: Date.now()
     };

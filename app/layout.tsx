@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Go Virtual Health CRM",
-  description: "A premium healthcare and wellness CRM commerce platform for consultant-led sales.",
+  description: "A premium healthcare and wellness CRM commerce platform for agent-led sales.",
   icons: {
     icon: "/go-virtual-health-emblem.png",
     apple: "/go-virtual-health-emblem.png"

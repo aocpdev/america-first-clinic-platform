@@ -210,7 +210,7 @@ function managerNode(
     groupCommissionCents: teamEarned,
     salesCount: salesCount(orders, (order) => managerOwnsOrder(manager.id, order)),
     showCommissionSetup: !visibility.hideCommissionSetup,
-    subtitle: `${leaderCount} leaders and ${directConsultantCount} direct consultants assigned`,
+    subtitle: `${leaderCount} leaders and ${directConsultantCount} direct agents assigned`,
     notes: [
       "Direct sale percent is paid from this partner's margin pool when the manager creates the sale.",
       "Team override percent is paid from the partner pool when assigned leaders close direct sales."
@@ -245,10 +245,10 @@ function leaderNode(
     groupCommissionCents: teamEarned,
     salesCount: salesCount(orders, (order) => leaderOwnsOrder(leader.id, order)),
     showCommissionSetup: !visibility.hideCommissionSetup,
-    subtitle: `${consultantCount} consultants assigned`,
+    subtitle: `${consultantCount} agents assigned`,
     notes: [
       "Direct sale percent is paid from this partner's margin pool when the leader creates the sale.",
-      "Team override percent is paid from the partner pool when assigned sellers close sales."
+      "Team override percent is paid from the partner pool when assigned agents close sales."
     ]
   };
 }

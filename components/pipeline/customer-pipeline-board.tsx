@@ -381,7 +381,7 @@ function PipelineFilterBar({
                   <input
                     value={filters.query}
                     onChange={(event) => updateFilter("query", event.target.value)}
-                    placeholder="Customer, order, seller, email, phone, address..."
+                    placeholder="Customer, order, agent, email, phone, address..."
                     className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-clinic-ink outline-none placeholder:text-slate-400"
                   />
                 </span>
@@ -633,7 +633,7 @@ export function CustomerPipelineBoard({
                             {opportunity.consultantAvatarUrl ? (
                               <Image
                                 src={opportunity.consultantAvatarUrl}
-                                alt={opportunity.consultantName ?? "Seller"}
+                                alt={opportunity.consultantName ?? "Agent"}
                                 fill
                                 sizes="40px"
                                 className="object-cover"

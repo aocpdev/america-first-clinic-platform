@@ -35,19 +35,19 @@ const partnerSections = [
   { id: "managers", label: "Managers" },
   { id: "leaders", label: "Leaders" },
   { id: "approval", label: "Approval workflow" },
-  { id: "network", label: "Seller Network" }
+  { id: "network", label: "Agent Network" }
 ] as const;
 
 const leaderSections = [
   { id: "hierarchy", label: "Hierarchy" },
-  { id: "network", label: "Seller Network" }
+  { id: "network", label: "Agent Network" }
 ] as const;
 
 const managerSections = [
   { id: "hierarchy", label: "Hierarchy" },
   { id: "leaders", label: "Leaders" },
   { id: "approval", label: "Approval workflow" },
-  { id: "network", label: "Seller Network" }
+  { id: "network", label: "Agent Network" }
 ] as const;
 
 type PartnerSection = (typeof partnerSections)[number]["id"];
@@ -74,13 +74,13 @@ export default async function PartnerConsultantsPage({
   const activeSection = getTeamSection(params.section, roleMode);
   const availableSections = roleMode === "leader" ? leaderSections : roleMode === "manager" ? managerSections : partnerSections;
   const errorMessages: Record<string, string> = {
-    duplicate_email: "That email is already assigned to another partner, leader, or consultant.",
-    duplicate_phone: "That phone number is already assigned to another partner, leader, or consultant.",
+    duplicate_email: "That email is already assigned to another partner, leader, or agent.",
+    duplicate_phone: "That phone number is already assigned to another partner, leader, or agent.",
     invalid_group_leader: "That leader does not belong to your partner network.",
     invalid_manager: "That manager does not belong to your partner network.",
     application_not_found: "That application could not be found or has already been processed.",
-    consultant_not_found: "That consultant could not be found.",
-    access_denied: "You do not have permission to move that seller."
+    consultant_not_found: "That agent could not be found.",
+    access_denied: "You do not have permission to move that agent."
   };
 
   const partnerProfile = await prisma.partnerProfile.findUnique({
@@ -350,7 +350,7 @@ export default async function PartnerConsultantsPage({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-2xl font-semibold text-clinic-ink">{selectedManager.displayName} hierarchy</h2>
-                    <p className="mt-1 text-sm text-slate-500">This view shows leaders and direct sellers assigned to this manager.</p>
+                    <p className="mt-1 text-sm text-slate-500">This view shows leaders and direct agents assigned to this manager.</p>
                   </div>
                   {partnerProfile ? (
                     <div className="flex flex-wrap gap-2">
@@ -373,7 +373,7 @@ export default async function PartnerConsultantsPage({
                         managerName={selectedManager.displayName}
                         groupLeaders={groupLeaderOptions.filter((leader) => leader.managerProfileId === selectedManager.id)}
                         returnTo={`/partner/consultants?section=hierarchy&managerId=${selectedManager.id}`}
-                        canManageSellerCommission
+                        canManageAgentCommission
                       />
                     </div>
                   ) : null}
@@ -384,7 +384,7 @@ export default async function PartnerConsultantsPage({
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <h2 className="text-2xl font-semibold text-clinic-ink">{selectedLeader.displayName} hierarchy</h2>
-                    <p className="mt-1 text-sm text-slate-500">This view only shows sellers assigned under this group leader.</p>
+                    <p className="mt-1 text-sm text-slate-500">This view only shows agents assigned under this group leader.</p>
                   </div>
                   {partnerProfile ? (
                     <CreateConsultantModal
@@ -394,7 +394,7 @@ export default async function PartnerConsultantsPage({
                       groupLeaderProfileId={selectedLeader.id}
                       groupLeaderName={selectedLeader.displayName}
                       returnTo={`/partner/consultants?section=hierarchy&leaderId=${selectedLeader.id}`}
-                      canManageSellerCommission
+                      canManageAgentCommission
                     />
                   ) : null}
                 </div>
@@ -447,14 +447,14 @@ export default async function PartnerConsultantsPage({
                 </div>
                 <div className="rounded-2xl bg-clinic-mist px-4 py-3 text-center">
                   <p className="text-2xl font-semibold text-clinic-navy">{consultants.length}</p>
-                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Sellers</p>
+                  <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Agents</p>
                 </div>
               </div>
             </div>
             <div className="mt-6 rounded-3xl border border-border bg-clinic-mist/70 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Commission governance</p>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                The company admin controls the partner margin pool. Inside this workspace, the partner can organize managers, leaders, sellers, and define team commission shares from that pool.
+                The company admin controls the partner margin pool. Inside this workspace, the partner can organize managers, leaders, agents, and define team commission shares from that pool.
               </p>
             </div>
           </Card>
@@ -518,7 +518,7 @@ export default async function PartnerConsultantsPage({
                       </div>
                       <div className="rounded-2xl bg-clinic-mist px-2 py-3">
                         <p className="text-2xl text-clinic-navy">{leaderConsultants.length}</p>
-                        <p className="mt-1">Sellers</p>
+                        <p className="mt-1">Agents</p>
                       </div>
                     </div>
 
@@ -537,7 +537,7 @@ export default async function PartnerConsultantsPage({
               {groupLeaders.length === 0 ? (
                 <div className="rounded-3xl border border-dashed border-border bg-white p-6 md:col-span-2 xl:col-span-3">
                   <h3 className="text-lg font-semibold text-clinic-ink">No group leaders yet</h3>
-                  <p className="mt-2 text-sm text-slate-500">Create leaders when you are ready to organize consultants by group.</p>
+                  <p className="mt-2 text-sm text-slate-500">Create leaders when you are ready to organize agents by group.</p>
                 </div>
               ) : null}
             </div>
@@ -548,16 +548,16 @@ export default async function PartnerConsultantsPage({
           <Card className="p-5">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Seller network</p>
-                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Consultants</h3>
-                <p className="mt-1 text-sm text-slate-500">Create sellers directly under your partner account or assign them to a group leader.</p>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Agent network</p>
+                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Agents</h3>
+                <p className="mt-1 text-sm text-slate-500">Create agents directly under your partner account or assign them to a group leader.</p>
               </div>
               <CreateConsultantModal
                 partnerProfileId={partnerProfile.id}
                 groupLeaders={groupLeaderOptions}
                 managers={managerOptions}
                 returnTo="/partner/consultants?section=network&updated=consultant_created"
-                canManageSellerCommission
+                canManageAgentCommission
               />
             </div>
           </Card>
@@ -568,9 +568,9 @@ export default async function PartnerConsultantsPage({
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Assignment control</p>
-                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Seller placement</h3>
+                <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Agent placement</h3>
                 <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
-                  Move sellers between direct partner ownership, managers, and group leaders. Leaders can view their team but cannot reassign sellers.
+                  Move agents between direct partner ownership, managers, and group leaders. Leaders can view their team but cannot reassign agents.
                 </p>
               </div>
               <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[420px]">
@@ -620,7 +620,7 @@ export default async function PartnerConsultantsPage({
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-clinic-ink">{displayName(applicant)}</p>
                         <Badge className={isLeaderApplication ? "border-blue-100 bg-blue-50 text-clinic-navy" : "border-emerald-100 bg-emerald-50 text-emerald-700"}>
-                          {isLeaderApplication ? "Group leader" : "Seller"}
+                          {isLeaderApplication ? "Group leader" : "Agent"}
                         </Badge>
                       </div>
                       <p className="mt-1 text-sm text-slate-500">{applicant.email}</p>
@@ -676,7 +676,7 @@ export default async function PartnerConsultantsPage({
                                   step="0.01"
                                   defaultValue="0"
                                   className="h-9 w-32 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                                  aria-label="Leader override from consultant sales"
+                                  aria-label="Leader override from agent sales"
                                 />
                               </>
                             ) : null}
@@ -715,7 +715,7 @@ export default async function PartnerConsultantsPage({
                                   step="0.01"
                                   defaultValue="50"
                                   className="h-9 w-24 rounded-lg border border-input bg-white px-2 text-xs font-semibold text-clinic-ink"
-                                  aria-label="Consultant share of partner pool"
+                                  aria-label="Agent share of partner pool"
                                 />
                               </>
                             ) : null}
@@ -737,14 +737,14 @@ export default async function PartnerConsultantsPage({
         {activeSection === "network" ? (
         <Card className="overflow-hidden">
           <div className="border-b border-border p-5">
-            <Badge>{isGroupLeader ? "My team" : "Seller network"}</Badge>
-            <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Consultants</h3>
+            <Badge>{isGroupLeader ? "My team" : "Agent network"}</Badge>
+            <h3 className="mt-4 text-2xl font-semibold text-clinic-ink">Agents</h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
                 <tr>
-                  <th className="px-5 py-3">Consultant</th>
+                  <th className="px-5 py-3">Agent</th>
                           <th className="px-5 py-3">Leader</th>
                           <th className="px-5 py-3">Manager</th>
                           <th className="px-5 py-3">Referral</th>
@@ -795,7 +795,7 @@ export default async function PartnerConsultantsPage({
                             managers={managerOptions}
                             groupLeaders={groupLeaderOptions}
                             returnTo="/partner/consultants?section=network&updated=consultant_updated"
-                            canManageSellerCommission
+                            canManageAgentCommission
                           />
                         </div>
                       </td>
@@ -805,7 +805,7 @@ export default async function PartnerConsultantsPage({
                 {consultants.length === 0 ? (
                   <tr>
                     <td colSpan={partnerProfile ? 6 : 4} className="px-5 py-8 text-center text-slate-500">
-                      No consultants are assigned yet.
+                      No agents are assigned yet.
                     </td>
                   </tr>
                 ) : null}

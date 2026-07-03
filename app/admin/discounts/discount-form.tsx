@@ -101,12 +101,12 @@ const fundingStrategyOptions: Array<{
   {
     value: "ORIGINATOR_FUNDED",
     label: "Originator funded",
-    description: "Best default. The seller, manager, leader, or partner who uses the coupon absorbs it first."
+    description: "Best default. The agent, manager, leader, or partner who uses the coupon absorbs it first."
   },
   {
     value: "PARTNER_FUNDED",
     label: "Partner funded",
-    description: "Protects sellers and charges the discount against the partner split first."
+    description: "Protects agents and charges the discount against the partner split first."
   },
   {
     value: "COMPANY_FUNDED",

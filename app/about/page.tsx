@@ -9,7 +9,7 @@ export default function AboutPage() {
         <p className="text-sm font-bold uppercase tracking-[0.18em] text-clinic-red">About the platform</p>
         <h1 className="mt-3 text-4xl font-semibold text-clinic-ink">A CRM commerce operating system for healthcare and wellness growth.</h1>
         <p className="mt-5 text-lg leading-8 text-slate-600">
-          Go Virtual Health is designed around consultant-led sales, customer care, compliant operational
+          Go Virtual Health is designed around agent-led sales, customer care, compliant operational
           workflows, and processor flexibility. The application keeps orders, subscriptions, commissions,
           customers, and reporting independent from the payment processor.
         </p>

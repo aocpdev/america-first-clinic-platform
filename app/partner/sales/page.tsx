@@ -191,7 +191,7 @@ export default async function PartnerSalesPage({
             commissionDetailLabel="Profit generated"
             productEstimateLabel="est. profit"
             successMessage="Order created successfully. The profit is pending approval."
-            ownershipCopy={groupLeaderProfile ? "Leader sales are attributed to your group and the assigned partner." : "Partner sales can be created for direct partner customers or customers owned by consultants assigned to this partner profile."}
+            ownershipCopy={groupLeaderProfile ? "Leader sales are attributed to your group and the assigned partner." : "Partner sales can be created for direct partner customers or customers owned by agents assigned to this partner profile."}
             createdOrderId={params.created}
             error={params.error}
           />
@@ -207,7 +207,7 @@ export default async function PartnerSalesPage({
             <p className="mt-3 text-3xl font-semibold text-clinic-navy">{formatCurrency(partnerProfitCents)}</p>
           </Card>
           <Card className="p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Consultant payouts</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Agent payouts</p>
             <p className="mt-3 text-3xl font-semibold text-clinic-red">{formatCurrency(consultantPayoutCents)}</p>
           </Card>
         </div>
@@ -217,7 +217,7 @@ export default async function PartnerSalesPage({
             <Badge className="border-blue-100 bg-blue-50 text-clinic-navy">{groupLeaderProfile ? "Leader-attributed only" : "Partner-attributed only"}</Badge>
             <h2 className="mt-4 text-2xl font-semibold text-clinic-ink">{groupLeaderProfile ? "Leader sales workspace" : "Partner sales workspace"}</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-              This list includes orders created directly by this partner and orders created by consultants assigned to this partner profile.
+              This list includes orders created directly by this partner and orders created by agents assigned to this partner profile.
             </p>
           </div>
 
@@ -226,11 +226,11 @@ export default async function PartnerSalesPage({
               <thead className="bg-clinic-mist text-xs uppercase tracking-[0.14em] text-slate-500">
                 <tr>
                   <th className="px-5 py-3">Customer</th>
-                  <th className="px-5 py-3">Consultant</th>
+                  <th className="px-5 py-3">Agent</th>
                   <th className="px-5 py-3">Products</th>
                   <th className="px-5 py-3">Total</th>
                   <th className="px-5 py-3">{groupLeaderProfile ? "Leader profit" : "Partner profit"}</th>
-                  <th className="px-5 py-3">Consultant payout</th>
+                  <th className="px-5 py-3">Agent payout</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Created</th>
                 </tr>

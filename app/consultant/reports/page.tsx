@@ -17,10 +17,10 @@ export default async function ConsultantReportsPage({
 
   if (!user.companyId || !user.consultantProfile?.id) {
     return (
-      <SidebarShell nav={consultantNav} eyebrow="Seller" title="Reports">
+      <SidebarShell nav={consultantNav} eyebrow="Agent" title="Reports">
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-clinic-ink">Seller profile required</h2>
-          <p className="mt-2 text-slate-600">Your seller profile must be approved before reports are available.</p>
+          <h2 className="text-xl font-semibold text-clinic-ink">Agent profile required</h2>
+          <p className="mt-2 text-slate-600">Your agent profile must be approved before reports are available.</p>
         </Card>
       </SidebarShell>
     );
@@ -34,16 +34,16 @@ export default async function ConsultantReportsPage({
   });
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Seller" title="Reports">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Reports">
       <ReportsWorkspace
-        eyebrow="Seller reporting"
+        eyebrow="Agent reporting"
         title="Personal sales and commissions"
         range={range}
         resetHref="/consultant/reports"
         exportBaseHref="/api/reports/export"
         earningsLabel="Commission earned"
         directLabel="Personal revenue"
-        scopeDescription="Seller reports include only your captured personal sales, product mix, customer orders, commissions, and downloadable CSV exports for your own records."
+        scopeDescription="Agent reports include only your captured personal sales, product mix, customer orders, commissions, and downloadable CSV exports for your own records."
         data={data}
       />
     </SidebarShell>

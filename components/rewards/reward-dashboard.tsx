@@ -164,7 +164,7 @@ function campaignStatusText(campaign: CampaignProgress) {
 }
 
 export function RewardDashboard({
-  sellerName,
+  agentName,
   avatarUrl,
   salesCount,
   levels,
@@ -177,7 +177,7 @@ export function RewardDashboard({
   claimHistory = [],
   leaderboard = []
 }: {
-  sellerName: string;
+  agentName: string;
   avatarUrl?: string | null;
   salesCount: number;
   levels: RewardLevel[];
@@ -192,8 +192,8 @@ export function RewardDashboard({
 }) {
   const currentReward = currentLevel?.rewards[0] ?? null;
   const nextReward = nextLevel?.rewards[0] ?? null;
-  const topSeller = leaderboard[0] ?? null;
-  const initials = initialsFor(sellerName) || "AF";
+  const topAgent = leaderboard[0] ?? null;
+  const initials = initialsFor(agentName) || "AF";
 
   return (
     <div className="space-y-6">
@@ -204,7 +204,7 @@ export function RewardDashboard({
               <div className="flex items-center gap-4">
                 <div className="relative grid size-24 shrink-0 place-items-center rounded-full border border-white/20 bg-white/10">
                   {avatarUrl ? (
-                    <img src={avatarUrl} alt={sellerName} className="size-20 rounded-full object-cover" />
+                    <img src={avatarUrl} alt={agentName} className="size-20 rounded-full object-cover" />
                   ) : (
                     <div className="grid size-20 place-items-center rounded-full bg-white text-2xl font-semibold text-clinic-navy">{initials}</div>
                   )}
@@ -214,7 +214,7 @@ export function RewardDashboard({
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-white/70">Your personal reward status</p>
-                  <h2 className="mt-1 text-3xl font-semibold">{sellerName}</h2>
+                  <h2 className="mt-1 text-3xl font-semibold">{agentName}</h2>
                   <p className="mt-2 text-sm font-semibold text-white/80">
                     {currentLevel ? `Level ${currentLevel.level}: ${currentLevel.name}` : "Start with your first captured sale"}
                   </p>
@@ -257,7 +257,7 @@ export function RewardDashboard({
                 </div>
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                {currentReward?.description ?? "Close your first paid order to begin unlocking rewards and moving up the seller levels."}
+                {currentReward?.description ?? "Close your first paid order to begin unlocking rewards and moving up the agent levels."}
               </p>
               {currentReward ? <p className="mt-4 text-sm font-bold text-emerald-700">Valued at {money(currentReward.valueCents)}</p> : null}
             </div>
@@ -268,9 +268,9 @@ export function RewardDashboard({
                 <p className="mt-2 text-3xl font-semibold text-clinic-navy">{campaignProgress.length}</p>
               </div>
               <div className="rounded-[1.5rem] border border-border bg-white p-4 shadow-line">
-                <p className="text-xs font-bold uppercase text-slate-500">Top seller</p>
-                <p className="mt-2 truncate text-lg font-semibold text-clinic-ink">{topSeller?.name ?? "Pending"}</p>
-                <p className="mt-1 text-sm font-semibold text-clinic-navy">{topSeller ? `${topSeller.salesCount} sales` : "No captured sales"}</p>
+                <p className="text-xs font-bold uppercase text-slate-500">Top agent</p>
+                <p className="mt-2 truncate text-lg font-semibold text-clinic-ink">{topAgent?.name ?? "Pending"}</p>
+                <p className="mt-1 text-sm font-semibold text-clinic-navy">{topAgent ? `${topAgent.salesCount} sales` : "No captured sales"}</p>
               </div>
             </div>
           </div>
@@ -437,7 +437,7 @@ export function RewardDashboard({
               <Trophy className="h-5 w-5 text-clinic-red" />
               <div>
                 <p className="text-xs font-bold uppercase text-slate-500">Leaderboard</p>
-                <h2 className="mt-1 text-2xl font-semibold text-clinic-ink">Top sellers</h2>
+                <h2 className="mt-1 text-2xl font-semibold text-clinic-ink">Top agents</h2>
               </div>
             </div>
           </div>

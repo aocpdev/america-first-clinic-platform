@@ -7,7 +7,7 @@ export default function ConsultantOnboardingPage() {
       <MarketingHeader />
       <main className="mx-auto max-w-4xl px-4 py-12">
         <OnboardingFlow
-          title="Consultant onboarding"
+          title="Agent onboarding"
           steps={[
             "Personal Information",
             "Contact Information",

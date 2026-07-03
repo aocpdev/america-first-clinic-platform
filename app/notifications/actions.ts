@@ -77,12 +77,12 @@ function notificationPathForRole(role: UserRole, metadata: Prisma.JsonValue | nu
   }
 
   if (type === "approval") {
-    if (role === UserRole.PARTNER) return "/partner/consultants?section=seller-network";
+    if (role === UserRole.PARTNER) return "/partner/consultants?section=agent-network";
     if (role === UserRole.GROUP_LEADER) return "/partner/dashboard";
     if (role === UserRole.MANAGER) return "/manager/dashboard";
     if (role === UserRole.CONSULTANT) return "/consultant/dashboard";
     return partnerProfileId
-      ? `/admin/consultants?partnerId=${partnerProfileId}&section=seller-network`
+      ? `/admin/consultants?partnerId=${partnerProfileId}&section=agent-network`
       : "/admin/consultants";
   }
 

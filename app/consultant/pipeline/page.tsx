@@ -35,10 +35,10 @@ export default async function ConsultantPipelinePage() {
 
   if (!companyId || !consultantProfileId) {
     return (
-      <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Pipeline">
+      <SidebarShell nav={consultantNav} eyebrow="Agent" title="Pipeline">
         <Card className="p-6">
-          <h2 className="text-xl font-semibold text-clinic-ink">Consultant setup required</h2>
-          <p className="mt-2 text-slate-600">Your account needs an active consultant profile before pipeline access is available.</p>
+          <h2 className="text-xl font-semibold text-clinic-ink">Agent setup required</h2>
+          <p className="mt-2 text-slate-600">Your account needs an active agent profile before pipeline access is available.</p>
         </Card>
       </SidebarShell>
     );
@@ -54,7 +54,7 @@ export default async function ConsultantPipelinePage() {
   });
 
   return (
-    <SidebarShell nav={consultantNav} eyebrow="Consultant" title="Sales pipeline">
+    <SidebarShell nav={consultantNav} eyebrow="Agent" title="Sales pipeline">
       <CustomerPipelineBoard
         customers={orders.map((order) => ({
           id: order.id,

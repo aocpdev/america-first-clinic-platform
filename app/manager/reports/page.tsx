@@ -45,7 +45,7 @@ export default async function ManagerReportsPage({
         exportBaseHref="/api/reports/export"
         earningsLabel="Manager earnings"
         directLabel="Manager direct revenue"
-        scopeDescription="Manager reports treat managers as sellers first, while adding visibility into leaders and sellers assigned under the manager hierarchy."
+        scopeDescription="Manager reports treat managers as agents first, while adding visibility into leaders and agents assigned under the manager hierarchy."
         data={data}
       />
     </SidebarShell>
