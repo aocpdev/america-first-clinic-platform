@@ -31,6 +31,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
   const totalRevenueCents = rows.reduce((sum, order) => sum + order.totalCents, 0);
   const marginCents = rows.reduce((sum, order) => sum + order.grossMarginCents, 0);
   const poolCents = rows.reduce((sum, order) => sum + order.commissionPoolCents, 0);
+  const agencyFeeCents = rows.reduce((sum, order) => sum + order.agencyFeeCents, 0);
 
   return (
     <SidebarShell nav={adminNav} eyebrow="Admin" title="Orders">
@@ -45,7 +46,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             {deleteError}
           </Card>
         ) : null}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <Card className="p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Total revenue</p>
             <p className="mt-3 text-3xl font-semibold text-clinic-navy">{currency(totalRevenueCents / 100)}</p>
@@ -57,6 +58,10 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
           <Card className="p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Commission pool</p>
             <p className="mt-3 text-3xl font-semibold text-clinic-red">{currency(poolCents / 100)}</p>
+          </Card>
+          <Card className="p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Agency fee</p>
+            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{currency(agencyFeeCents / 100)}</p>
           </Card>
         </div>
         <OrdersTable orders={rows} mode="admin" filters={filters} />

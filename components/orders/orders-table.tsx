@@ -5,6 +5,7 @@ import { OrdersFilterBar } from "@/components/orders/orders-filter-bar";
 import Link from "next/link";
 import { matchesSearch, matchesSelect, normalizeFilters, type FilterSelect, type RecordFiltersState } from "@/components/filters/record-filters";
 import { carrierLabel, carrierTrackingUrl } from "@/lib/orders/tracking";
+import { agencyFeeStatusLabel } from "@/lib/orders/queries";
 import { orderPipelineLabel } from "@/lib/sales/pipeline";
 import { currency } from "@/lib/utils";
 
@@ -22,6 +23,8 @@ export type OrderRow = {
   totalCents: number;
   grossMarginCents: number;
   commissionPoolCents: number;
+  agencyFeeCents: number;
+  agencyFeeStatus: string;
   partnerProfitCents: number;
   managerProfitCents: number;
   leaderProfitCents: number;
@@ -163,6 +166,7 @@ export function OrdersTable({
     (showAdminFinancials || showPartnerFinancials || showManagerFinancials ? 1 : 0) +
     (showAdminFinancials ? 1 : 0) +
     7 +
+    (showAdminFinancials ? 1 : 0) +
     (showAdminFinancials ? 2 : 0) +
     (showAdminFinancials || showPartnerFinancials ? 1 : 0) +
     (showAdminFinancials || showPartnerFinancials || showManagerFinancials ? 1 : 0) +
@@ -194,6 +198,7 @@ export function OrdersTable({
               <th className="px-5 py-3">Total</th>
               {showAdminFinancials ? <th className="px-5 py-3">Margin</th> : null}
               {showAdminFinancials ? <th className="px-5 py-3">Pool</th> : null}
+              {showAdminFinancials ? <th className="px-5 py-3">Agency fee</th> : null}
               {showAdminFinancials || showPartnerFinancials ? <th className="px-5 py-3">Partner profit</th> : null}
               {showAdminFinancials || showPartnerFinancials || showManagerFinancials ? <th className="px-5 py-3">Manager earnings</th> : null}
               {showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials ? <th className="px-5 py-3">Leader profit</th> : null}
@@ -230,6 +235,12 @@ export function OrdersTable({
                 <td className="px-5 py-4 font-semibold text-clinic-ink">{money(order.totalCents)}</td>
                 {showAdminFinancials ? <td className="px-5 py-4 font-semibold text-clinic-navy">{money(order.grossMarginCents)}</td> : null}
                 {showAdminFinancials ? <td className="px-5 py-4 text-slate-600">{money(order.commissionPoolCents)}</td> : null}
+                {showAdminFinancials ? (
+                  <td className="px-5 py-4">
+                    <span className="font-semibold text-clinic-navy">{money(order.agencyFeeCents)}</span>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">{agencyFeeStatusLabel(order.agencyFeeStatus)}</p>
+                  </td>
+                ) : null}
                 {showAdminFinancials || showPartnerFinancials ? <td className="px-5 py-4 font-semibold text-clinic-navy">{money(order.partnerProfitCents)}</td> : null}
                 {showAdminFinancials || showPartnerFinancials || showManagerFinancials ? <td className="px-5 py-4 font-semibold text-clinic-navy">{money(order.managerProfitCents)}</td> : null}
                 {showAdminFinancials || showPartnerFinancials || showManagerFinancials || showLeaderFinancials ? <td className="px-5 py-4 font-semibold text-clinic-navy">{money(order.leaderProfitCents)}</td> : null}

@@ -11,6 +11,7 @@ import { currency } from "@/lib/utils";
 type ReportWorkspaceData = {
   totalRevenueCents: number;
   totalEarningsCents: number;
+  totalAgencyFeeCents: number;
   directRevenueCents: number;
   directEarningsCents: number;
   paidOrderCount: number;
@@ -23,6 +24,7 @@ type ReportWorkspaceData = {
     role: string;
     orders: number;
     revenueCents: number;
+    agencyFeeCents: number;
     agentCommissionCents: number;
     partnerOverrideCents: number;
     managerOverrideCents: number;
@@ -70,6 +72,7 @@ type ReportsWorkspaceProps = {
   earningsLabel: string;
   directLabel: string;
   partnerPayoutLabel?: string;
+  showAgencyFee?: boolean;
   scopeDescription: string;
   data: ReportWorkspaceData;
 };
@@ -120,6 +123,7 @@ export function ReportsWorkspace({
   earningsLabel,
   directLabel,
   partnerPayoutLabel = "Partner Override",
+  showAgencyFee = false,
   data
 }: ReportsWorkspaceProps) {
   const exportOptions = [
@@ -226,6 +230,16 @@ export function ReportsWorkspace({
           <p className="mt-3 text-3xl font-semibold text-emerald-700">{currency(data.totalEarningsCents / 100)}</p>
           <p className="mt-2 text-sm text-slate-500">Based on captured payments only</p>
         </Card>
+        {showAgencyFee ? (
+          <Card className="rounded-[1.75rem] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Agency fee</p>
+              <KpiInfo label="Agency fee" description="Informational admin-only value. Stripe transfers it automatically from 100% of gross margin on captured orders." />
+            </div>
+            <p className="mt-3 text-3xl font-semibold text-clinic-navy">{currency(data.totalAgencyFeeCents / 100)}</p>
+            <p className="mt-2 text-sm text-slate-500">Hidden from customers and sales roles</p>
+          </Card>
+        ) : null}
         <Card className="rounded-[1.75rem] p-5">
           <div className="flex items-center justify-between gap-3">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{directLabel}</p>
@@ -481,6 +495,7 @@ export function ReportsWorkspace({
                   <th className="px-5 py-3">Manager override</th>
                   <th className="px-5 py-3">Leader override</th>
                   <th className="px-5 py-3">Total payout</th>
+                  {showAgencyFee ? <th className="px-5 py-3">Agency fee</th> : null}
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -498,9 +513,10 @@ export function ReportsWorkspace({
                     <td className="px-5 py-4 text-slate-600">{currency(row.managerOverrideCents / 100)}</td>
                     <td className="px-5 py-4 text-slate-600">{currency(row.leaderOverrideCents / 100)}</td>
                     <td className="px-5 py-4 font-semibold text-clinic-ink">{currency(row.totalPayoutCents / 100)}</td>
+                    {showAgencyFee ? <td className="px-5 py-4 font-semibold text-clinic-navy">{currency(row.agencyFeeCents / 100)}</td> : null}
                   </tr>
                 )) : (
-                  <tr><td className="px-5 py-10 text-center text-slate-500" colSpan={9}>No team sales in this range.</td></tr>
+                  <tr><td className="px-5 py-10 text-center text-slate-500" colSpan={showAgencyFee ? 10 : 9}>No team sales in this range.</td></tr>
                 )}
               </tbody>
             </table>

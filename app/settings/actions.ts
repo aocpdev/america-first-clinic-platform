@@ -60,10 +60,22 @@ const webhookSchema = z.object({
   events: z.array(z.enum(webhookEvents)).min(1)
 });
 
+const agencyFeeSchema = z.object({
+  isEnabled: z.boolean(),
+  agencyName: z.string().trim().min(2).max(120),
+  stripeConnectedAccountId: z.string().trim().optional(),
+  feePercent: z.coerce.number().min(0).max(50),
+  basis: z.enum(["GROSS_MARGIN"]).default("GROSS_MARGIN")
+});
+
 async function requireAdminCompanyId() {
   const user = await requireRole("COMPANY_ADMIN");
   if (!user.companyId) redirect("/admin/settings?error=missing_company");
   return user.companyId;
+}
+
+function bpsFromPercent(percent: number) {
+  return Math.round(percent * 100);
 }
 
 function formBoolean(formData: FormData, key: string) {
@@ -129,6 +141,39 @@ export async function updatePaymentSettings(formData: FormData) {
       }
     })
   ]);
+
+  revalidatePath("/admin/settings");
+}
+
+export async function updateAgencyFeeSettings(formData: FormData) {
+  const companyId = await requireAdminCompanyId();
+  const parsed = agencyFeeSchema.parse({
+    isEnabled: formBoolean(formData, "isEnabled"),
+    agencyName: formData.get("agencyName"),
+    stripeConnectedAccountId: formData.get("stripeConnectedAccountId"),
+    feePercent: formData.get("feePercent"),
+    basis: formData.get("basis") || "GROSS_MARGIN"
+  });
+  const connectedAccountId = parsed.stripeConnectedAccountId?.trim() || null;
+
+  await prisma.agencyFeeSetting.upsert({
+    where: { companyId },
+    create: {
+      companyId,
+      isEnabled: parsed.isEnabled,
+      agencyName: parsed.agencyName,
+      stripeConnectedAccountId: connectedAccountId,
+      feeBps: bpsFromPercent(parsed.feePercent),
+      basis: parsed.basis
+    },
+    update: {
+      isEnabled: parsed.isEnabled,
+      agencyName: parsed.agencyName,
+      stripeConnectedAccountId: connectedAccountId,
+      feeBps: bpsFromPercent(parsed.feePercent),
+      basis: parsed.basis
+    }
+  });
 
   revalidatePath("/admin/settings");
 }

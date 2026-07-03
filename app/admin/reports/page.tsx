@@ -38,6 +38,7 @@ export default async function AdminReportsPage({
         exportBaseHref="/api/reports/export"
         earningsLabel="Gross margin"
         directLabel="Admin direct revenue"
+        showAgencyFee
         scopeDescription="Admin reports include captured sales across the entire company, all originators, product mix, gross margin, and downloadable CSV exports for reconciliation."
         data={data}
       />

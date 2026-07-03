@@ -9,7 +9,7 @@ import { OrderTrackingForm } from "@/components/orders/order-tracking-form";
 import { ORDER_PROGRESS_STAGES, orderPipelineDescription, orderPipelineLabel } from "@/lib/sales/pipeline";
 import { carrierLabel, carrierTrackingUrl } from "@/lib/orders/tracking";
 import { currency } from "@/lib/utils";
-import type { OrderListRecord } from "@/lib/orders/queries";
+import { agencyFeeStatusLabel, type OrderListRecord } from "@/lib/orders/queries";
 import { normalizeDiscountFundingStrategy, type DiscountFundingStrategy } from "@/lib/discounts/calculations";
 
 type DocumentMode = "admin" | "partner" | "manager" | "group_leader" | "consultant";
@@ -454,6 +454,14 @@ export function OrderDocument({
                     ) : (
                       <div className="flex justify-between"><span className="text-slate-500">Commission pool</span><span className="font-semibold text-clinic-ink">{money(order.commissionPoolCents)}</span></div>
                     )}
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Agency fee</span>
+                      <span className="font-semibold text-clinic-navy">{money(order.agencyFeeCents)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-slate-500">Agency status</span>
+                      <span className="font-semibold text-clinic-ink">{agencyFeeStatusLabel(order.agencyFeeStatus)}</span>
+                    </div>
                   </>
                 ) : null}
                 {!isAdminDirectSale && canSeePartnerProfit ? <div className="flex justify-between"><span className="text-slate-500">Partner profit</span><span className="font-semibold text-clinic-navy">{money(partnerProfitCents)}</span></div> : null}

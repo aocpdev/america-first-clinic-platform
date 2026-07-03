@@ -37,6 +37,18 @@ function splitAmount(order: OrderListRecord, role: "PARTNER" | "MANAGER" | "GROU
     .reduce((sum, split) => sum + split.amountCents, 0);
 }
 
+export function agencyFeeStatusLabel(status: string) {
+  const labels: Record<string, string> = {
+    CONFIGURATION_REQUIRED: "Needs setup",
+    NOT_APPLICABLE: "Not applicable",
+    PAID_MANUAL: "Paid manually",
+    PARTIALLY_REVERSED: "Partially reversed",
+    REVERSED: "Reversed",
+    TRANSFERRED: "Transferred automatically"
+  };
+  return labels[status] ?? status.replaceAll("_", " ").toLowerCase();
+}
+
 export function mapOrderRows(orders: OrderListRecord[]) {
   return orders.map((order) => {
     const partnerProfile = order.partnerProfile ?? order.consultantProfile?.partnerProfile ?? null;
@@ -55,6 +67,8 @@ export function mapOrderRows(orders: OrderListRecord[]) {
       totalCents: order.totalCents,
       grossMarginCents: order.grossMarginCents,
       commissionPoolCents: order.commissionPoolCents,
+      agencyFeeCents: order.agencyFeeCents,
+      agencyFeeStatus: order.agencyFeeStatus,
       partnerProfitCents: splitAmount(order, "PARTNER"),
       managerProfitCents: splitAmount(order, "MANAGER"),
       leaderProfitCents: splitAmount(order, "GROUP_LEADER"),

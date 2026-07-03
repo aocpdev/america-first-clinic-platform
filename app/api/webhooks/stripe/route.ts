@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { prisma } from "@/lib/db/prisma";
 import { companyAdminUserIds, moneyFromCents, notifyUsers, orderRecipientUserIds, personDisplayName } from "@/lib/notifications";
 import { StripeProvider } from "@/lib/payments/providers/stripe-provider";
+import { processAgencyFeeReversal, processAgencyFeeTransfer } from "@/lib/payments/agency-fee";
 import { stripeRuntimeConfigForEvent } from "@/lib/payments/stripe-config";
 import { phoneForWebhook } from "@/lib/phone";
 import { publicSiteBaseUrl } from "@/lib/urls";
@@ -56,7 +57,23 @@ async function saveStripePaymentMethod(paymentIntent: Stripe.PaymentIntent) {
   });
 }
 
-async function markOrderCaptured(orderId: string, providerTransactionId: string | null, eventType: string, rawEvent: unknown) {
+async function markOrderCaptured({
+  orderId,
+  providerTransactionId,
+  eventType,
+  rawEvent,
+  chargeId,
+  livemode,
+  metadataMode
+}: {
+  orderId: string;
+  providerTransactionId: string | null;
+  eventType: string;
+  rawEvent: unknown;
+  chargeId?: string | null;
+  livemode?: boolean;
+  metadataMode?: string | null;
+}) {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
@@ -162,6 +179,15 @@ async function markOrderCaptured(orderId: string, providerTransactionId: string 
     eventType: "receipt.ready",
     payload
   });
+
+  await processAgencyFeeTransfer({
+    orderId: order.id,
+    paymentIntentId: providerTransactionId,
+    chargeId,
+    livemode,
+    metadataMode,
+    rawEvent
+  });
 }
 
 async function markOrderFailed(orderId: string, providerTransactionId: string | null, eventType: string, rawEvent: unknown) {
@@ -218,7 +244,14 @@ export async function POST(request: Request) {
     const session = event.data.object as Stripe.Checkout.Session;
     const orderId = session.metadata?.orderId;
     if (orderId) {
-      await markOrderCaptured(orderId, typeof session.payment_intent === "string" ? session.payment_intent : null, event.type, event);
+      await markOrderCaptured({
+        orderId,
+        providerTransactionId: typeof session.payment_intent === "string" ? session.payment_intent : null,
+        eventType: event.type,
+        rawEvent: event,
+        livemode: session.livemode,
+        metadataMode: session.metadata?.stripeMode
+      });
     }
   }
 
@@ -227,7 +260,15 @@ export async function POST(request: Request) {
     const orderId = paymentIntent.metadata.orderId;
     if (orderId) {
       await saveStripePaymentMethod(paymentIntent);
-      await markOrderCaptured(orderId, paymentIntent.id, event.type, event);
+      await markOrderCaptured({
+        orderId,
+        providerTransactionId: paymentIntent.id,
+        eventType: event.type,
+        rawEvent: event,
+        chargeId: typeof paymentIntent.latest_charge === "string" ? paymentIntent.latest_charge : paymentIntent.latest_charge?.id,
+        livemode: paymentIntent.livemode,
+        metadataMode: paymentIntent.metadata.stripeMode
+      });
     }
   }
 
@@ -279,6 +320,12 @@ export async function POST(request: Request) {
           eventType: event.type,
           rawEvent: jsonSafe(event)
         }
+      });
+      await processAgencyFeeReversal({
+        orderId: transaction.orderId,
+        refundedAmountCents: charge.amount_refunded,
+        livemode: charge.livemode,
+        rawEvent: event
       });
     }
   }

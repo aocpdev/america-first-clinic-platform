@@ -187,6 +187,7 @@ type TeamReportRow = {
   role: string;
   orders: number;
   revenueCents: number;
+  agencyFeeCents: number;
   agentCommissionCents: number;
   partnerOverrideCents: number;
   managerOverrideCents: number;
@@ -287,6 +288,7 @@ export async function getReportData(input: ReportInput) {
 
   const totalRevenueCents = orders.reduce((sum, order) => sum + order.totalCents, 0);
   const totalEarningsCents = orders.reduce((sum, order) => sum + splitForRole(order, input), 0);
+  const totalAgencyFeeCents = input.role === "admin" ? orders.reduce((sum, order) => sum + order.agencyFeeCents, 0) : 0;
   const directRevenueCents = orders.filter((order) => directOrder(order, input)).reduce((sum, order) => sum + order.totalCents, 0);
   const directEarningsCents = orders.filter((order) => directOrder(order, input)).reduce((sum, order) => sum + splitForRole(order, input), 0);
 
@@ -318,6 +320,7 @@ export async function getReportData(input: ReportInput) {
       partnerName,
       orders: 0,
       revenueCents: 0,
+      agencyFeeCents: 0,
       agentCommissionCents: 0,
       partnerOverrideCents: 0,
       managerOverrideCents: 0,
@@ -326,6 +329,7 @@ export async function getReportData(input: ReportInput) {
     };
     teamCurrent.orders += 1;
     teamCurrent.revenueCents += order.totalCents;
+    teamCurrent.agencyFeeCents += input.role === "admin" ? order.agencyFeeCents : 0;
     teamCurrent.agentCommissionCents += agentCommissionCents;
     teamCurrent.partnerOverrideCents += agentRole === "PARTNER" ? 0 : partnerAmountCents;
     teamCurrent.managerOverrideCents += agentRole === "MANAGER" ? 0 : managerAmountCents;
@@ -366,6 +370,7 @@ export async function getReportData(input: ReportInput) {
       sellerRole: seller.role,
       partnerName: partnerForOrder(order),
       totalCents: order.totalCents,
+      agencyFeeCents: input.role === "admin" ? order.agencyFeeCents : 0,
       earningsCents: splitForRole(order, input),
       agentCommissionCents: agentRole ? splitAmount(order, agentRole) : 0,
       partnerOverrideCents: agentRole === "PARTNER" ? 0 : partnerAmountCents,
@@ -379,6 +384,7 @@ export async function getReportData(input: ReportInput) {
   return {
     totalRevenueCents,
     totalEarningsCents,
+    totalAgencyFeeCents,
     directRevenueCents,
     directEarningsCents,
     paidOrderCount: orders.length,
@@ -399,6 +405,7 @@ export async function getReportData(input: ReportInput) {
 export async function getReportCsv(input: ReportInput, type: ReportExportType) {
   const report = await getReportData(input);
   const partnerPayoutLabel = input.role === "partner" ? "Partner Commission" : "Partner Override";
+  const showAgencyFee = input.role === "admin";
 
   if (type === "products") {
     return [
@@ -408,8 +415,10 @@ export async function getReportCsv(input: ReportInput, type: ReportExportType) {
   }
 
   if (type === "team") {
+    const headers = ["Agent Name", "Partner", "Role", "Orders", "Revenue", "Agent Commission", partnerPayoutLabel, "Manager Override", "Leader Override", "Total Payout"];
+    if (showAgencyFee) headers.push("Agency Fee");
     return [
-      ["Agent Name", "Partner", "Role", "Orders", "Revenue", "Agent Commission", partnerPayoutLabel, "Manager Override", "Leader Override", "Total Payout"].join(","),
+      headers.join(","),
       ...report.exportTeamRows.map((row) => [
         row.name,
         row.partnerName,
@@ -420,29 +429,33 @@ export async function getReportCsv(input: ReportInput, type: ReportExportType) {
         (row.partnerOverrideCents / 100).toFixed(2),
         (row.managerOverrideCents / 100).toFixed(2),
         (row.leaderOverrideCents / 100).toFixed(2),
-        (row.totalPayoutCents / 100).toFixed(2)
+        (row.totalPayoutCents / 100).toFixed(2),
+        ...(showAgencyFee ? [(row.agencyFeeCents / 100).toFixed(2)] : [])
       ].map(csvEscape).join(","))
     ].join("\n");
   }
 
+  const headers = [
+    "Order ID",
+    "Date",
+    "Customer",
+    "Email",
+    "Agent Name",
+    "Partner",
+    "Role",
+    "Products",
+    "Revenue",
+    "Agent Commission",
+    partnerPayoutLabel,
+    "Manager Override",
+    "Leader Override",
+    "Total Payout",
+    ...(showAgencyFee ? ["Agency Fee"] : []),
+    "Viewer Earnings"
+  ];
+
   return [
-    [
-      "Order ID",
-      "Date",
-      "Customer",
-      "Email",
-      "Agent Name",
-      "Partner",
-      "Role",
-      "Products",
-      "Revenue",
-      "Agent Commission",
-      partnerPayoutLabel,
-      "Manager Override",
-      "Leader Override",
-      "Total Payout",
-      "Viewer Earnings"
-    ].join(","),
+    headers.join(","),
     ...report.exportOrders.map((row) => [
       row.id,
       row.createdAt.toISOString(),
@@ -458,6 +471,7 @@ export async function getReportCsv(input: ReportInput, type: ReportExportType) {
       (row.managerOverrideCents / 100).toFixed(2),
       (row.leaderOverrideCents / 100).toFixed(2),
       (row.totalPayoutCents / 100).toFixed(2),
+      ...(showAgencyFee ? [(row.agencyFeeCents / 100).toFixed(2)] : []),
       (row.earningsCents / 100).toFixed(2)
     ].map(csvEscape).join(","))
   ].join("\n");
