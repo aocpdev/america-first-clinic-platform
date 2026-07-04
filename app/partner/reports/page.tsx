@@ -1,4 +1,4 @@
-import { ReportsWorkspace } from "@/components/reports/reports-workspace";
+import { ReportsWorkspace, normalizeComparisonView, normalizeReportView } from "@/components/reports/reports-workspace";
 import { Card } from "@/components/ui/card";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requirePartner } from "@/lib/auth/current-user";
@@ -7,19 +7,16 @@ import { parseDashboardDateRange } from "@/lib/dashboard/date-range";
 import { prisma } from "@/lib/db/prisma";
 import { getReportData } from "@/lib/reports/queries";
 
-function comparisonView(value?: string) {
-  return value === "leaders" || value === "agents" || value === "managers" ? value : "managers";
-}
-
 export default async function PartnerReportsPage({
   searchParams
 }: {
-  searchParams: Promise<{ range?: string; from?: string; to?: string; compare?: string }>;
+  searchParams: Promise<{ range?: string; from?: string; to?: string; compare?: string; report?: string }>;
 }) {
   const user = await requirePartner();
   const params = await searchParams;
   const range = parseDashboardDateRange(params);
-  const compare = comparisonView(params.compare);
+  const compare = normalizeComparisonView(params.compare);
+  const activeReport = normalizeReportView(params.report);
   const isGroupLeader = user.role === "GROUP_LEADER";
   const nav = isGroupLeader ? groupLeaderNav : partnerNav;
   const [partnerProfile, groupLeaderProfile] = await Promise.all([
@@ -57,6 +54,8 @@ export default async function PartnerReportsPage({
         exportBaseHref="/api/reports/export"
         comparisonView={compare}
         comparisonBaseHref="/partner/reports"
+        activeReport={activeReport}
+        reportBaseHref="/partner/reports"
         earningsLabel={leader ? "Leader earnings" : "Partner earnings"}
         directLabel={leader ? "Leader direct revenue" : "Partner direct revenue"}
         partnerPayoutLabel={leader ? "Partner Override" : "Partner Commission"}

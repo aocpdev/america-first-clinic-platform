@@ -1,4 +1,4 @@
-import { ReportsWorkspace } from "@/components/reports/reports-workspace";
+import { ReportsWorkspace, normalizeComparisonView, normalizeReportView } from "@/components/reports/reports-workspace";
 import { Card } from "@/components/ui/card";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requireManager } from "@/lib/auth/current-user";
@@ -10,11 +10,13 @@ import { getReportData } from "@/lib/reports/queries";
 export default async function ManagerReportsPage({
   searchParams
 }: {
-  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ range?: string; from?: string; to?: string; report?: string; compare?: string }>;
 }) {
   const user = await requireManager();
   const params = await searchParams;
   const range = parseDashboardDateRange(params);
+  const activeReport = normalizeReportView(params.report);
+  const compare = normalizeComparisonView(params.compare);
   const managerProfile = user.managerProfile ?? await prisma.managerProfile.findUnique({ where: { userId: user.id } });
 
   if (!user.companyId || !managerProfile) {
@@ -43,6 +45,10 @@ export default async function ManagerReportsPage({
         range={range}
         resetHref="/manager/reports"
         exportBaseHref="/api/reports/export"
+        activeReport={activeReport}
+        reportBaseHref="/manager/reports"
+        comparisonView={compare}
+        comparisonBaseHref="/manager/reports"
         earningsLabel="Manager earnings"
         directLabel="Manager direct revenue"
         scopeDescription="Manager reports treat managers as agents first, while adding visibility into leaders and agents assigned under the manager hierarchy."

@@ -1,4 +1,4 @@
-import { ReportsWorkspace } from "@/components/reports/reports-workspace";
+import { ReportsWorkspace, normalizeComparisonView, normalizeReportView } from "@/components/reports/reports-workspace";
 import { Card } from "@/components/ui/card";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requireRole } from "@/lib/auth/current-user";
@@ -9,11 +9,13 @@ import { getReportData } from "@/lib/reports/queries";
 export default async function AdminReportsPage({
   searchParams
 }: {
-  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ range?: string; from?: string; to?: string; report?: string; compare?: string }>;
 }) {
   const user = await requireRole("COMPANY_ADMIN");
   const params = await searchParams;
   const range = parseDashboardDateRange(params);
+  const activeReport = normalizeReportView(params.report);
+  const compare = normalizeComparisonView(params.compare);
 
   if (!user.companyId) {
     return (
@@ -36,6 +38,10 @@ export default async function AdminReportsPage({
         range={range}
         resetHref="/admin/reports"
         exportBaseHref="/api/reports/export"
+        activeReport={activeReport}
+        reportBaseHref="/admin/reports"
+        comparisonView={compare}
+        comparisonBaseHref="/admin/reports"
         earningsLabel="Gross margin"
         directLabel="Admin direct revenue"
         showAgencyFee

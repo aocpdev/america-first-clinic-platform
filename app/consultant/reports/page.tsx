@@ -1,4 +1,4 @@
-import { ReportsWorkspace } from "@/components/reports/reports-workspace";
+import { ReportsWorkspace, normalizeReportView } from "@/components/reports/reports-workspace";
 import { Card } from "@/components/ui/card";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
 import { requireApprovedConsultant } from "@/lib/auth/current-user";
@@ -9,11 +9,12 @@ import { getReportData } from "@/lib/reports/queries";
 export default async function ConsultantReportsPage({
   searchParams
 }: {
-  searchParams: Promise<{ range?: string; from?: string; to?: string }>;
+  searchParams: Promise<{ range?: string; from?: string; to?: string; report?: string }>;
 }) {
   const user = await requireApprovedConsultant();
   const params = await searchParams;
   const range = parseDashboardDateRange(params);
+  const activeReport = normalizeReportView(params.report);
 
   if (!user.companyId || !user.consultantProfile?.id) {
     return (
@@ -41,6 +42,8 @@ export default async function ConsultantReportsPage({
         range={range}
         resetHref="/consultant/reports"
         exportBaseHref="/api/reports/export"
+        activeReport={activeReport}
+        reportBaseHref="/consultant/reports"
         earningsLabel="Commission earned"
         directLabel="Personal revenue"
         scopeDescription="Agent reports include only your captured personal sales, product mix, customer orders, commissions, and downloadable CSV exports for your own records."
