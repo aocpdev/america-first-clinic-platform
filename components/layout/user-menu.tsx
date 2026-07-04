@@ -67,7 +67,7 @@ export function UserMenu({ user, profileHref, impersonationTargets = [] }: UserM
               <div className="mb-2 rounded-2xl border border-border bg-clinic-mist p-3">
                 <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
                   <Eye className="h-3.5 w-3.5" />
-                  Login as
+                  Switch account
                 </div>
                 <form action={startImpersonation} className="space-y-2">
                   <select
@@ -81,12 +81,12 @@ export function UserMenu({ user, profileHref, impersonationTargets = [] }: UserM
                     </option>
                     {impersonationTargets.map((target) => (
                       <option key={target.id} value={target.id}>
-                        {target.label} · {target.role.replace("_", " ")}
+                        {target.label} · {target.role.replace("_", " ")} · {target.email}
                       </option>
                     ))}
                   </select>
                   <SubmitButton size="sm" className="w-full" pendingText="Opening...">
-                    Open CRM view
+                    View selected account
                   </SubmitButton>
                 </form>
               </div>
