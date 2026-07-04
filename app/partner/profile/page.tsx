@@ -6,7 +6,7 @@ import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { requireUser } from "@/lib/auth/current-user";
 import { updatePartnerBankAccount, updatePartnerCompany } from "@/app/profile/actions";
 import { prisma } from "@/lib/db/prisma";
-import { BadgeCheck, Landmark, LockKeyhole, ShieldCheck, WalletCards } from "lucide-react";
+import { BadgeCheck, Landmark, ShieldCheck, WalletCards } from "lucide-react";
 
 function maskLast4(value?: string | null) {
   return value ? `•••• ${value}` : "Not connected";
@@ -112,14 +112,6 @@ export default async function PartnerProfilePage({
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Status</p>
                       <p className="mt-2 font-semibold text-emerald-700">{bankAccount?.status ?? "Not ready"}</p>
                     </div>
-                  </div>
-                </div>
-                <div className="rounded-[28px] border border-blue-100 bg-blue-50/70 p-5">
-                  <div className="flex items-start gap-3">
-                    <LockKeyhole className="mt-0.5 h-5 w-5 text-clinic-navy" />
-                    <p className="text-sm leading-6 text-slate-600">
-                      Bank numbers are encrypted before they are stored. Admins and partners see only the final four digits for reconciliation.
-                    </p>
                   </div>
                 </div>
               </div>
