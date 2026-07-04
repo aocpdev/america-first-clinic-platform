@@ -25,6 +25,20 @@ function eyebrowForRole(role: string) {
   return "Partner";
 }
 
+async function getPartnerPayoutHistory(companyId?: string | null, partnerProfileId?: string | null) {
+  if (!companyId || !partnerProfileId) return [];
+  try {
+    return await prisma.partnerPayout.findMany({
+      where: { companyId, partnerProfileId },
+      include: { lines: { orderBy: { createdAt: "asc" } } },
+      orderBy: { createdAt: "desc" },
+      take: 12
+    });
+  } catch {
+    return [];
+  }
+}
+
 export default async function PartnerPayoutsPage({ searchParams }: { searchParams: Promise<RecordFiltersState> }) {
   const filters = await searchParams;
   const user = await requirePartner();
@@ -33,14 +47,7 @@ export default async function PartnerPayoutsPage({ searchParams }: { searchParam
     user.role === "PARTNER" && user.companyId && user.partnerProfile?.id
       ? getPartnerCashRewardPayouts({ companyId: user.companyId, partnerProfileId: user.partnerProfile.id })
       : Promise.resolve([]),
-    user.role === "PARTNER" && user.companyId && user.partnerProfile?.id
-      ? prisma.partnerPayout.findMany({
-          where: { companyId: user.companyId, partnerProfileId: user.partnerProfile.id },
-          include: { lines: { orderBy: { createdAt: "asc" } } },
-          orderBy: { createdAt: "desc" },
-          take: 12
-        })
-      : Promise.resolve([])
+    user.role === "PARTNER" ? getPartnerPayoutHistory(user.companyId, user.partnerProfile?.id) : Promise.resolve([])
   ]);
   const scope = scopeForRole(user.role);
 

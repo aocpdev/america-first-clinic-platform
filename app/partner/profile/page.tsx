@@ -12,6 +12,15 @@ function maskLast4(value?: string | null) {
   return value ? `•••• ${value}` : "Not connected";
 }
 
+async function getPartnerBankAccount(partnerProfileId?: string | null) {
+  if (!partnerProfileId) return null;
+  try {
+    return await prisma.partnerBankAccount.findUnique({ where: { partnerProfileId } });
+  } catch {
+    return null;
+  }
+}
+
 export default async function PartnerProfilePage({
   searchParams
 }: {
@@ -21,10 +30,8 @@ export default async function PartnerProfilePage({
   const params = await searchParams;
   const isGroupLeader = user.role === "GROUP_LEADER";
   const nav = isGroupLeader ? groupLeaderNav : partnerNav;
-  const partnerProfile = await prisma.partnerProfile.findUnique({
-    where: { userId: user.id },
-    include: { bankAccount: true }
-  });
+  const partnerProfile = await prisma.partnerProfile.findUnique({ where: { userId: user.id } });
+  const bankAccount = await getPartnerBankAccount(partnerProfile?.id);
 
   return (
     <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Profile">
@@ -73,11 +80,11 @@ export default async function PartnerProfilePage({
                 <div className="rounded-[24px] border border-emerald-100 bg-white/75 px-5 py-4 shadow-sm">
                   <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
                     <BadgeCheck className="h-4 w-4" />
-                    {partnerProfile?.bankAccount ? "Ready for admin payout" : "Bank setup needed"}
+                    {bankAccount ? "Ready for admin payout" : "Bank setup needed"}
                   </div>
                   <p className="mt-2 text-xs leading-5 text-slate-500">
-                    {partnerProfile?.bankAccount
-                      ? `${partnerProfile.bankAccount.bankName || "Bank account"} ${maskLast4(partnerProfile.bankAccount.accountLast4)}`
+                    {bankAccount
+                      ? `${bankAccount.bankName || "Bank account"} ${maskLast4(bankAccount.accountLast4)}`
                       : "Add banking before the admin can send funds."}
                   </p>
                 </div>
@@ -93,17 +100,17 @@ export default async function PartnerProfilePage({
                     </div>
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Current destination</p>
-                      <p className="mt-1 text-lg font-semibold text-clinic-ink">{maskLast4(partnerProfile?.bankAccount?.accountLast4)}</p>
+                      <p className="mt-1 text-lg font-semibold text-clinic-ink">{maskLast4(bankAccount?.accountLast4)}</p>
                     </div>
                   </div>
                   <div className="mt-5 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-clinic-mist/80 p-4">
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Routing</p>
-                      <p className="mt-2 font-semibold text-clinic-navy">{maskLast4(partnerProfile?.bankAccount?.routingLast4)}</p>
+                      <p className="mt-2 font-semibold text-clinic-navy">{maskLast4(bankAccount?.routingLast4)}</p>
                     </div>
                     <div className="rounded-2xl bg-emerald-50 p-4">
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Status</p>
-                      <p className="mt-2 font-semibold text-emerald-700">{partnerProfile?.bankAccount?.status ?? "Not ready"}</p>
+                      <p className="mt-2 font-semibold text-emerald-700">{bankAccount?.status ?? "Not ready"}</p>
                     </div>
                   </div>
                 </div>
@@ -122,7 +129,7 @@ export default async function PartnerProfilePage({
                   <span className="text-sm font-semibold text-clinic-ink">Account holder name</span>
                   <input
                     name="accountHolderName"
-                    defaultValue={partnerProfile?.bankAccount?.accountHolderName ?? partnerProfile?.companyName ?? partnerProfile?.displayName ?? ""}
+                    defaultValue={bankAccount?.accountHolderName ?? partnerProfile?.companyName ?? partnerProfile?.displayName ?? ""}
                     required
                     className="h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
                   />
@@ -131,7 +138,7 @@ export default async function PartnerProfilePage({
                   <span className="text-sm font-semibold text-clinic-ink">Account type</span>
                   <select
                     name="accountHolderType"
-                    defaultValue={partnerProfile?.bankAccount?.accountHolderType ?? "company"}
+                    defaultValue={bankAccount?.accountHolderType ?? "company"}
                     className="h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
                   >
                     <option value="company">Business</option>
@@ -142,7 +149,7 @@ export default async function PartnerProfilePage({
                   <span className="text-sm font-semibold text-clinic-ink">Bank name</span>
                   <input
                     name="bankName"
-                    defaultValue={partnerProfile?.bankAccount?.bankName ?? ""}
+                    defaultValue={bankAccount?.bankName ?? ""}
                     placeholder="Chase, Bank of America..."
                     className="h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
                   />
@@ -154,7 +161,7 @@ export default async function PartnerProfilePage({
                     inputMode="numeric"
                     autoComplete="off"
                     maxLength={9}
-                    placeholder={partnerProfile?.bankAccount ? "Enter to replace" : "9 digits"}
+                    placeholder={bankAccount ? "Enter to replace" : "9 digits"}
                     required
                     className="h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
                   />
@@ -165,7 +172,7 @@ export default async function PartnerProfilePage({
                     name="accountNumber"
                     inputMode="numeric"
                     autoComplete="off"
-                    placeholder={partnerProfile?.bankAccount ? "Enter to replace" : "Account number"}
+                    placeholder={bankAccount ? "Enter to replace" : "Account number"}
                     required
                     className="h-12 w-full rounded-2xl border border-border bg-white px-4 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
                   />

@@ -22,6 +22,7 @@ export type CommissionLedgerEntry = {
   grossMarginCents: number;
   commissionPoolCents: number;
   orderTotalCents: number;
+  partnerProfileId: string | null;
   status: CommissionStatus;
   payoutResponsibility: string;
   paidAt: Date | null;
@@ -51,8 +52,7 @@ const commissionSplitInclude = {
   },
   partnerProfile: {
     include: {
-      user: true,
-      bankAccount: true
+      user: true
     }
   },
   managerProfile: {
@@ -189,14 +189,44 @@ export function mapCommissionSplit(split: CommissionSplitWithRelations): Commiss
     grossMarginCents: split.grossMarginCents,
     commissionPoolCents: split.commissionPoolCents,
     orderTotalCents: split.order.totalCents,
+    partnerProfileId: split.partnerProfileId,
     status: split.status,
     payoutResponsibility: split.payoutResponsibility,
     paidAt: split.paidAt,
     createdAt: split.createdAt,
-    partnerBankAccountLast4: split.partnerProfile?.bankAccount?.accountLast4 ?? null,
-    partnerBankRoutingLast4: split.partnerProfile?.bankAccount?.routingLast4 ?? null,
-    partnerBankStatus: split.partnerProfile?.bankAccount?.status ?? null
+    partnerBankAccountLast4: null,
+    partnerBankRoutingLast4: null,
+    partnerBankStatus: null
   };
+}
+
+async function attachPartnerBankSummaries(entries: CommissionLedgerEntry[]) {
+  const partnerProfileIds = Array.from(new Set(entries.map((entry) => entry.partnerProfileId).filter(Boolean))) as string[];
+  if (!partnerProfileIds.length) return entries;
+
+  try {
+    const bankAccounts = await prisma.partnerBankAccount.findMany({
+      where: { partnerProfileId: { in: partnerProfileIds } },
+      select: {
+        partnerProfileId: true,
+        accountLast4: true,
+        routingLast4: true,
+        status: true
+      }
+    });
+    const byPartner = new Map(bankAccounts.map((account) => [account.partnerProfileId, account]));
+    return entries.map((entry) => {
+      const account = entry.partnerProfileId ? byPartner.get(entry.partnerProfileId) : null;
+      return {
+        ...entry,
+        partnerBankAccountLast4: account?.accountLast4 ?? null,
+        partnerBankRoutingLast4: account?.routingLast4 ?? null,
+        partnerBankStatus: account?.status ?? null
+      };
+    });
+  } catch {
+    return entries;
+  }
 }
 
 export async function getAdminCommissionLedger(companyId?: string | null, dateRange?: DashboardDateRange) {
@@ -210,7 +240,7 @@ export async function getAdminCommissionLedger(companyId?: string | null, dateRa
     take: 500
   });
 
-  return splits.map(mapCommissionSplit);
+  return attachPartnerBankSummaries(splits.map(mapCommissionSplit));
 }
 
 export async function getPartnerCommissionLedger(user: {
@@ -276,7 +306,7 @@ export async function getPartnerCommissionLedger(user: {
     take: 500
   });
 
-  return splits.map(mapCommissionSplit);
+  return attachPartnerBankSummaries(splits.map(mapCommissionSplit));
 }
 
 export async function getConsultantCommissionLedger(user: {
