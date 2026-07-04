@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
 import { normalizePhoneToE164 } from "@/lib/phone";
+import { encryptField, last4 } from "@/lib/security/field-encryption";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { updateConfirmedAuthUser } from "@/lib/supabase/admin-auth";
 
@@ -174,4 +175,87 @@ export async function updatePartnerCompany(formData: FormData) {
   revalidatePath("/partner/consultants");
   revalidatePath("/admin/consultants");
   redirect(`${profilePathForRole(user.role)}?updated=company`);
+}
+
+const partnerBankSchema = z.object({
+  accountHolderName: z.string().trim().min(2),
+  accountHolderType: z.enum(["individual", "company"]).default("company"),
+  bankName: z.string().trim().optional(),
+  routingNumber: z.string().trim().regex(/^\d{9}$/),
+  accountNumber: z.string().trim().regex(/^\d{4,17}$/),
+  confirmAccountNumber: z.string().trim().regex(/^\d{4,17}$/)
+}).refine((value) => value.accountNumber === value.confirmAccountNumber, {
+  path: ["confirmAccountNumber"],
+  message: "Account numbers must match."
+});
+
+export async function updatePartnerBankAccount(formData: FormData) {
+  const user = await requireUser();
+  if (user.role !== "PARTNER") {
+    redirect("/login?error=access_denied");
+  }
+
+  const profilePath = profilePathForRole(user.role);
+  const parsed = partnerBankSchema.safeParse({
+    accountHolderName: textValue(formData, "accountHolderName"),
+    accountHolderType: textValue(formData, "accountHolderType") || "company",
+    bankName: textValue(formData, "bankName"),
+    routingNumber: textValue(formData, "routingNumber").replace(/\D/g, ""),
+    accountNumber: textValue(formData, "accountNumber").replace(/\D/g, ""),
+    confirmAccountNumber: textValue(formData, "confirmAccountNumber").replace(/\D/g, "")
+  });
+
+  if (!parsed.success) {
+    redirect(`${profilePath}?error=invalid_bank_account`);
+  }
+
+  if (!user.companyId || !user.partnerProfile?.id) {
+    redirect(`${profilePath}?error=partner_profile_required`);
+  }
+
+  let routingNumberEncrypted = "";
+  let accountNumberEncrypted = "";
+  try {
+    routingNumberEncrypted = encryptField(parsed.data.routingNumber);
+    accountNumberEncrypted = encryptField(parsed.data.accountNumber);
+  } catch {
+    redirect(`${profilePath}?error=bank_encryption_missing`);
+  }
+
+  await prisma.partnerBankAccount.upsert({
+    where: { partnerProfileId: user.partnerProfile.id },
+    create: {
+      companyId: user.companyId,
+      partnerProfileId: user.partnerProfile.id,
+      accountHolderName: parsed.data.accountHolderName,
+      accountHolderType: parsed.data.accountHolderType,
+      bankName: parsed.data.bankName || null,
+      routingNumberEncrypted,
+      accountNumberEncrypted,
+      routingLast4: last4(parsed.data.routingNumber),
+      accountLast4: last4(parsed.data.accountNumber),
+      status: "READY",
+      verifiedAt: new Date(),
+      lastValidatedAt: new Date(),
+      createdByUserId: user.id,
+      updatedByUserId: user.id
+    },
+    update: {
+      accountHolderName: parsed.data.accountHolderName,
+      accountHolderType: parsed.data.accountHolderType,
+      bankName: parsed.data.bankName || null,
+      routingNumberEncrypted,
+      accountNumberEncrypted,
+      routingLast4: last4(parsed.data.routingNumber),
+      accountLast4: last4(parsed.data.accountNumber),
+      status: "READY",
+      verifiedAt: new Date(),
+      lastValidatedAt: new Date(),
+      updatedByUserId: user.id
+    }
+  });
+
+  revalidatePath("/partner/profile");
+  revalidatePath("/admin/payouts");
+  redirect(`${profilePath}?updated=bank`);
 }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { CommissionParticipantRole, CommissionStatus } from "@prisma/client";
 import { ArrowUpRight, BadgeCheck, Banknote, CheckCircle2, Clock3, Landmark, LockKeyhole, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 
-import { markCommissionSplitPaid } from "@/app/payouts/actions";
+import { markCommissionSplitPaid, sendPartnerPayout } from "@/app/payouts/actions";
 import type { CommissionLedgerEntry, CommissionLedgerScope } from "@/lib/commissions/queries";
 import type { PartnerCashRewardPayoutItem } from "@/lib/rewards/reward-engine";
 import { cn, currency } from "@/lib/utils";
@@ -16,6 +16,30 @@ type PayoutCenterProps = {
   scope: CommissionLedgerScope;
   filters?: RecordFiltersState;
   rewardPayouts?: PartnerCashRewardPayoutItem[];
+  partnerPayouts?: PartnerPayoutHistoryItem[];
+};
+
+type PartnerPayoutHistoryItem = {
+  id: string;
+  totalCents: number;
+  partnerRetainedCents: number;
+  downlineObligationCents: number;
+  status: string;
+  providerCode: string | null;
+  providerRef: string | null;
+  bankAccountLast4: string | null;
+  bankRoutingLast4: string | null;
+  paidAt: Date | null;
+  createdAt: Date;
+  lines: {
+    id: string;
+    orderId: string;
+    participantRole: string;
+    participantName: string;
+    participantEmail: string | null;
+    amountCents: number;
+    payoutResponsibility: string;
+  }[];
 };
 
 const statusCopy: Record<CommissionStatus, string> = {
@@ -361,6 +385,8 @@ function PayoutRow({
 }) {
   const displayedAmount = displayPayoutAmount(entry, scope, allEntries);
   const sourcePacketAmount = sourceCompanyPayment ? partnerPacketAmount(sourceCompanyPayment, allEntries) : 0;
+  const isAdminPartnerPayout = scope === "admin" && entry.participantRole === "PARTNER";
+  const bankReady = Boolean(entry.partnerBankAccountLast4 && entry.partnerBankStatus === "READY");
 
   return (
     <div className="grid gap-4 border-t border-border px-5 py-5 lg:grid-cols-[1.15fr_1fr_0.75fr_0.7fr_auto] lg:items-center">
@@ -388,6 +414,12 @@ function PayoutRow({
             Partner keeps {dollars(entry.amountCents)} after downline payouts.
           </p>
         ) : null}
+        {isAdminPartnerPayout ? (
+          <div className="mt-3 rounded-2xl border border-blue-100 bg-white/80 px-3 py-2 text-xs leading-5 text-slate-600">
+            <span className="font-bold uppercase tracking-[0.14em] text-slate-500">Bank</span>{" "}
+            {bankReady ? `•••• ${entry.partnerBankAccountLast4}` : "Setup needed"}
+          </div>
+        ) : null}
       </div>
 
       <div>
@@ -400,11 +432,14 @@ function PayoutRow({
           Review
         </Link>
         {canMarkPaid && entry.status === "APPROVED" ? (
-          <form action={markCommissionSplitPaid}>
+          <form action={isAdminPartnerPayout ? sendPartnerPayout : markCommissionSplitPaid}>
             <input type="hidden" name="splitId" value={entry.id} />
             <input type="hidden" name="returnPath" value={returnPath(scope)} />
-            <button className="inline-flex items-center justify-center rounded-2xl bg-clinic-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-clinic-blue">
-              Mark paid
+            <button
+              disabled={isAdminPartnerPayout && !bankReady}
+              className="inline-flex items-center justify-center rounded-2xl bg-clinic-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-clinic-blue disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {isAdminPartnerPayout ? "Send payout" : "Mark paid"}
             </button>
           </form>
         ) : null}
@@ -645,7 +680,66 @@ function PartnerPayeeLedger({
   );
 }
 
-export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: PayoutCenterProps) {
+function PartnerPayoutHistory({ payouts }: { payouts: PartnerPayoutHistoryItem[] }) {
+  if (!payouts.length) return null;
+
+  return (
+    <Card className="overflow-hidden rounded-[30px] border-blue-100 bg-white/80 shadow-sm backdrop-blur-xl">
+      <div className="border-b border-blue-100 bg-gradient-to-br from-white to-blue-50/70 p-6">
+        <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">Reconciliation ledger</p>
+        <h3 className="mt-2 text-2xl font-semibold tracking-tight text-clinic-ink">Company-funded partner payouts</h3>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+          Every admin payout is broken down by retained partner earnings and team obligations, so the partner can reconcile what came in and what needs to go out.
+        </p>
+      </div>
+      <div className="grid gap-4 p-4 lg:grid-cols-2">
+        {payouts.map((payout) => (
+          <div key={payout.id} className="rounded-[26px] border border-border bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Payout packet</p>
+                <p className="mt-1 text-2xl font-semibold text-clinic-navy">{dollars(payout.totalCents)}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  {payout.paidAt ? payout.paidAt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "Pending date"}
+                </p>
+              </div>
+              <Badge className="border-emerald-200 bg-emerald-50 px-3 py-1.5 text-emerald-700">
+                {payout.status.replaceAll("_", " ")}
+              </Badge>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-blue-50 p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.13em] text-clinic-navy">Partner keeps</p>
+                <p className="mt-1 text-lg font-semibold text-clinic-navy">{dollars(payout.partnerRetainedCents)}</p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.13em] text-emerald-700">Team owed</p>
+                <p className="mt-1 text-lg font-semibold text-emerald-700">{dollars(payout.downlineObligationCents)}</p>
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl border border-border bg-clinic-mist/70 p-3 text-sm text-slate-600">
+              Destination bank: <span className="font-semibold text-clinic-ink">•••• {payout.bankAccountLast4 ?? "----"}</span>
+              {payout.providerRef ? <span className="block text-xs text-slate-500">Provider ref: {payout.providerRef}</span> : null}
+            </div>
+            <div className="mt-4 space-y-2">
+              {payout.lines.map((line) => (
+                <div key={line.id} className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-white px-3 py-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-clinic-ink">{line.participantName}</p>
+                    <p className="text-xs text-slate-500">{line.participantRole.replaceAll("_", " ")}</p>
+                  </div>
+                  <p className="shrink-0 font-semibold text-clinic-navy">{dollars(line.amountCents)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], partnerPayouts = [] }: PayoutCenterProps) {
   const visibleRows = visiblePayoutEntries(scope, entries);
   const rows = applyPayoutFilters(visibleRows, filters);
   const visibleRewardPayouts = scope === "partner" ? applyRewardPayoutFilters(rewardPayouts, filters) : [];
@@ -755,6 +849,8 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [] }: Pa
       {scope === "partner" ? (
         <PartnerPayoutOverview teamRows={rows} companyPayments={companyPayments} entries={entries} rewardPayouts={visibleRewardPayouts} />
       ) : null}
+
+      {scope === "partner" ? <PartnerPayoutHistory payouts={partnerPayouts} /> : null}
 
       <RecordFilters
         title="Payout filters"

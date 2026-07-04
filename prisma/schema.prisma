@@ -247,10 +247,39 @@ model PartnerProfile {
   orders               Order[]
   commissionSplits     CommissionSplit[]
   webhookEndpoints     WebhookEndpoint[]
+  bankAccount          PartnerBankAccount?
+  partnerPayouts       PartnerPayout[]
   createdAt            DateTime             @default(now())
   updatedAt            DateTime             @updatedAt
 
   @@index([companyId])
+}
+
+model PartnerBankAccount {
+  id                         String         @id @default(uuid()) @db.Uuid
+  companyId                  String         @db.Uuid
+  partnerProfileId           String         @unique @db.Uuid
+  partnerProfile             PartnerProfile @relation(fields: [partnerProfileId], references: [id], onDelete: Cascade)
+  accountHolderName          String
+  accountHolderType          String         @default("company")
+  bankName                   String?
+  routingNumberEncrypted     String
+  accountNumberEncrypted     String
+  routingLast4               String
+  accountLast4               String
+  stripeConnectedAccountId   String?
+  stripeExternalAccountId    String?
+  stripeBankFingerprint      String?
+  status                     String         @default("READY")
+  verifiedAt                 DateTime?
+  lastValidatedAt            DateTime?
+  createdByUserId            String?        @db.Uuid
+  updatedByUserId            String?        @db.Uuid
+  createdAt                  DateTime       @default(now())
+  updatedAt                  DateTime       @updatedAt
+
+  @@index([companyId])
+  @@index([stripeConnectedAccountId])
 }
 
 model ManagerProfile {
@@ -629,6 +658,7 @@ model CommissionSplit {
   status               CommissionStatus          @default(PENDING)
   payoutResponsibility PayoutResponsibility      @default(PARTNER)
   paidAt               DateTime?
+  partnerPayoutLines   PartnerPayoutLine[]
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
 
@@ -669,6 +699,53 @@ model Payout {
   commissions  Commission[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+}
+
+model PartnerPayout {
+  id                       String              @id @default(uuid()) @db.Uuid
+  companyId                String              @db.Uuid
+  partnerProfileId         String              @db.Uuid
+  partnerProfile           PartnerProfile      @relation(fields: [partnerProfileId], references: [id])
+  bankAccountLast4         String?
+  bankRoutingLast4         String?
+  stripeConnectedAccountId String?
+  stripeTransferId         String?
+  totalCents               Int
+  partnerRetainedCents     Int
+  downlineObligationCents  Int
+  status                   String              @default("PENDING")
+  providerCode             String?
+  providerRef              String?
+  paidAt                   DateTime?
+  failureReason            String?
+  rawEvent                 Json?
+  createdByUserId          String?             @db.Uuid
+  createdAt                DateTime            @default(now())
+  updatedAt                DateTime            @updatedAt
+  lines                    PartnerPayoutLine[]
+
+  @@index([companyId, status])
+  @@index([partnerProfileId, status])
+  @@index([stripeTransferId])
+}
+
+model PartnerPayoutLine {
+  id                  String          @id @default(uuid()) @db.Uuid
+  partnerPayoutId     String          @db.Uuid
+  partnerPayout       PartnerPayout   @relation(fields: [partnerPayoutId], references: [id], onDelete: Cascade)
+  commissionSplitId   String          @db.Uuid
+  commissionSplit     CommissionSplit @relation(fields: [commissionSplitId], references: [id], onDelete: Cascade)
+  orderId             String          @db.Uuid
+  participantRole     String
+  participantName     String
+  participantEmail    String?
+  amountCents         Int
+  payoutResponsibility String
+  createdAt           DateTime        @default(now())
+
+  @@unique([partnerPayoutId, commissionSplitId])
+  @@index([commissionSplitId])
+  @@index([orderId])
 }
 
 model Subscription {

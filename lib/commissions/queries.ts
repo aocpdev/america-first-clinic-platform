@@ -26,6 +26,9 @@ export type CommissionLedgerEntry = {
   payoutResponsibility: string;
   paidAt: Date | null;
   createdAt: Date;
+  partnerBankAccountLast4?: string | null;
+  partnerBankRoutingLast4?: string | null;
+  partnerBankStatus?: string | null;
 };
 
 const commissionSplitInclude = {
@@ -47,7 +50,10 @@ const commissionSplitInclude = {
     }
   },
   partnerProfile: {
-    include: { user: true }
+    include: {
+      user: true,
+      bankAccount: true
+    }
   },
   managerProfile: {
     include: { user: true }
@@ -186,7 +192,10 @@ export function mapCommissionSplit(split: CommissionSplitWithRelations): Commiss
     status: split.status,
     payoutResponsibility: split.payoutResponsibility,
     paidAt: split.paidAt,
-    createdAt: split.createdAt
+    createdAt: split.createdAt,
+    partnerBankAccountLast4: split.partnerProfile?.bankAccount?.accountLast4 ?? null,
+    partnerBankRoutingLast4: split.partnerProfile?.bankAccount?.routingLast4 ?? null,
+    partnerBankStatus: split.partnerProfile?.bankAccount?.status ?? null
   };
 }
 

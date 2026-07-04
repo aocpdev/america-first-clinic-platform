@@ -13,6 +13,9 @@ const errors: Record<string, string> = {
   invalid_email: "Enter a valid email address before saving.",
   email_taken: "That email is already connected to another CRM account.",
   email_update_failed: "We could not update that email. Try another email or contact support.",
+  invalid_bank_account: "Review the bank details. Routing must be 9 digits and both account numbers must match.",
+  bank_encryption_missing: "Bank details cannot be saved until BANK_ACCOUNT_ENCRYPTION_KEY is configured.",
+  partner_profile_required: "A partner profile is required before adding payout banking.",
   password_too_short: "Use at least 8 characters for the new password.",
   password_mismatch: "Both password fields must match.",
   password_update_failed: "We could not update the password. Try again or contact support."
@@ -22,6 +25,7 @@ const updatedMessages: Record<string, string> = {
   profile: "Profile details updated.",
   avatar: "Profile photo updated.",
   company: "Partner company updated.",
+  bank: "Partner payout banking updated.",
   password: "Password updated. Use the new password the next time you sign in."
 };
 
