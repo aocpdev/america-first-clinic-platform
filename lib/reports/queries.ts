@@ -122,13 +122,13 @@ function originator(order: ReportOrder) {
   if (commissionMode === "GROUP_LEADER_DIRECT") return { name: personName(order.groupLeaderProfile?.user ?? order.customer), role: "Leader" };
   if (commissionMode === "MANAGER_DIRECT") return { name: personName(order.managerProfile?.user ?? order.customer), role: "Manager" };
   if (commissionMode === "PARTNER_DIRECT") return { name: personName(order.partnerProfile?.user ?? order.customer), role: "Partner" };
-  if (commissionMode === "ADMIN_DIRECT") return { name: "Admin direct", role: "Admin" };
+  if (commissionMode === "ADMIN_DIRECT") return { name: "Go Virtual Health direct", role: "Go Virtual Health" };
 
   if (order.consultantProfile) return { name: personName(order.consultantProfile.user), role: "Agent" };
   if (order.groupLeaderProfile) return { name: personName(order.groupLeaderProfile.user), role: "Leader" };
   if (order.managerProfile) return { name: personName(order.managerProfile.user), role: "Manager" };
   if (order.partnerProfile) return { name: personName(order.partnerProfile.user), role: "Partner" };
-  return { name: "Admin direct", role: "Admin" };
+  return { name: "Go Virtual Health direct", role: "Go Virtual Health" };
 }
 
 function splitForRole(order: ReportOrder, input: ReportInput) {

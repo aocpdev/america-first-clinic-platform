@@ -27,7 +27,7 @@ export default async function AdminSettingsPage() {
     : [null, [], null];
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Settings">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Settings">
       <div className="space-y-6">
         <PaymentProviderSettings
           activeProvider={activeProvider}

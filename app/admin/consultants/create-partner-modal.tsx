@@ -45,7 +45,7 @@ export function CreatePartnerModal() {
           <div className="mx-auto max-h-[92vh] w-full max-w-3xl overflow-hidden rounded-t-3xl border border-white/70 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.18)] sm:rounded-3xl">
             <div className="flex items-start justify-between gap-4 border-b border-border px-6 py-5">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Admin only</p>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Go Virtual Health only</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Create partner</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                   Add the partner account, company name, and margin pool. The partner can later distribute their pool across leaders and consultants.

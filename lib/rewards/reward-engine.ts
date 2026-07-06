@@ -71,7 +71,7 @@ export const defaultRewardLevels = [
     accentColor: "#111827",
     reward: {
       title: "President's Circle Experience",
-      description: "Top-tier reward for exceptional sales production. Final reward can be customized by admin.",
+      description: "Top-tier reward for exceptional sales production. Final reward can be customized by Go Virtual Health.",
       valueCents: 150000,
       imageUrl: ""
     }

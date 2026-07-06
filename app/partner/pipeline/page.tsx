@@ -12,9 +12,25 @@ function customerName(customer: { firstName: string | null; lastName: string | n
   return [customer.firstName, customer.lastName].filter(Boolean).join(" ").trim() || customer.email;
 }
 
-function consultantName(profile: { user: { firstName: string | null; lastName: string | null; email: string } } | null) {
-  if (!profile) return null;
-  return [profile.user.firstName, profile.user.lastName].filter(Boolean).join(" ").trim() || profile.user.email;
+function personName(person: { firstName: string | null; lastName: string | null; email: string }) {
+  return [person.firstName, person.lastName].filter(Boolean).join(" ").trim() || person.email;
+}
+
+function orderMetadata(order: OrderListRecord) {
+  const metadata = order.referralMetadata;
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null;
+  return metadata as Record<string, unknown>;
+}
+
+function orderOriginator(order: OrderListRecord) {
+  const commissionMode = orderMetadata(order)?.commissionMode;
+
+  if (commissionMode === "CONSULTANT_PARTNER_SPLIT") return order.consultantProfile?.user ?? null;
+  if (commissionMode === "GROUP_LEADER_DIRECT") return order.groupLeaderProfile?.user ?? null;
+  if (commissionMode === "MANAGER_DIRECT") return order.managerProfile?.user ?? null;
+  if (commissionMode === "PARTNER_DIRECT") return order.partnerProfile?.user ?? null;
+
+  return order.consultantProfile?.user ?? order.groupLeaderProfile?.user ?? order.managerProfile?.user ?? order.partnerProfile?.user ?? null;
 }
 
 function normalizeStage(stage: string): CustomerPipelineStage {
@@ -83,49 +99,53 @@ export default async function PartnerPipelinePage() {
     <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Sales pipeline">
       <div>
         <CustomerPipelineBoard
-          customers={orders.map((order) => ({
-            id: order.id,
-            customerId: order.customerId,
-            name: customerName(order.customer),
-            email: order.customer.email,
-            phone: order.customer.phone,
-            dateOfBirth: order.customer.dateOfBirth?.toISOString() ?? null,
-            consultantName: consultantName(order.consultantProfile) ?? (order.partnerProfile ? consultantName(order.partnerProfile) : null),
-            consultantAvatarUrl: order.consultantProfile?.user.avatarUrl ?? order.partnerProfile?.user.avatarUrl ?? null,
-            pipelineStage: normalizeStage(order.orderPipelineStage),
-            pipelineUpdatedAt: order.orderPipelineUpdatedAt?.toISOString() ?? null,
-            orderTotalCents: order.totalCents,
-            opportunityValueCents: isGroupLeader ? splitAmount(order, "GROUP_LEADER") : splitAmount(order, "PARTNER"),
-            adminMarginCents: order.grossMarginCents,
-            shippingAddress: formatOrderShippingAddress(orderShippingAddress(order.referralMetadata)),
-            shippingCarrier: order.shippingCarrier,
-            shippingTrackingCode: order.shippingTrackingCode,
-            createdAt: order.createdAt.toISOString(),
-            notes: order.orderNotes,
-            rxNotes: null,
-            rxDocumentUrl: null,
-            gfeNotes: null,
-            gfeDocumentUrl: null,
-            paymentStatus: order.paymentStatus,
-            orderStatus: order.orderStatus,
-            clinicalDocuments: [],
-            orderHistory: orders
-              .filter((historyOrder) => historyOrder.customerId === order.customerId)
-              .map((historyOrder) => ({
-                id: historyOrder.id,
-                createdAt: historyOrder.createdAt.toISOString(),
-                customerDateOfBirth: historyOrder.customer.dateOfBirth?.toISOString() ?? null,
-                orderTotalCents: historyOrder.totalCents,
-                opportunityValueCents: isGroupLeader ? splitAmount(historyOrder, "GROUP_LEADER") : splitAmount(historyOrder, "PARTNER"),
-                paymentStatus: historyOrder.paymentStatus,
-                orderStatus: historyOrder.orderStatus,
-                pipelineStage: historyOrder.orderPipelineStage,
-                shippingAddress: formatOrderShippingAddress(orderShippingAddress(historyOrder.referralMetadata)),
-                shippingCarrier: historyOrder.shippingCarrier,
-                shippingTrackingCode: historyOrder.shippingTrackingCode,
-                products: orderProducts(historyOrder)
-              }))
-          }))}
+          customers={orders.map((order) => {
+            const originator = orderOriginator(order);
+
+            return {
+              id: order.id,
+              customerId: order.customerId,
+              name: customerName(order.customer),
+              email: order.customer.email,
+              phone: order.customer.phone,
+              dateOfBirth: order.customer.dateOfBirth?.toISOString() ?? null,
+              consultantName: originator ? personName(originator) : null,
+              consultantAvatarUrl: originator?.avatarUrl ?? null,
+              pipelineStage: normalizeStage(order.orderPipelineStage),
+              pipelineUpdatedAt: order.orderPipelineUpdatedAt?.toISOString() ?? null,
+              orderTotalCents: order.totalCents,
+              opportunityValueCents: isGroupLeader ? splitAmount(order, "GROUP_LEADER") : splitAmount(order, "PARTNER"),
+              adminMarginCents: order.grossMarginCents,
+              shippingAddress: formatOrderShippingAddress(orderShippingAddress(order.referralMetadata)),
+              shippingCarrier: order.shippingCarrier,
+              shippingTrackingCode: order.shippingTrackingCode,
+              createdAt: order.createdAt.toISOString(),
+              notes: order.orderNotes,
+              rxNotes: null,
+              rxDocumentUrl: null,
+              gfeNotes: null,
+              gfeDocumentUrl: null,
+              paymentStatus: order.paymentStatus,
+              orderStatus: order.orderStatus,
+              clinicalDocuments: [],
+              orderHistory: orders
+                .filter((historyOrder) => historyOrder.customerId === order.customerId)
+                .map((historyOrder) => ({
+                  id: historyOrder.id,
+                  createdAt: historyOrder.createdAt.toISOString(),
+                  customerDateOfBirth: historyOrder.customer.dateOfBirth?.toISOString() ?? null,
+                  orderTotalCents: historyOrder.totalCents,
+                  opportunityValueCents: isGroupLeader ? splitAmount(historyOrder, "GROUP_LEADER") : splitAmount(historyOrder, "PARTNER"),
+                  paymentStatus: historyOrder.paymentStatus,
+                  orderStatus: historyOrder.orderStatus,
+                  pipelineStage: historyOrder.orderPipelineStage,
+                  shippingAddress: formatOrderShippingAddress(orderShippingAddress(historyOrder.referralMetadata)),
+                  shippingCarrier: historyOrder.shippingCarrier,
+                  shippingTrackingCode: historyOrder.shippingTrackingCode,
+                  products: orderProducts(historyOrder)
+                }))
+            };
+          })}
           showConsultant
           mode={isGroupLeader ? "group_leader" : "partner"}
           basePath="/partner"

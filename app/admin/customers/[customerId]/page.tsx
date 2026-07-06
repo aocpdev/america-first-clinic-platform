@@ -20,7 +20,7 @@ export default async function AdminCustomerRecordPage({
   if (!customer) notFound();
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Customer record">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Customer record">
       <div className="space-y-6">
         <BackNavigator />
         <CustomerRecord customer={mapCustomerRecord(customer)} mode="admin" />

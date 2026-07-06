@@ -19,7 +19,7 @@ export default async function AdminReportsPage({
 
   if (!user.companyId) {
     return (
-      <SidebarShell nav={adminNav} eyebrow="Admin" title="Reports">
+      <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Reports">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Company profile required</h2>
           <p className="mt-2 text-slate-600">Assign this account to a company before reports can be generated.</p>
@@ -31,7 +31,7 @@ export default async function AdminReportsPage({
   const data = await getReportData({ companyId: user.companyId, role: "admin", dateRange: range });
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Reports">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Reports">
       <ReportsWorkspace
         eyebrow="Executive reporting"
         title="Company-wide sales intelligence"
@@ -43,9 +43,9 @@ export default async function AdminReportsPage({
         comparisonView={compare}
         comparisonBaseHref="/admin/reports"
         earningsLabel="Gross margin"
-        directLabel="Admin direct revenue"
+        directLabel="Go Virtual Health direct revenue"
         showAgencyFee
-        scopeDescription="Admin reports include captured sales across the entire company, all originators, product mix, gross margin, and downloadable CSV exports for reconciliation."
+        scopeDescription="Go Virtual Health reports include captured sales across the entire company, all originators, product mix, gross margin, and downloadable CSV exports for reconciliation."
         data={data}
       />
     </SidebarShell>

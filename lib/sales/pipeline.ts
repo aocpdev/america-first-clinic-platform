@@ -40,7 +40,7 @@ export const ORDER_PIPELINE_STAGES = [
   {
     value: "APPROVAL",
     label: "Approval",
-    description: "The order has been clinically approved. Prescription records stay admin-only."
+    description: "The order has been clinically approved. Prescription records stay visible to Go Virtual Health only."
   },
   {
     value: "PRESCRIPTION_CONFIRMED",

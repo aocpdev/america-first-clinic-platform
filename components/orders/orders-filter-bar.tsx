@@ -84,11 +84,7 @@ export function OrdersFilterBar({ filters, selects, resetHref, visibleCount, tot
             >
               <SlidersHorizontal className="size-4" />
               Filters
-              {activeFilterCount ? (
-                <span className="grid min-w-5 place-items-center rounded-full bg-clinic-red px-1.5 py-0.5 text-[11px] font-bold text-white">
-                  {activeFilterCount}
-                </span>
-              ) : null}
+              {activeFilterCount ? <span className="size-2 rounded-full bg-clinic-red" /> : null}
               <ChevronDown className={`size-4 text-slate-400 transition ${isOpen ? "rotate-180" : ""}`} />
             </button>
 

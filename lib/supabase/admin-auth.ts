@@ -45,7 +45,7 @@ async function adminAuthRequest<T>(path: string, init: RequestInit = {}) {
         ? payload.msg
         : typeof payload?.message === "string"
           ? payload.message
-          : "Supabase Auth admin request failed.";
+          : "Supabase Auth request failed.";
     throw new Error(message);
   }
 

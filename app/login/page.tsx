@@ -11,7 +11,7 @@ import { redirect } from "next/navigation";
 
 const errorMessages: Record<string, string> = {
   invalid_credentials: "The email or password is incorrect.",
-  account_not_active: "This account is not active. Contact an administrator.",
+  account_not_active: "This account is not active. Contact Go Virtual Health.",
   profile_not_found: "Your authentication profile exists, but the CRM profile was not found.",
   access_denied: "You do not have access to that workspace."
 };

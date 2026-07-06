@@ -110,6 +110,7 @@ export async function sendPartnerPayout(formData: FormData) {
   const user = await requireUser();
   const splitId = String(formData.get("splitId") || "");
   const returnPath = String(formData.get("returnPath") || "/admin/payouts");
+  const forceExternal = String(formData.get("payoutRail") || "") === "external";
 
   if (!splitId) {
     throw new Error("Missing partner payout reference.");
@@ -141,10 +142,7 @@ export async function sendPartnerPayout(formData: FormData) {
     throw new Error("This payout item is not ready for partner payout.");
   }
 
-  const bankAccount = split.partnerProfile?.bankAccount;
-  if (!bankAccount || bankAccount.status !== "READY") {
-    throw new Error("The partner must add a ready bank account before this payout can be sent.");
-  }
+  const bankAccount = split.partnerProfile?.bankAccount ?? null;
 
   const splits = await partnerPayoutSplits(split.orderId, split.partnerProfileId);
   const partnerSplit = splits.find((item) => item.id === split.id);
@@ -156,13 +154,16 @@ export async function sendPartnerPayout(formData: FormData) {
   const partnerRetainedCents = partnerSplit.amountCents;
   const downlineObligationCents = Math.max(0, totalCents - partnerRetainedCents);
 
-  let status = "PAID_MANUAL_BANK";
-  let providerCode = "bank_record";
+  let status = bankAccount?.accountLast4 ? "PAID_MANUAL_BANK" : "PAID_EXTERNAL";
+  let providerCode = bankAccount?.accountLast4 ? "external_bank" : "external_payment";
   let providerRef: string | null = null;
   let stripeTransferId: string | null = null;
-  let rawEvent: unknown = { reason: "bank_record_only" };
+  let rawEvent: unknown = {
+    reason: bankAccount?.accountLast4 ? "external_bank_record" : "external_payment_without_destination",
+    note: "Payout recorded in CRM. Funds were not moved by Stripe."
+  };
 
-  if (bankAccount.stripeConnectedAccountId) {
+  if (bankAccount?.stripeConnectedAccountId && !forceExternal) {
     const config = await getCompanyStripeRuntimeConfig(user.companyId);
     if (!config.secretKey) {
       throw new Error("Stripe is not configured for partner payouts.");
@@ -200,9 +201,9 @@ export async function sendPartnerPayout(formData: FormData) {
       data: {
         companyId: split.companyId,
         partnerProfileId: split.partnerProfileId!,
-        bankAccountLast4: bankAccount.accountLast4,
-        bankRoutingLast4: bankAccount.routingLast4,
-        stripeConnectedAccountId: bankAccount.stripeConnectedAccountId,
+        bankAccountLast4: bankAccount?.accountLast4 ?? null,
+        bankRoutingLast4: bankAccount?.routingLast4 ?? null,
+        stripeConnectedAccountId: bankAccount?.stripeConnectedAccountId ?? null,
         stripeTransferId,
         totalCents,
         partnerRetainedCents,

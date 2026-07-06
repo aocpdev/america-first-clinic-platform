@@ -246,7 +246,7 @@ export function ProductCatalogClient({
         <div>
           <div className="flex items-center gap-2">
             <Boxes className="h-5 w-5 text-clinic-red" />
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Admin catalog</p>
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Go Virtual Health catalog</p>
           </div>
           <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">Products</h2>
           <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">

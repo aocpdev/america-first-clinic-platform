@@ -26,7 +26,7 @@ export default async function AdminOrderDetailPage({
   if (!order) notFound();
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Order document">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Order document">
       <div className="space-y-6">
         <BackNavigator />
         {paymentStatus === "success" ? (

@@ -71,7 +71,7 @@ export function RegisterForm({
         <Badge className="border-blue-100 bg-white text-clinic-navy">Agent access</Badge>
         <h1 className="mt-5 text-3xl font-semibold tracking-tight text-clinic-ink">Create your account</h1>
         <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500">
-          Choose the access type that matches your role. Accounts are reviewed by the assigned partner or company admin before the CRM opens.
+          Choose the access type that matches your role. Accounts are reviewed by the assigned partner or Go Virtual Health before the CRM opens.
         </p>
       </div>
 

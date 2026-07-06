@@ -72,7 +72,7 @@ export default async function ShopPage() {
         {products.length === 0 && (
           <Card className="mt-8 p-8 text-center">
             <h2 className="text-xl font-semibold text-clinic-ink">The catalog is being prepared</h2>
-            <p className="mt-2 text-slate-600">Products added by the admin will appear here automatically.</p>
+            <p className="mt-2 text-slate-600">Products added by Go Virtual Health will appear here automatically.</p>
           </Card>
         )}
       </main>

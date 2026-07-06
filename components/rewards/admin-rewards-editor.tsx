@@ -931,7 +931,7 @@ export function AdminRewardsEditor({
           <div className="flex items-center gap-3">
             <Settings2 className="h-5 w-5 text-clinic-red" />
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Admin configuration</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Go Virtual Health configuration</p>
               <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Reward levels</h2>
               <p className="mt-1 text-sm leading-6 text-slate-500">Each level estimates company revenue and gross margin using active product pricing and cost.</p>
             </div>
@@ -984,7 +984,7 @@ export function AdminRewardsEditor({
             );
           }) : (
             <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500 xl:col-span-3">
-              No reward levels are configured. Default admin-created rewards are disabled, so this area stays empty until levels are intentionally added through a future workflow.
+              No reward levels are configured. Default Go Virtual Health-created rewards are disabled, so this area stays empty until levels are intentionally added through a future workflow.
             </div>
           )}
         </div>

@@ -14,7 +14,7 @@ export default async function AdminCommissionsPage({ searchParams }: { searchPar
   const entries = await getAdminCommissionLedger(user.companyId, dateRange);
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Commissions">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Commissions">
       <DashboardDateRangeFilter range={dateRange} resetHref="/admin/commissions" hiddenParams={{ q: filters.q ?? "", status: filters.status ?? "ALL", role: filters.role ?? "ALL" }} />
       <CommissionLedger
         entries={entries}

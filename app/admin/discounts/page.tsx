@@ -30,7 +30,7 @@ export default async function AdminDiscountsPage() {
 
   if (!companyId) {
     return (
-      <SidebarShell nav={adminNav} eyebrow="Admin" title="Discounts">
+      <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Discounts">
         <Card className="p-6">Company setup required.</Card>
       </SidebarShell>
     );
@@ -67,7 +67,7 @@ export default async function AdminDiscountsPage() {
   const redeemedCents = redemptions.reduce((sum, redemption) => sum + redemption.discountCents, 0);
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Discounts">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Discounts">
       <div className="space-y-5">
         <div className="grid gap-3 md:grid-cols-3">
           <Card className="rounded-2xl border-white/80 bg-white/90 p-5 shadow-[0_18px_45px_rgba(15,35,58,0.06)]">

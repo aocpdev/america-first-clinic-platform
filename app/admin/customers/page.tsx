@@ -14,7 +14,7 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
   });
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Customers">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Customers">
       <CustomerList customers={mapCustomerRows(customers)} mode="admin" filters={filters} />
     </SidebarShell>
   );

@@ -79,7 +79,7 @@ export function DashboardDateRangeMenu({ range, resetHref, hiddenParams = {} }: 
                 <CalendarDays className="size-4" />
               </span>
               <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Dashboard date range</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">Date range</p>
                 <p className="mt-1 text-sm font-semibold text-clinic-ink">{range.label}</p>
               </div>
             </div>

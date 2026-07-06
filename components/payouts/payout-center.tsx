@@ -386,7 +386,8 @@ function PayoutRow({
   const displayedAmount = displayPayoutAmount(entry, scope, allEntries);
   const sourcePacketAmount = sourceCompanyPayment ? partnerPacketAmount(sourceCompanyPayment, allEntries) : 0;
   const isAdminPartnerPayout = scope === "admin" && entry.participantRole === "PARTNER";
-  const bankReady = Boolean(entry.partnerBankAccountLast4 && entry.partnerBankStatus === "READY");
+  const hasStripeDestination = Boolean(entry.partnerStripeConnectedAccountId);
+  const hasExternalBank = Boolean(entry.partnerBankAccountLast4);
 
   return (
     <div className="grid gap-4 border-t border-border px-5 py-5 lg:grid-cols-[1.15fr_1fr_0.75fr_0.7fr_auto] lg:items-center">
@@ -416,8 +417,12 @@ function PayoutRow({
         ) : null}
         {isAdminPartnerPayout ? (
           <div className="mt-3 rounded-2xl border border-blue-100 bg-white/80 px-3 py-2 text-xs leading-5 text-slate-600">
-            <span className="font-bold uppercase tracking-[0.14em] text-slate-500">Bank</span>{" "}
-            {bankReady ? `•••• ${entry.partnerBankAccountLast4}` : "Setup needed"}
+            <span className="font-bold uppercase tracking-[0.14em] text-slate-500">Payout rail</span>{" "}
+            {hasStripeDestination
+              ? "Stripe Connect"
+              : hasExternalBank
+                ? `External bank •••• ${entry.partnerBankAccountLast4}`
+                : "External payment"}
           </div>
         ) : null}
       </div>
@@ -432,15 +437,25 @@ function PayoutRow({
           Review
         </Link>
         {canMarkPaid && entry.status === "APPROVED" ? (
-          <form action={isAdminPartnerPayout ? sendPartnerPayout : markCommissionSplitPaid}>
+          <form action={isAdminPartnerPayout ? sendPartnerPayout : markCommissionSplitPaid} className="flex flex-wrap gap-2 lg:justify-end">
             <input type="hidden" name="splitId" value={entry.id} />
             <input type="hidden" name="returnPath" value={returnPath(scope)} />
             <button
-              disabled={isAdminPartnerPayout && !bankReady}
-              className="inline-flex items-center justify-center rounded-2xl bg-clinic-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-clinic-blue disabled:cursor-not-allowed disabled:bg-slate-300"
+              name={isAdminPartnerPayout ? "payoutRail" : undefined}
+              value={isAdminPartnerPayout && hasStripeDestination ? "stripe" : "external"}
+              className="inline-flex items-center justify-center rounded-2xl bg-clinic-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-clinic-blue"
             >
-              {isAdminPartnerPayout ? "Send payout" : "Mark paid"}
+              {isAdminPartnerPayout ? (hasStripeDestination ? "Send via Stripe" : "Record external payout") : "Mark paid"}
             </button>
+            {isAdminPartnerPayout && hasStripeDestination ? (
+              <button
+                name="payoutRail"
+                value="external"
+                className="inline-flex items-center justify-center rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-clinic-navy shadow-sm transition hover:bg-clinic-mist"
+              >
+                Record external
+              </button>
+            ) : null}
           </form>
         ) : null}
       </div>
@@ -689,7 +704,7 @@ function PartnerPayoutHistory({ payouts }: { payouts: PartnerPayoutHistoryItem[]
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">Reconciliation ledger</p>
         <h3 className="mt-2 text-2xl font-semibold tracking-tight text-clinic-ink">Company-funded partner payouts</h3>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-          Every admin payout is broken down by retained partner earnings and team obligations, so the partner can reconcile what came in and what needs to go out.
+          Every Go Virtual Health payout is broken down by retained partner earnings and team obligations, so the partner can reconcile what came in and what needs to go out.
         </p>
       </div>
       <div className="grid gap-4 p-4 lg:grid-cols-2">
@@ -718,7 +733,14 @@ function PartnerPayoutHistory({ payouts }: { payouts: PartnerPayoutHistoryItem[]
               </div>
             </div>
             <div className="mt-4 rounded-2xl border border-border bg-clinic-mist/70 p-3 text-sm text-slate-600">
-              Destination bank: <span className="font-semibold text-clinic-ink">•••• {payout.bankAccountLast4 ?? "----"}</span>
+              Payout rail:{" "}
+              <span className="font-semibold text-clinic-ink">
+                {payout.providerCode === "stripe"
+                  ? "Stripe Connect"
+                  : payout.bankAccountLast4
+                    ? `External bank •••• ${payout.bankAccountLast4}`
+                    : "External payment"}
+              </span>
               {payout.providerRef ? <span className="block text-xs text-slate-500">Provider ref: {payout.providerRef}</span> : null}
             </div>
             <div className="mt-4 space-y-2">
@@ -940,7 +962,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-emerald-700">Cash reward distribution</p>
                 <h3 className="mt-2 text-2xl font-semibold text-clinic-ink">Rewards paid through partner payout</h3>
                 <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                  Cash rewards are funded to the partner, then the partner pays the manager, leader, or agent who earned the reward. Non-cash rewards stay in the admin fulfillment workflow.
+                  Cash rewards are funded to the partner, then the partner pays the manager, leader, or agent who earned the reward. Non-cash rewards stay in the Go Virtual Health fulfillment workflow.
                 </p>
               </div>
               <div className="rounded-[24px] bg-white px-5 py-4 shadow-line">

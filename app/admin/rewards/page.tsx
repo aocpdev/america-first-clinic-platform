@@ -11,7 +11,7 @@ export default async function AdminRewardsPage() {
 
   if (!user.companyId) {
     return (
-      <SidebarShell nav={adminNav} eyebrow="Admin" title="Rewards">
+      <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Rewards">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Company profile required</h2>
           <p className="mt-2 text-slate-600">Assign this user to a company before rewards can be configured.</p>
@@ -86,7 +86,7 @@ export default async function AdminRewardsPage() {
   }));
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Rewards">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Rewards">
       <div className="space-y-6">
         <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white p-6 shadow-[0_22px_70px_rgba(7,55,99,0.08)]">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">

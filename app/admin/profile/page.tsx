@@ -12,11 +12,11 @@ export default async function AdminProfilePage({
   const params = await searchParams;
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Profile">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Profile">
       <ProfileSettings
         user={user}
-        title="Admin profile"
-        description="Manage the owner or administrator profile shown across the CRM workspace."
+        title="Go Virtual Health profile"
+        description="Manage the Go Virtual Health profile shown across the CRM workspace."
         error={params.error}
         updated={params.updated}
       />

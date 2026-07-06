@@ -12,10 +12,10 @@ export default async function AdminProductsPage() {
 
   if (!companyId) {
     return (
-      <SidebarShell nav={adminNav} eyebrow="Admin" title="Products">
+      <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Products">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Company setup required</h2>
-          <p className="mt-2 text-slate-600">This admin account needs to be linked to a company before products can be managed.</p>
+          <p className="mt-2 text-slate-600">This Go Virtual Health account needs to be linked to a company before products can be managed.</p>
         </Card>
       </SidebarShell>
     );
@@ -92,7 +92,7 @@ export default async function AdminProductsPage() {
   });
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Products">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Products">
       <ProductCatalogClient
         products={productViews}
         categories={categories.map((category) => category.name)}

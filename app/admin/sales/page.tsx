@@ -26,10 +26,10 @@ export default async function AdminSalesPage({
 
   if (!user.companyId) {
     return (
-      <SidebarShell nav={adminNav} eyebrow="Company admin" title="Sales">
+      <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Sales">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Company setup required</h2>
-          <p className="mt-2 text-slate-600">Your admin account must be connected to a company before creating sales.</p>
+          <p className="mt-2 text-slate-600">Your Go Virtual Health account must be connected to a company before creating sales.</p>
         </Card>
       </SidebarShell>
     );
@@ -67,7 +67,7 @@ export default async function AdminSalesPage({
   ]);
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Company admin" title="Sales">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Sales">
       <SalesBuilderClient
         customers={customers.map((customer) => ({
           id: customer.id,
@@ -125,7 +125,7 @@ export default async function AdminSalesPage({
         commissionLabel="Profit generated"
         commissionDetailLabel="Profit generated"
         productEstimateLabel="est. profit"
-        successMessage="Order created successfully. No commission was generated for this admin sale."
+        successMessage="Order created successfully. No commission was generated for this Go Virtual Health sale."
         ownershipCopy={null}
         createdOrderId={params.created}
         error={params.error}

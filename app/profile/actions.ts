@@ -1,15 +1,18 @@
 "use server";
 
+import Stripe from "stripe";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
 import { requireUser } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
+import { getCompanyStripeRuntimeConfig } from "@/lib/payments/stripe-config";
 import { normalizePhoneToE164 } from "@/lib/phone";
 import { encryptField, last4 } from "@/lib/security/field-encryption";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { updateConfirmedAuthUser } from "@/lib/supabase/admin-auth";
+import { portalBaseUrl } from "@/lib/urls";
 
 function textValue(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -258,4 +261,80 @@ export async function updatePartnerBankAccount(formData: FormData) {
   revalidatePath("/partner/profile");
   revalidatePath("/admin/payouts");
   redirect(`${profilePath}?updated=bank`);
+}
+
+export async function connectPartnerStripeAccount() {
+  const user = await requireUser();
+  if (user.role !== "PARTNER") {
+    redirect("/login?error=access_denied");
+  }
+
+  const profilePath = profilePathForRole(user.role);
+  if (!user.companyId || !user.partnerProfile?.id) {
+    redirect(`${profilePath}?error=partner_profile_required`);
+  }
+
+  const config = await getCompanyStripeRuntimeConfig(user.companyId);
+  if (!config.secretKey) {
+    redirect(`${profilePath}?error=stripe_not_configured`);
+  }
+
+  const stripe = new Stripe(config.secretKey);
+  const existing = await prisma.partnerBankAccount.findUnique({
+    where: { partnerProfileId: user.partnerProfile.id },
+    select: { stripeConnectedAccountId: true }
+  });
+
+  let connectedAccountId = existing?.stripeConnectedAccountId ?? null;
+  if (!connectedAccountId) {
+    const account = await stripe.accounts.create({
+      type: "express",
+      country: "US",
+      email: user.email,
+      business_type: user.partnerProfile.companyName ? "company" : "individual",
+      business_profile: {
+        name: user.partnerProfile.companyName || user.partnerProfile.displayName || `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email
+      },
+      capabilities: {
+        transfers: { requested: true }
+      },
+      metadata: {
+        companyId: user.companyId,
+        partnerProfileId: user.partnerProfile.id,
+        userId: user.id,
+        source: "partner_profile_connect",
+        stripeMode: config.mode
+      }
+    });
+
+    connectedAccountId = account.id;
+    await prisma.partnerBankAccount.upsert({
+      where: { partnerProfileId: user.partnerProfile.id },
+      create: {
+        companyId: user.companyId,
+        partnerProfileId: user.partnerProfile.id,
+        accountHolderName: user.partnerProfile.companyName || user.partnerProfile.displayName || `${user.firstName ?? ""} ${user.lastName ?? ""}`.trim() || user.email,
+        accountHolderType: user.partnerProfile.companyName ? "company" : "individual",
+        stripeConnectedAccountId: connectedAccountId,
+        status: "STRIPE_ONBOARDING",
+        createdByUserId: user.id,
+        updatedByUserId: user.id
+      },
+      update: {
+        stripeConnectedAccountId: connectedAccountId,
+        status: "STRIPE_ONBOARDING",
+        updatedByUserId: user.id
+      }
+    });
+  }
+
+  const baseUrl = portalBaseUrl();
+  const link = await stripe.accountLinks.create({
+    account: connectedAccountId,
+    type: "account_onboarding",
+    refresh_url: `${baseUrl}/partner/profile?stripe=refresh`,
+    return_url: `${baseUrl}/partner/profile?updated=stripe_connect`
+  });
+
+  redirect(link.url);
 }

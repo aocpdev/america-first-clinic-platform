@@ -45,10 +45,10 @@ export default async function AdminPipelinePage() {
 
   if (!user.companyId) {
     return (
-      <SidebarShell nav={adminNav} eyebrow="Company admin" title="Pipeline">
+      <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Pipeline">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Company setup required</h2>
-          <p className="mt-2 text-slate-600">Your admin account must be connected to a company before viewing the pipeline.</p>
+          <p className="mt-2 text-slate-600">Your Go Virtual Health account must be connected to a company before viewing the pipeline.</p>
         </Card>
       </SidebarShell>
     );
@@ -62,7 +62,7 @@ export default async function AdminPipelinePage() {
   const qualiphyExamList = await getQualiphyExamList();
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Company admin" title="Pipeline">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Pipeline">
       <CustomerPipelineBoard
         customers={orders.map((order) => {
           const ownerUser = orderOriginator(order);
@@ -83,7 +83,7 @@ export default async function AdminPipelinePage() {
             shippingCarrier: order.shippingCarrier,
             shippingTrackingCode: order.shippingTrackingCode,
             createdAt: order.createdAt.toISOString(),
-            consultantName: ownerUser ? personName(ownerUser) : "Admin",
+            consultantName: ownerUser ? personName(ownerUser) : "Go Virtual Health",
             consultantAvatarUrl: ownerUser?.avatarUrl ?? null,
             rxNotes: order.rxNotes,
             rxDocumentUrl: order.rxDocumentUrl,

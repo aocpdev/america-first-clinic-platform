@@ -35,7 +35,7 @@ export default async function ManagerSalesPage({
       <SidebarShell nav={managerNav} eyebrow="Manager" title="Sales">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Manager sales profile not configured</h2>
-          <p className="mt-2 text-slate-600">A partner or admin must assign your manager profile before you can create sales.</p>
+          <p className="mt-2 text-slate-600">A partner or Go Virtual Health must assign your manager profile before you can create sales.</p>
         </Card>
       </SidebarShell>
     );

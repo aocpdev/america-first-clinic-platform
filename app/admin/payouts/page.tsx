@@ -11,7 +11,7 @@ export default async function AdminPayoutsPage({ searchParams }: { searchParams:
   const entries = await getAdminCommissionLedger(user.companyId);
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Payouts">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Payouts">
       <PayoutCenter entries={entries} scope="admin" filters={filters} />
     </SidebarShell>
   );

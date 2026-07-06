@@ -986,7 +986,7 @@ function OpportunityModal({
                   <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Clinical workflow</p>
                   <h4 className="mt-2 text-2xl font-semibold text-clinic-ink">RX / Exam documents</h4>
                   {!canManageInternalDocs ? (
-                    <p className="mt-2 text-sm text-slate-500">Clinical document details are managed by the admin team.</p>
+                    <p className="mt-2 text-sm text-slate-500">Clinical document details are managed by Go Virtual Health.</p>
                   ) : null}
                 </div>
 

@@ -41,7 +41,7 @@ export default async function ManagerOrdersPage({ searchParams }: { searchParams
         {!managerProfile ? (
           <Card className="p-6">
             <h2 className="text-xl font-semibold text-clinic-ink">Order visibility not configured</h2>
-            <p className="mt-2 text-slate-600">A partner or admin must assign your manager profile before orders appear here.</p>
+            <p className="mt-2 text-slate-600">A partner or Go Virtual Health must assign your manager profile before orders appear here.</p>
           </Card>
         ) : null}
         <div className="grid gap-4 md:grid-cols-3">

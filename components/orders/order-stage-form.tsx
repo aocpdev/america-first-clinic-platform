@@ -53,7 +53,7 @@ export function OrderStageForm({
 
       {showsPrescription ? (
         <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Admin-only prescription record</p>
+          <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Go Virtual Health prescription record</p>
           <input
             name="prescriptionDocumentUrl"
             defaultValue={prescriptionDocumentUrl ?? ""}

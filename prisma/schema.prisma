@@ -263,10 +263,10 @@ model PartnerBankAccount {
   accountHolderName          String
   accountHolderType          String         @default("company")
   bankName                   String?
-  routingNumberEncrypted     String
-  accountNumberEncrypted     String
-  routingLast4               String
-  accountLast4               String
+  routingNumberEncrypted     String?
+  accountNumberEncrypted     String?
+  routingLast4               String?
+  accountLast4               String?
   stripeConnectedAccountId   String?
   stripeExternalAccountId    String?
   stripeBankFingerprint      String?

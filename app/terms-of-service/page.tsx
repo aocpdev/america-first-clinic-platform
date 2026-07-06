@@ -32,7 +32,7 @@ export default function TermsOfServicePage() {
         },
         {
           title: "Agent and partner access",
-          body: "Agents, partners, managers, and administrators may access different information based on their role. Users are responsible for keeping login credentials secure and may only access customer, order, sales, and commission information they are authorized to view. Unauthorized access, data export, sharing, or misuse is prohibited."
+          body: "Agents, partners, managers, and Go Virtual Health team members may access different information based on their role. Users are responsible for keeping login credentials secure and may only access customer, order, sales, and commission information they are authorized to view. Unauthorized access, data export, sharing, or misuse is prohibited."
         },
         {
           title: "No guarantee of results",

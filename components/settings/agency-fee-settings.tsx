@@ -27,7 +27,7 @@ export function AgencyFeeSettings({ setting }: { setting: AgencyFeeSetting }) {
       <div className="border-b border-border bg-white p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <Badge>Admin only</Badge>
+            <Badge>Go Virtual Health only</Badge>
             <h2 className="mt-3 text-3xl font-semibold text-clinic-ink">Agency fee</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
               Automatically transfer a private agency fee from captured Stripe payments. This is hidden from customers, agents, leaders, managers, and partners, and does not create a manual payout task.

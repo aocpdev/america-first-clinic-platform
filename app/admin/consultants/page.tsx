@@ -168,7 +168,7 @@ export default async function AdminConsultantsPage({
   };
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Partner network">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Partner network">
       <div className="space-y-6">
         {params.updated ? (
           <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-semibold text-emerald-700">
@@ -618,7 +618,7 @@ export default async function AdminConsultantsPage({
                         <div className="flex flex-wrap justify-end gap-2">
                           <form action={rejectConsultant}>
                             <input type="hidden" name="userId" value={user.id} />
-                            <input type="hidden" name="reason" value="Application rejected by company admin." />
+                            <input type="hidden" name="reason" value="Application rejected by Go Virtual Health." />
                             <SubmitButton size="sm" variant="outline" pendingText="Rejecting...">Reject</SubmitButton>
                           </form>
                           <form action={approveConsultant} className="flex flex-wrap justify-end gap-2">

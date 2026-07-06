@@ -1040,7 +1040,7 @@ export function SalesBuilderClient({
                       <span>Remainder affects partner/margin: -{formatCurrency(remainingDiscountCents)}</span>
                     ) : null}
                     {discountFundingStrategy !== "ORIGINATOR_FUNDED" ? (
-                      <span>This coupon is controlled by admin funding rules.</span>
+                      <span>This coupon is controlled by Go Virtual Health funding rules.</span>
                     ) : null}
                   </div>
                 ) : (

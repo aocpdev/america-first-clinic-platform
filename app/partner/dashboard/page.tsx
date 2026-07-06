@@ -57,7 +57,7 @@ export default async function PartnerDashboardPage({
     : metrics.pendingConsultantPayoutCents;
 
   return (
-    <SidebarShell nav={nav} eyebrow={isLeaderDashboard ? "Group leader" : "Partner"} title={isLeaderDashboard ? "Leader performance" : "Partner performance"}>
+    <SidebarShell nav={nav} eyebrow={isLeaderDashboard ? "Group leader" : "Partner"} title={isLeaderDashboard ? "Leader dashboard" : "Dashboard"}>
       <DashboardDateRangeFilter range={dateRange} resetHref="/partner/dashboard" />
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label={isLeaderDashboard ? "Team revenue" : "Network revenue"} value={currency(metrics.revenueCents / 100)} change={`${metrics.paidOrderCount} paid orders in scope`} info="Total money collected from paid orders in your scope." />

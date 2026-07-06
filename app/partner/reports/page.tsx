@@ -35,7 +35,7 @@ export default async function PartnerReportsPage({
       <SidebarShell nav={nav} eyebrow={isGroupLeader ? "Group leader" : "Partner"} title="Reports">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Reporting profile not configured</h2>
-          <p className="mt-2 text-slate-600">A partner, manager, or admin must assign your reporting profile before reports are available.</p>
+          <p className="mt-2 text-slate-600">A partner, manager, or Go Virtual Health must assign your reporting profile before reports are available.</p>
         </Card>
       </SidebarShell>
     );

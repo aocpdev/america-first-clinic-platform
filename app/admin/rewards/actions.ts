@@ -195,7 +195,7 @@ export async function saveRewardLevelBundle(formData: FormData) {
 async function persistRewardCampaign(formData: FormData) {
   const user = await requireRole("COMPANY_ADMIN");
   if (!user.companyId) {
-    throw new Error("Your admin profile is not connected to a company.");
+    throw new Error("Your Go Virtual Health profile is not connected to a company.");
   }
 
   const parsed = campaignSchema.parse({

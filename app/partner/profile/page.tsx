@@ -4,12 +4,16 @@ import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { groupLeaderNav, partnerNav } from "@/lib/constants/navigation";
 import { requireUser } from "@/lib/auth/current-user";
-import { updatePartnerBankAccount, updatePartnerCompany } from "@/app/profile/actions";
+import { connectPartnerStripeAccount, updatePartnerBankAccount, updatePartnerCompany } from "@/app/profile/actions";
 import { prisma } from "@/lib/db/prisma";
-import { BadgeCheck, Landmark, ShieldCheck, WalletCards } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, Landmark, ShieldCheck, WalletCards } from "lucide-react";
 
 function maskLast4(value?: string | null) {
   return value ? `•••• ${value}` : "Not connected";
+}
+
+function stripeStatusLabel(accountId?: string | null) {
+  return accountId ? "Stripe Connect linked" : "Stripe Connect needed";
 }
 
 async function getPartnerBankAccount(partnerProfileId?: string | null) {
@@ -70,22 +74,22 @@ export default async function PartnerProfilePage({
                     <Landmark className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-clinic-red">Partner payout banking</p>
-                    <h3 className="mt-2 text-2xl font-semibold tracking-tight text-clinic-ink">Bank account for partner payouts</h3>
+                    <p className="text-xs font-bold uppercase tracking-[0.2em] text-clinic-red">Partner payout destination</p>
+                    <h3 className="mt-2 text-2xl font-semibold tracking-tight text-clinic-ink">Stripe Connect for partner payouts</h3>
                     <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                      Add the account where Go Virtual Health will send partner payout packets. The CRM stores encrypted bank details and only displays the last four digits.
+                      Connect Stripe so Go Virtual Health can send partner payout packets automatically. If Stripe is not connected, payouts can still be recorded as external payments for reconciliation.
                     </p>
                   </div>
                 </div>
                 <div className="rounded-[24px] border border-emerald-100 bg-white/75 px-5 py-4 shadow-sm">
                   <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
                     <BadgeCheck className="h-4 w-4" />
-                    {bankAccount ? "Ready for admin payout" : "Bank setup needed"}
+                    {stripeStatusLabel(bankAccount?.stripeConnectedAccountId)}
                   </div>
                   <p className="mt-2 text-xs leading-5 text-slate-500">
-                    {bankAccount
-                      ? `${bankAccount.bankName || "Bank account"} ${maskLast4(bankAccount.accountLast4)}`
-                      : "Add banking before the admin can send funds."}
+                    {bankAccount?.stripeConnectedAccountId
+                      ? `Connected account ${bankAccount.stripeConnectedAccountId}. Complete any Stripe requirements before automatic payouts.`
+                      : "Connect Stripe for automatic payouts."}
                   </p>
                 </div>
               </div>
@@ -93,13 +97,32 @@ export default async function PartnerProfilePage({
 
             <div className="grid gap-6 p-6 xl:grid-cols-[0.9fr_1.1fr]">
               <div className="space-y-4">
+                <div className="rounded-[28px] border border-blue-100 bg-gradient-to-br from-white to-blue-50/80 p-5 shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="grid size-11 place-items-center rounded-2xl bg-white text-clinic-navy shadow-sm">
+                      <ArrowUpRight className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Automatic rail</p>
+                      <p className="mt-1 text-lg font-semibold text-clinic-ink">{bankAccount?.stripeConnectedAccountId ? "Connected to Stripe" : "Not connected"}</p>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-sm leading-6 text-slate-600">
+                    Stripe handles bank validation, compliance, payout timing, failed payouts, and account updates directly with the partner.
+                  </p>
+                  <form action={connectPartnerStripeAccount} className="mt-5">
+                    <SubmitButton pendingText="Opening Stripe..." className="w-full rounded-2xl">
+                      {bankAccount?.stripeConnectedAccountId ? "Complete or review Stripe" : "Connect Stripe account"}
+                    </SubmitButton>
+                  </form>
+                </div>
                 <div className="rounded-[28px] border border-border bg-white/80 p-5 shadow-sm">
                   <div className="flex items-center gap-3">
                     <div className="grid size-11 place-items-center rounded-2xl bg-clinic-mist text-clinic-navy">
                       <WalletCards className="h-5 w-5" />
                     </div>
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Current destination</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">External fallback</p>
                       <p className="mt-1 text-lg font-semibold text-clinic-ink">{maskLast4(bankAccount?.accountLast4)}</p>
                     </div>
                   </div>
@@ -110,13 +133,19 @@ export default async function PartnerProfilePage({
                     </div>
                     <div className="rounded-2xl bg-emerald-50 p-4">
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Status</p>
-                      <p className="mt-2 font-semibold text-emerald-700">{bankAccount?.status ?? "Not ready"}</p>
+                      <p className="mt-2 font-semibold text-emerald-700">{bankAccount?.accountLast4 ? "Ready" : "Not ready"}</p>
                     </div>
                   </div>
                 </div>
               </div>
 
               <form action={updatePartnerBankAccount} className="grid gap-4 rounded-[28px] border border-border bg-white/85 p-5 shadow-sm md:grid-cols-2">
+                <div className="md:col-span-2">
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">External payment backup</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    Use this only when Go Virtual Health needs to record a payout completed outside Stripe Connect.
+                  </p>
+                </div>
                 <label className="space-y-2 md:col-span-2">
                   <span className="text-sm font-semibold text-clinic-ink">Account holder name</span>
                   <input

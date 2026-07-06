@@ -53,7 +53,7 @@ export function PaymentProviderSettings({
       <div className="border-b border-border bg-white p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <Badge>Admin only</Badge>
+            <Badge>Go Virtual Health only</Badge>
             <h2 className="mt-3 text-3xl font-semibold text-clinic-ink">Payment provider</h2>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
               Select the active payment rail without coupling orders, commissions, customers, or dashboards to one processor.

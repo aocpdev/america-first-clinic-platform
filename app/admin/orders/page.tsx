@@ -34,7 +34,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
   const agencyFeeCents = rows.reduce((sum, order) => sum + order.agencyFeeCents, 0);
 
   return (
-    <SidebarShell nav={adminNav} eyebrow="Admin" title="Orders">
+    <SidebarShell nav={adminNav} eyebrow="Go Virtual Health" title="Orders">
       <div className="space-y-6">
         {filters.deleted ? (
           <Card className="border-emerald-100 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">

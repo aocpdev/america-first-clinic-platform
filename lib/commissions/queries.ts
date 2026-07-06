@@ -14,7 +14,7 @@ export type CommissionLedgerEntry = {
   customerEmail: string;
   agentName: string;
   agentEmail: string;
-  agentRole: "Agent" | "Leader" | "Manager" | "Partner" | "Admin";
+  agentRole: "Agent" | "Leader" | "Manager" | "Partner" | "Go Virtual Health";
   participantRole: CommissionParticipantRole;
   participantName: string;
   participantEmail: string;
@@ -30,6 +30,7 @@ export type CommissionLedgerEntry = {
   partnerBankAccountLast4?: string | null;
   partnerBankRoutingLast4?: string | null;
   partnerBankStatus?: string | null;
+  partnerStripeConnectedAccountId?: string | null;
 };
 
 const commissionSplitInclude = {
@@ -156,9 +157,9 @@ function saleOriginatorFor(split: CommissionSplitWithRelations) {
 
   if (commissionMode === "ADMIN_DIRECT") {
     return {
-      name: "Admin direct sale",
+      name: "Go Virtual Health direct sale",
       email: "",
-      role: "Admin" as const
+      role: "Go Virtual Health" as const
     };
   }
 
@@ -196,7 +197,8 @@ export function mapCommissionSplit(split: CommissionSplitWithRelations): Commiss
     createdAt: split.createdAt,
     partnerBankAccountLast4: null,
     partnerBankRoutingLast4: null,
-    partnerBankStatus: null
+    partnerBankStatus: null,
+    partnerStripeConnectedAccountId: null
   };
 }
 
@@ -211,7 +213,8 @@ async function attachPartnerBankSummaries(entries: CommissionLedgerEntry[]) {
         partnerProfileId: true,
         accountLast4: true,
         routingLast4: true,
-        status: true
+        status: true,
+        stripeConnectedAccountId: true
       }
     });
     const byPartner = new Map(bankAccounts.map((account) => [account.partnerProfileId, account]));
@@ -221,7 +224,8 @@ async function attachPartnerBankSummaries(entries: CommissionLedgerEntry[]) {
         ...entry,
         partnerBankAccountLast4: account?.accountLast4 ?? null,
         partnerBankRoutingLast4: account?.routingLast4 ?? null,
-        partnerBankStatus: account?.status ?? null
+        partnerBankStatus: account?.status ?? null,
+        partnerStripeConnectedAccountId: account?.stripeConnectedAccountId ?? null
       };
     });
   } catch {

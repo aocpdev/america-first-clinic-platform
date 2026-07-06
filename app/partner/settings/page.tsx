@@ -27,7 +27,7 @@ export default async function PartnerSettingsPage() {
             <Badge>Leader</Badge>
             <h2 className="mt-3 text-3xl font-semibold text-clinic-ink">Leader settings</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Leaders can manage profile and reporting preferences. Payment and automation webhooks are controlled by the partner or admin.
+              Leaders can manage profile and reporting preferences. Payment and automation webhooks are controlled by the partner or Go Virtual Health.
             </p>
           </Card>
         ) : (

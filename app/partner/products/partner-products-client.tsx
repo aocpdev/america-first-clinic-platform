@@ -153,7 +153,7 @@ export function PartnerProductsClient({
         ) : (
           <div className="mt-6 rounded-2xl border border-dashed border-border bg-clinic-mist p-10 text-center">
             <p className="font-semibold text-clinic-ink">No products are visible yet.</p>
-            <p className="mt-2 text-sm text-slate-500">Products will appear after the admin activates them in the catalog.</p>
+            <p className="mt-2 text-sm text-slate-500">Products will appear after Go Virtual Health activates them in the catalog.</p>
           </div>
         )}
       </section>

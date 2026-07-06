@@ -454,7 +454,7 @@ export default async function PartnerConsultantsPage({
             <div className="mt-6 rounded-3xl border border-border bg-clinic-mist/70 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Commission governance</p>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
-                The company admin controls the partner margin pool. Inside this workspace, the partner can organize managers, leaders, agents, and define team commission shares from that pool.
+                Go Virtual Health controls the partner margin pool. Inside this workspace, the partner can organize managers, leaders, agents, and define team commission shares from that pool.
               </p>
             </div>
           </Card>

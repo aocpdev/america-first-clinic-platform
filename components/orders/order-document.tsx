@@ -455,7 +455,7 @@ export function OrderDocument({
                   <>
                     <div className="flex justify-between"><span className="text-slate-500">Gross margin</span><span className="font-semibold text-clinic-ink">{money(order.grossMarginCents)}</span></div>
                     {isAdminDirectSale ? (
-                      <div className="flex justify-between"><span className="text-slate-500">Admin direct profit</span><span className="font-semibold text-emerald-700">{money(order.grossMarginCents)}</span></div>
+                      <div className="flex justify-between"><span className="text-slate-500">Go Virtual Health direct profit</span><span className="font-semibold text-emerald-700">{money(order.grossMarginCents)}</span></div>
                     ) : (
                       <div className="flex justify-between"><span className="text-slate-500">Commission pool</span><span className="font-semibold text-clinic-ink">{money(order.commissionPoolCents)}</span></div>
                     )}
@@ -488,9 +488,9 @@ export function OrderDocument({
 
           {canManageOrderStage ? (
             <div className="rounded-3xl border border-border bg-white p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Admin workflow</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Go Virtual Health workflow</p>
               <h3 className="mt-2 text-lg font-semibold text-clinic-ink">Manage order step</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-500">Prescription details are admin-only and hidden from partners, leaders, and consultants.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-500">Prescription details are visible to Go Virtual Health only and hidden from partners, leaders, and consultants.</p>
               <div className="mt-4">
                 <OrderStageForm
                   orderId={order.id}
@@ -515,7 +515,7 @@ export function OrderDocument({
 
           {mode === "admin" && !isReceipt && (order.prescriptionDocumentUrl || order.prescriptionNotes) ? (
             <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Admin-only prescription</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Go Virtual Health prescription</p>
               {order.prescriptionDocumentUrl ? (
                 <a href={order.prescriptionDocumentUrl} target="_blank" rel="noreferrer" className="mt-3 block break-all text-sm font-semibold text-clinic-navy underline">
                   {order.prescriptionDocumentUrl}
@@ -527,9 +527,9 @@ export function OrderDocument({
 
           {mode === "admin" && !isReceipt ? (
             <div className="rounded-3xl border border-blue-100 bg-blue-50 p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Admin-only clinical files</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Go Virtual Health clinical files</p>
               <h3 className="mt-2 text-lg font-semibold text-clinic-ink">Exam / RX documents</h3>
-              <p className="mt-1 text-sm leading-6 text-slate-600">Protected patient files. Only admins can open or download these links.</p>
+              <p className="mt-1 text-sm leading-6 text-slate-600">Protected patient files. Only Go Virtual Health can open or download these links.</p>
               <div className="mt-4 space-y-3">
                 {order.clinicalDocuments.length ? (
                   order.clinicalDocuments.map((document) => (
@@ -573,7 +573,7 @@ export function OrderDocument({
 
           {mode === "admin" && !isReceipt ? (
             <div className="rounded-3xl border border-red-100 bg-red-50 p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-700">Admin cleanup</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-red-700">Go Virtual Health cleanup</p>
               <h3 className="mt-2 text-lg font-semibold text-clinic-ink">Test order removal</h3>
               {isCaptured ? (
                 <p className="mt-2 text-sm leading-6 text-red-700">
