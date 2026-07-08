@@ -101,6 +101,7 @@ export async function ensureDefaultRewardLevels(companyId: string) {
         description: item.reward.description,
         valueCents: item.reward.valueCents,
         imageUrl: item.reward.imageUrl,
+        isActive: false,
         sortOrder: item.level
       }
     });
@@ -454,8 +455,21 @@ export async function getRewardCampaigns(companyId: string) {
       campaign.goalMode === "TOTAL_UNITS"
         ? Math.max(campaign.targetQuantity, 1)
         : Math.max(campaign.products.reduce((sum, item) => sum + item.targetQuantity, 0), 1);
-    const projectedRevenueCents = campaign.goalMode === "TOTAL_UNITS" ? averageRevenueCents * totalTargetQuantity : bundleRevenueCents;
-    const projectedMarginCents = campaign.goalMode === "TOTAL_UNITS" ? averageMarginCents * totalTargetQuantity : bundleMarginCents;
+    const qualifiedProducts = campaign.products.filter(
+      (item) => Math.max(item.product.priceCents - item.product.internalCostCents, 0) >= campaign.minQualifiedMarginCents
+    );
+    const qualifiedAverageMarginCents = qualifiedProducts.length
+      ? Math.round(
+          qualifiedProducts.reduce((sum, item) => sum + Math.max(item.product.priceCents - item.product.internalCostCents, 0), 0) /
+            qualifiedProducts.length
+        )
+      : averageMarginCents;
+    const projectedUnits =
+      campaign.metricMode === "QUALIFIED_POINTS" && campaign.goalMode === "TOTAL_UNITS"
+        ? Math.ceil((totalTargetQuantity * campaign.pointValueCents) / Math.max(qualifiedAverageMarginCents, 1))
+        : totalTargetQuantity;
+    const projectedRevenueCents = campaign.goalMode === "TOTAL_UNITS" ? averageRevenueCents * projectedUnits : bundleRevenueCents;
+    const projectedMarginCents = campaign.goalMode === "TOTAL_UNITS" ? qualifiedAverageMarginCents * projectedUnits : bundleMarginCents;
 
     return {
       ...campaign,
@@ -511,6 +525,10 @@ export async function getActiveRewardCampaignProgress(input: {
         campaign.goalMode === "TOTAL_UNITS"
           ? Math.max(campaign.targetQuantity, 1)
           : Math.max(campaign.products.reduce((sum, item) => sum + item.targetQuantity, 0), 1);
+      const orderDateFilter =
+        campaign.qualificationEvent === "SHIPPED_ORDER"
+          ? { shippedAt: { gte: campaign.startsAt, lte: campaign.endsAt } }
+          : { createdAt: { gte: campaign.startsAt, lte: campaign.endsAt } };
       const orderItems = await prisma.orderItem.findMany({
         where: {
           productId: { in: productIds },
@@ -524,73 +542,124 @@ export async function getActiveRewardCampaignProgress(input: {
                   ? { managerProfileId: input.managerProfileId, groupLeaderProfileId: null, consultantProfileId: null }
                   : { id: "00000000-0000-0000-0000-000000000000" }),
             paymentStatus: "CAPTURED",
-            createdAt: { gte: campaign.startsAt, lte: campaign.endsAt }
+            ...orderDateFilter
           }
         },
         include: {
-          order: { select: { createdAt: true } },
+          order: {
+            select: {
+              createdAt: true,
+              shippedAt: true,
+              grossMarginCents: true,
+              agencyFeeCents: true,
+              items: {
+                select: {
+                  quantity: true,
+                  product: { select: { priceCents: true, internalCostCents: true } }
+                }
+              }
+            }
+          },
           product: { select: { priceCents: true, internalCostCents: true } }
         }
       });
 
+      function availableLineMarginCents(item: (typeof orderItems)[number]) {
+        const rawLineMarginCents = Math.max(item.product.priceCents - item.product.internalCostCents, 0) * item.quantity;
+        const rawOrderMarginCents = item.order.items.reduce(
+          (sum, orderItem) => sum + Math.max(orderItem.product.priceCents - orderItem.product.internalCostCents, 0) * orderItem.quantity,
+          0
+        );
+        const availableOrderMarginCents = Math.max(item.order.grossMarginCents - item.order.agencyFeeCents, 0);
+
+        if (rawOrderMarginCents <= 0) return 0;
+        return Math.round((availableOrderMarginCents * rawLineMarginCents) / rawOrderMarginCents);
+      }
+
+      function qualificationDate(item: (typeof orderItems)[number]) {
+        return campaign.qualificationEvent === "SHIPPED_ORDER" ? (item.order.shippedAt ?? item.order.createdAt) : item.order.createdAt;
+      }
+
       function buildProgress(selectedItems: typeof orderItems) {
         const soldQuantityByProduct = new Map<string, number>();
+        const qualifiedPointsByProduct = new Map<string, number>();
         for (const item of selectedItems) {
+          const productMarginCents = Math.max(item.product.priceCents - item.product.internalCostCents, 0);
+          if (productMarginCents < campaign.minQualifiedMarginCents) continue;
           soldQuantityByProduct.set(item.productId, (soldQuantityByProduct.get(item.productId) ?? 0) + item.quantity);
+          const availableMarginCents = availableLineMarginCents(item);
+          const points = availableMarginCents / Math.max(campaign.pointValueCents, 1);
+          qualifiedPointsByProduct.set(item.productId, (qualifiedPointsByProduct.get(item.productId) ?? 0) + points);
         }
         const productProgress = campaign.products.map((item) => {
           const soldQuantity = soldQuantityByProduct.get(item.productId) ?? 0;
+          const points = qualifiedPointsByProduct.get(item.productId) ?? 0;
           const itemTargetQuantity = campaign.goalMode === "TOTAL_UNITS" ? 1 : item.targetQuantity;
+          const progressQuantity = campaign.metricMode === "QUALIFIED_POINTS" ? points : soldQuantity;
           return {
             productId: item.productId,
             title: item.product.title,
             targetQuantity: itemTargetQuantity,
-            soldQuantity,
-            remainingQuantity: Math.max(itemTargetQuantity - soldQuantity, 0),
-            isCompleted: soldQuantity >= itemTargetQuantity
+            soldQuantity: progressQuantity,
+            remainingQuantity: Math.max(itemTargetQuantity - progressQuantity, 0),
+            isCompleted: progressQuantity >= itemTargetQuantity
           };
         });
-        const rawSoldQuantity = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+        const rawSoldQuantity = selectedItems.reduce((sum, item) => {
+          const productMarginCents = Math.max(item.product.priceCents - item.product.internalCostCents, 0);
+          return productMarginCents >= campaign.minQualifiedMarginCents ? sum + item.quantity : sum;
+        }, 0);
+        const rawQualifiedPoints = selectedItems.reduce((sum, item) => {
+          const productMarginCents = Math.max(item.product.priceCents - item.product.internalCostCents, 0);
+          return productMarginCents >= campaign.minQualifiedMarginCents ? sum + availableLineMarginCents(item) / Math.max(campaign.pointValueCents, 1) : sum;
+        }, 0);
+        const rawProgressQuantity = campaign.metricMode === "QUALIFIED_POINTS" ? rawQualifiedPoints : rawSoldQuantity;
         const qualifiedSoldQuantity =
           campaign.goalMode === "PRODUCT_BUNDLE"
             ? productProgress.reduce((sum, item) => sum + Math.min(item.soldQuantity, item.targetQuantity), 0)
-            : rawSoldQuantity;
+            : rawProgressQuantity;
         const completionCount =
           campaign.goalMode === "PRODUCT_BUNDLE"
             ? productProgress.length
               ? Math.min(...productProgress.map((item) => Math.floor(item.soldQuantity / Math.max(item.targetQuantity, 1))))
               : 0
-            : Math.floor(rawSoldQuantity / targetQuantity);
+            : Math.floor(rawProgressQuantity / targetQuantity);
         const revenueCents = selectedItems.reduce((sum, item) => sum + item.totalCents, 0);
-        const marginCents = selectedItems.reduce(
-          (sum, item) => sum + Math.max(item.product.priceCents - item.product.internalCostCents, 0) * item.quantity,
-          0
-        );
+        const marginCents = selectedItems.reduce((sum, item) => sum + availableLineMarginCents(item), 0);
         const isCompleted = completionCount > 0;
 
         return { productProgress, rawSoldQuantity, qualifiedSoldQuantity, completionCount, revenueCents, marginCents, isCompleted };
       }
 
       const rollingWindowDays = Math.max(campaign.rollingWindowDays ?? 1, 1);
-      const rollingWindows =
-        campaign.windowMode === "ROLLING_DAYS" && orderItems.length
-          ? [...new Set(orderItems.map((item) => item.order.createdAt.toISOString()))].map((value) => {
-              const end = clampDate(endOfDay(new Date(value)), campaign.startsAt, campaign.endsAt);
-              const start = clampDate(startOfDay(new Date(end.getTime() - (rollingWindowDays - 1) * DAY_MS)), campaign.startsAt, campaign.endsAt);
-              const selectedItems = orderItems.filter((item) => item.order.createdAt >= start && item.order.createdAt <= end);
-              return { startsAt: start, endsAt: end, ...buildProgress(selectedItems) };
-            })
-          : [];
-      const fixedProgress = buildProgress(orderItems);
-      const bestRollingWindow = rollingWindows.sort((a, b) => {
-        if (Number(b.isCompleted) !== Number(a.isCompleted)) return Number(b.isCompleted) - Number(a.isCompleted);
-        if (b.qualifiedSoldQuantity !== a.qualifiedSoldQuantity) return b.qualifiedSoldQuantity - a.qualifiedSoldQuantity;
-        return b.marginCents - a.marginCents;
-      })[0];
-      const selectedProgress = bestRollingWindow ?? fixedProgress;
-      const activeWindowStartsAt = bestRollingWindow?.startsAt ?? null;
-      const activeWindowEndsAt = bestRollingWindow?.endsAt ?? null;
+      const activeRollingWindow =
+        campaign.windowMode === "ROLLING_DAYS"
+          ? {
+              startsAt: clampDate(startOfDay(new Date(now.getTime() - (rollingWindowDays - 1) * DAY_MS)), campaign.startsAt, campaign.endsAt),
+              endsAt: clampDate(endOfDay(now), campaign.startsAt, campaign.endsAt)
+            }
+          : null;
+      const selectedItems = activeRollingWindow
+        ? orderItems.filter((item) => {
+            const eventDate = qualificationDate(item);
+            return eventDate >= activeRollingWindow.startsAt && eventDate <= activeRollingWindow.endsAt;
+          })
+        : orderItems;
+      const selectedProgress = buildProgress(selectedItems);
+      const activeWindowStartsAt = activeRollingWindow?.startsAt ?? null;
+      const activeWindowEndsAt = activeRollingWindow?.endsAt ?? null;
       const claimInventoryRemaining = campaign.maxTotalClaims == null ? null : Math.max(campaign.maxTotalClaims - campaign._count.claims, 0);
+      const progressClaimWhere =
+        input.userId && activeWindowStartsAt && activeWindowEndsAt
+          ? {
+              campaignId: campaign.id,
+              userId: input.userId,
+              completedAt: { gte: activeWindowStartsAt, lte: activeWindowEndsAt }
+            }
+          : input.userId
+            ? { campaignId: campaign.id, userId: input.userId }
+            : null;
+      const existingProgressClaimCount = progressClaimWhere ? await prisma.rewardCampaignClaim.count({ where: progressClaimWhere }) : 0;
       const claim = selectedProgress.isCompleted && input.userId && participant
         ? await ensureCampaignClaims({
             campaignId: campaign.id,
@@ -603,6 +672,7 @@ export async function getActiveRewardCampaignProgress(input: {
             rewardValueType: campaign.rewardValueType,
             rewardValueCents: campaign.rewardValueCents,
             completionCount: selectedProgress.completionCount,
+            existingProgressClaimCount,
             maxWinsPerParticipant: campaign.maxWinsPerParticipant,
             claimInventoryRemaining,
             progressWindowStartsAt: activeWindowStartsAt,
@@ -620,19 +690,23 @@ export async function getActiveRewardCampaignProgress(input: {
         input.userId ? prisma.rewardCampaignClaim.count({ where: { campaignId: campaign.id, userId: input.userId } }) : Promise.resolve(0),
         prisma.rewardCampaignClaim.count({ where: { campaignId: campaign.id } })
       ]);
+      const progressClaimCount = progressClaimWhere ? await prisma.rewardCampaignClaim.count({ where: progressClaimWhere }) : 0;
       const maxWinsPerParticipant = Math.max(campaign.maxWinsPerParticipant, 1);
       const remainingWins = Math.max(maxWinsPerParticipant - earnedCount, 0);
       const remainingClaimInventory = campaign.maxTotalClaims == null ? null : Math.max(campaign.maxTotalClaims - globalClaimCount, 0);
+      const claimedProgressQuantity = progressClaimCount * targetQuantity;
+      const displayedSoldQuantity = Math.max(selectedProgress.qualifiedSoldQuantity - claimedProgressQuantity, 0);
+      const displayedIsCompleted = displayedSoldQuantity >= targetQuantity;
 
       return {
         ...campaign,
-        soldQuantity: selectedProgress.qualifiedSoldQuantity,
+        soldQuantity: displayedSoldQuantity,
         rawSoldQuantity: selectedProgress.rawSoldQuantity,
         targetQuantity,
         productProgress: selectedProgress.productProgress,
         revenueCents: selectedProgress.revenueCents,
         marginCents: selectedProgress.marginCents,
-        isCompleted: selectedProgress.isCompleted,
+        isCompleted: displayedIsCompleted,
         activeWindowStartsAt,
         activeWindowEndsAt,
         earnedCount,
@@ -646,8 +720,8 @@ export async function getActiveRewardCampaignProgress(input: {
         claimStatus: claim?.status ?? null,
         claimRewardValueType: claim?.rewardValueType ?? null,
         claimRewardValueCents: claim?.rewardValueCents ?? null,
-        progressPercent: Math.min(Math.round((selectedProgress.qualifiedSoldQuantity / targetQuantity) * 100), 100),
-        remainingQuantity: Math.max(targetQuantity - selectedProgress.qualifiedSoldQuantity, 0)
+        progressPercent: Math.min(Math.round((displayedSoldQuantity / targetQuantity) * 100), 100),
+        remainingQuantity: Math.max(targetQuantity - displayedSoldQuantity, 0)
       };
     })
   );
@@ -675,6 +749,7 @@ async function ensureCampaignClaims(input: {
   rewardValueType: RewardValueType;
   rewardValueCents: number;
   completionCount: number;
+  existingProgressClaimCount?: number;
   maxWinsPerParticipant: number;
   claimInventoryRemaining: number | null;
   progressWindowStartsAt?: Date | null;
@@ -687,9 +762,10 @@ async function ensureCampaignClaims(input: {
   });
   const latest = existing[0] ?? null;
   const existingCount = existing.length;
+  const existingProgressClaimCount = input.existingProgressClaimCount ?? existingCount;
   const participantRemaining = Math.max(input.maxWinsPerParticipant - existingCount, 0);
   const globalRemaining = input.claimInventoryRemaining ?? Number.POSITIVE_INFINITY;
-  const creatableCount = Math.max(Math.min(input.completionCount - existingCount, participantRemaining, globalRemaining), 0);
+  const creatableCount = Math.max(Math.min(input.completionCount - existingProgressClaimCount, participantRemaining, globalRemaining, 1), 0);
 
   if (creatableCount <= 0) return latest;
 

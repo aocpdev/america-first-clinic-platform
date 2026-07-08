@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
+import { companyAdminUserIds, notifyUsers, orderRecipientUserIds, personDisplayName } from "@/lib/notifications";
+import { carrierTrackingUrl } from "@/lib/orders/tracking";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
 
 function record(value: unknown) {
@@ -27,6 +29,12 @@ function parseAdditionalData(value: unknown) {
   }
 }
 
+function booleanValue(value: unknown) {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  return false;
+}
+
 function metadataObject(value: unknown) {
   return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
 }
@@ -51,6 +59,48 @@ function carrierFromPayload(value: unknown) {
   return "other";
 }
 
+function qualiphyNotificationCopy(event: number | null, stage: string | null, customerName: string) {
+  if (event === 1 && stage === "APPROVAL") {
+    return {
+      title: "Exam approved",
+      body: `${customerName}'s Qualiphy exam was approved. The order is ready for prescription handling.`
+    };
+  }
+
+  if (event === 1 && stage === "MEDICAL_REVIEW") {
+    return {
+      title: "Medical review needed",
+      body: `${customerName}'s Qualiphy exam was deferred to medical review.`
+    };
+  }
+
+  if (event === 1 && stage === "DEFERRED") {
+    return {
+      title: "Exam deferred",
+      body: `${customerName}'s Qualiphy exam was deferred. Review the order before taking the next step.`
+    };
+  }
+
+  if (event === 2) {
+    return {
+      title: "Prescription confirmed",
+      body: `Qualiphy confirmed ${customerName}'s prescription.`
+    };
+  }
+
+  if (event === 3) {
+    return {
+      title: "Tracking received",
+      body: `Qualiphy sent tracking for ${customerName}'s order.`
+    };
+  }
+
+  return {
+    title: "Qualiphy update received",
+    body: `${customerName}'s order was updated from Qualiphy.`
+  };
+}
+
 export async function POST(request: Request) {
   const payload = await request.json().catch(() => null);
   const body = record(payload);
@@ -70,7 +120,16 @@ export async function POST(request: Request) {
     where: { id: orderId },
     include: {
       customer: true,
-      consultantProfile: { select: { partnerProfileId: true } }
+      consultantProfile: {
+        include: {
+          partnerProfile: true,
+          managerProfile: true,
+          groupLeaderProfile: { include: { managerProfile: true } }
+        }
+      },
+      partnerProfile: true,
+      managerProfile: true,
+      groupLeaderProfile: { include: { managerProfile: true } }
     }
   });
 
@@ -87,9 +146,12 @@ export async function POST(request: Request) {
   const patientExamId = typeof rawPatientExamId === "string" || typeof rawPatientExamId === "number" ? rawPatientExamId : null;
   const examStatus = stringValue(body.exam_status);
   const rxStatus = stringValue(body.rx_status);
+  const isTest = booleanValue(additionalData?.is_test) || booleanValue(additionalData?.test_mode) || existingQualiphy.isTest === true;
 
   const qualiphy = {
     ...existingQualiphy,
+    isTest,
+    environment: isTest ? "test" : existingQualiphy.environment || "live",
     patientExamId,
     lastEvent: event,
     lastStatus: examStatus || rxStatus || null,
@@ -102,6 +164,7 @@ export async function POST(request: Request) {
         examStatus: examStatus || null,
         rxStatus: rxStatus || null,
         patientExamId,
+        isTest,
         raw: payload
       }
     ]
@@ -192,6 +255,54 @@ export async function POST(request: Request) {
     })
   ]);
 
+  if (nextStage) {
+    const customerName = personDisplayName(order.customer);
+    const copy = qualiphyNotificationCopy(event, nextStage, customerName);
+    const title = isTest ? `Test: ${copy.title}` : copy.title;
+    const adminIds = await companyAdminUserIds(prisma, order.companyId);
+    const trackingNumber = stringValue(body.tracking_number);
+    const carrier = trackingNumber ? carrierFromPayload(body.delivery_service) : null;
+
+    await notifyUsers(prisma, [
+      ...adminIds.map((userId) => ({
+        userId,
+        title,
+        body: copy.body,
+        metadata: {
+          type: "order_qualiphy",
+          orderId: order.id,
+          customerId: order.customerId,
+          stage: nextStage,
+          event,
+          patientExamId,
+          examStatus: examStatus || null,
+          rxStatus: rxStatus || null,
+          isTest,
+          trackingCode: trackingNumber || null,
+          trackingUrl: trackingNumber && carrier ? carrierTrackingUrl(carrier, trackingNumber) : null
+        }
+      })),
+      ...orderRecipientUserIds(order).map((userId) => ({
+        userId,
+        title,
+        body: copy.body,
+        metadata: {
+          type: "order_qualiphy",
+          orderId: order.id,
+          customerId: order.customerId,
+          stage: nextStage,
+          event,
+          patientExamId,
+          examStatus: examStatus || null,
+          rxStatus: rxStatus || null,
+          isTest,
+          trackingCode: trackingNumber || null,
+          trackingUrl: trackingNumber && carrier ? carrierTrackingUrl(carrier, trackingNumber) : null
+        }
+      }))
+    ]);
+  }
+
   if (outboundEvent) {
     await dispatchWebhookEvent({
       companyId: order.companyId,
@@ -208,7 +319,8 @@ export async function POST(request: Request) {
         examStatus: examStatus || null,
         rxStatus: rxStatus || null,
         meetingUrl: stringValue(record(existingQualiphy.invite)?.meetingUrl) || null,
-        trackingNumber: stringValue(body.tracking_number) || null
+        trackingNumber: stringValue(body.tracking_number) || null,
+        isTest
       }
     });
   }

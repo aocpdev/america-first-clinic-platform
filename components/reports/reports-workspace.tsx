@@ -280,7 +280,7 @@ export function ReportsWorkspace({
             <h2 className="mt-1 truncate text-lg font-semibold text-clinic-ink">{title}</h2>
             <p className="mt-1 text-sm text-slate-500">Showing KPIs for {range.label.toLowerCase()}.</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-wrap justify-end gap-2 lg:w-auto">
             <DashboardDateRangeMenu
               range={range}
               resetHref={resetHref}

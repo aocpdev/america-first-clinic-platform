@@ -72,9 +72,31 @@ export async function notifyUsers(db: NotificationDb, notifications: Notificatio
 }
 
 export function orderRecipientUserIds(order: {
-  consultantProfile?: { userId?: string | null } | null;
-  groupLeaderProfile?: { userId?: string | null } | null;
+  consultantProfile?: {
+    userId?: string | null;
+    partnerProfile?: { userId?: string | null } | null;
+    managerProfile?: { userId?: string | null } | null;
+    groupLeaderProfile?: {
+      userId?: string | null;
+      managerProfile?: { userId?: string | null } | null;
+    } | null;
+  } | null;
+  managerProfile?: { userId?: string | null } | null;
+  groupLeaderProfile?: {
+    userId?: string | null;
+    managerProfile?: { userId?: string | null } | null;
+  } | null;
   partnerProfile?: { userId?: string | null } | null;
 }) {
-  return [order.consultantProfile?.userId, order.groupLeaderProfile?.userId, order.partnerProfile?.userId].filter(Boolean) as string[];
+  return [
+    order.consultantProfile?.userId,
+    order.consultantProfile?.groupLeaderProfile?.userId,
+    order.groupLeaderProfile?.userId,
+    order.consultantProfile?.managerProfile?.userId,
+    order.consultantProfile?.groupLeaderProfile?.managerProfile?.userId,
+    order.groupLeaderProfile?.managerProfile?.userId,
+    order.managerProfile?.userId,
+    order.consultantProfile?.partnerProfile?.userId,
+    order.partnerProfile?.userId
+  ].filter(Boolean) as string[];
 }

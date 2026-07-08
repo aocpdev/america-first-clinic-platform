@@ -81,6 +81,7 @@ export default async function ConsultantPipelinePage() {
           gfeDocumentUrl: null,
           paymentStatus: order.paymentStatus,
           orderStatus: order.orderStatus,
+          qualiphy: null,
           clinicalDocuments: [],
           orderHistory: orders
             .filter((historyOrder) => historyOrder.customerId === order.customerId)

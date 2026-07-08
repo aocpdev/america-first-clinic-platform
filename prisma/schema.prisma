@@ -90,6 +90,17 @@ enum RewardValueType {
   NON_CASH
 }
 
+enum RewardPrizeCategory {
+  MONEY
+  TRAVEL
+  ELECTRONICS
+  EXPERIENCE
+  PRODUCT
+  GIFT_CARD
+  RECOGNITION
+  CUSTOM
+}
+
 enum RewardCampaignGoalMode {
   TOTAL_UNITS
   PRODUCT_BUNDLE
@@ -98,6 +109,23 @@ enum RewardCampaignGoalMode {
 enum RewardCampaignWindowMode {
   CAMPAIGN_RANGE
   ROLLING_DAYS
+}
+
+enum RewardCampaignMetricMode {
+  UNITS
+  QUALIFIED_POINTS
+}
+
+enum RewardCampaignPeriodMode {
+  CUSTOM
+  MONTHLY
+  QUARTERLY
+  ACCUMULATIVE
+}
+
+enum RewardCampaignQualificationEvent {
+  CAPTURED_PAYMENT
+  SHIPPED_ORDER
 }
 
 enum RewardClaimStatus {
@@ -922,7 +950,8 @@ model Reward {
   description String?
   imageUrl    String?
   valueCents  Int         @default(0)
-  isActive    Boolean     @default(true)
+  prizeCategory RewardPrizeCategory @default(CUSTOM)
+  isActive    Boolean     @default(false)
   sortOrder   Int         @default(0)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
@@ -938,17 +967,23 @@ model RewardCampaign {
   description       String?
   startsAt          DateTime
   endsAt            DateTime
-  status            RewardCampaignStatus    @default(ACTIVE)
+  status            RewardCampaignStatus    @default(DRAFT)
   goalMode          RewardCampaignGoalMode   @default(TOTAL_UNITS)
   windowMode        RewardCampaignWindowMode @default(CAMPAIGN_RANGE)
+  metricMode        RewardCampaignMetricMode @default(UNITS)
+  periodMode        RewardCampaignPeriodMode @default(CUSTOM)
+  qualificationEvent RewardCampaignQualificationEvent @default(CAPTURED_PAYMENT)
   rollingWindowDays Int?
   targetQuantity    Int                      @default(1)
+  minQualifiedMarginCents Int                 @default(0)
+  pointValueCents   Int                      @default(10000)
   maxWinsPerParticipant Int                   @default(1)
   maxTotalClaims    Int?
   rewardTitle       String
   rewardDescription String?
   rewardImageUrl    String?
   rewardValueType   RewardValueType         @default(NON_CASH)
+  prizeCategory      RewardPrizeCategory     @default(CUSTOM)
   rewardValueCents  Int                     @default(0)
   products          RewardCampaignProduct[]
   claims            RewardCampaignClaim[]

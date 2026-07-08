@@ -1039,6 +1039,103 @@ export async function rejectConsultant(formData: FormData) {
     }
   });
 
+  const [adminIds, partnerProfile, managerProfile, groupLeaderProfile] = await Promise.all([
+    companyAdminUserIds(prisma, companyId),
+    user.requestedPartnerProfileId
+      ? prisma.partnerProfile.findUnique({
+          where: { id: user.requestedPartnerProfileId },
+          select: { userId: true }
+        })
+      : null,
+    user.requestedManagerProfileId
+      ? prisma.managerProfile.findUnique({
+          where: { id: user.requestedManagerProfileId },
+          select: { userId: true }
+        })
+      : null,
+    user.requestedGroupLeaderProfileId
+      ? prisma.groupLeaderProfile.findUnique({
+          where: { id: user.requestedGroupLeaderProfileId },
+          select: { userId: true, managerProfile: { select: { userId: true } } }
+        })
+      : null
+  ]);
+  const applicantName = displayNameForUser(user);
+  const rejectedRoleLabel = user.requestedRole === "GROUP_LEADER" ? "group leader" : "agent";
+
+  await notifyUsers(prisma, [
+    {
+      userId: user.id,
+      title: "Application not approved",
+      body: `Your ${rejectedRoleLabel} application was not approved. Reason: ${reason}`,
+      metadata: {
+        type: "approval",
+        userId: user.id,
+        role: user.requestedRole,
+        status: "REJECTED",
+        partnerProfileId: user.requestedPartnerProfileId,
+        managerProfileId: user.requestedManagerProfileId,
+        groupLeaderProfileId: user.requestedGroupLeaderProfileId
+      }
+    },
+    ...adminIds.map((userId) => ({
+      userId,
+      title: `${rejectedRoleLabel[0].toUpperCase()}${rejectedRoleLabel.slice(1)} rejected`,
+      body: `${applicantName}'s application was rejected.`,
+      metadata: {
+        type: "approval",
+        userId: user.id,
+        role: user.requestedRole,
+        status: "REJECTED",
+        partnerProfileId: user.requestedPartnerProfileId,
+        managerProfileId: user.requestedManagerProfileId,
+        groupLeaderProfileId: user.requestedGroupLeaderProfileId
+      }
+    })),
+    {
+      userId: partnerProfile?.userId,
+      title: `${rejectedRoleLabel[0].toUpperCase()}${rejectedRoleLabel.slice(1)} rejected`,
+      body: `${applicantName}'s application was rejected.`,
+      metadata: {
+        type: "approval",
+        userId: user.id,
+        role: user.requestedRole,
+        status: "REJECTED",
+        partnerProfileId: user.requestedPartnerProfileId,
+        managerProfileId: user.requestedManagerProfileId,
+        groupLeaderProfileId: user.requestedGroupLeaderProfileId
+      }
+    },
+    {
+      userId: managerProfile?.userId ?? groupLeaderProfile?.managerProfile?.userId,
+      title: `${rejectedRoleLabel[0].toUpperCase()}${rejectedRoleLabel.slice(1)} rejected`,
+      body: `${applicantName}'s application was rejected.`,
+      metadata: {
+        type: "approval",
+        userId: user.id,
+        role: user.requestedRole,
+        status: "REJECTED",
+        partnerProfileId: user.requestedPartnerProfileId,
+        managerProfileId: user.requestedManagerProfileId,
+        groupLeaderProfileId: user.requestedGroupLeaderProfileId
+      }
+    },
+    {
+      userId: groupLeaderProfile?.userId,
+      title: "Agent rejected",
+      body: `${applicantName}'s application was rejected.`,
+      metadata: {
+        type: "approval",
+        userId: user.id,
+        role: user.requestedRole,
+        status: "REJECTED",
+        partnerProfileId: user.requestedPartnerProfileId,
+        managerProfileId: user.requestedManagerProfileId,
+        groupLeaderProfileId: user.requestedGroupLeaderProfileId
+      }
+    }
+  ]);
+
   await dispatchWebhookEvent({
     companyId,
     partnerProfileId: user.requestedPartnerProfileId,

@@ -18,6 +18,7 @@ const rewardSchema = z.object({
   title: z.string().min(2),
   description: z.string().optional(),
   imageUrl: z.string().url().optional().or(z.literal("")),
+  prizeCategory: z.enum(["MONEY", "TRAVEL", "ELECTRONICS", "EXPERIENCE", "PRODUCT", "GIFT_CARD", "RECOGNITION", "CUSTOM"]).default("CUSTOM"),
   valueDollars: z.coerce.number().min(0)
 });
 
@@ -27,6 +28,8 @@ const rewardLevelBundleSchema = levelSchema.merge(
     rewardTitle: z.string().min(2),
     rewardDescription: z.string().optional(),
     rewardImageUrl: z.string().url().optional().or(z.literal("")),
+    rewardPrizeCategory: z.enum(["MONEY", "TRAVEL", "ELECTRONICS", "EXPERIENCE", "PRODUCT", "GIFT_CARD", "RECOGNITION", "CUSTOM"]).default("CUSTOM"),
+    rewardIsActive: z.coerce.boolean().default(false),
     rewardValueDollars: z.coerce.number().min(0)
   })
 );
@@ -41,14 +44,20 @@ const campaignSchema = z
     status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED"]),
     goalMode: z.enum(["TOTAL_UNITS", "PRODUCT_BUNDLE"]).default("TOTAL_UNITS"),
     windowMode: z.enum(["CAMPAIGN_RANGE", "ROLLING_DAYS"]).default("CAMPAIGN_RANGE"),
+    metricMode: z.enum(["UNITS", "QUALIFIED_POINTS"]).default("UNITS"),
+    periodMode: z.enum(["CUSTOM", "MONTHLY", "QUARTERLY", "ACCUMULATIVE"]).default("CUSTOM"),
+    qualificationEvent: z.enum(["CAPTURED_PAYMENT", "SHIPPED_ORDER"]).default("CAPTURED_PAYMENT"),
     rollingWindowDays: z.coerce.number().int().min(1).max(365).optional(),
-    targetQuantity: z.coerce.number().int().min(1).max(999).default(1),
+    targetQuantity: z.coerce.number().int().min(1).max(999999).default(1),
+    minQualifiedMarginDollars: z.coerce.number().min(0).default(0),
+    pointValueDollars: z.coerce.number().min(1).default(100),
     maxWinsPerParticipant: z.coerce.number().int().min(1).max(999).default(1),
     maxTotalClaims: z.coerce.number().int().min(1).max(9999).optional(),
     rewardTitle: z.string().min(2),
     rewardDescription: z.string().optional(),
     rewardImageUrl: z.string().url().optional().or(z.literal("")),
     rewardValueType: z.enum(["CASH", "NON_CASH"]),
+    prizeCategory: z.enum(["MONEY", "TRAVEL", "ELECTRONICS", "EXPERIENCE", "PRODUCT", "GIFT_CARD", "RECOGNITION", "CUSTOM"]).default("CUSTOM"),
     rewardValueDollars: z.coerce.number().min(0)
   })
   .refine((data) => data.endsAt > data.startsAt, {
@@ -104,6 +113,7 @@ export async function saveReward(formData: FormData) {
     title: formData.get("title"),
     description: formData.get("description") || "",
     imageUrl: formData.get("imageUrl") || "",
+    prizeCategory: formData.get("prizeCategory") || "CUSTOM",
     valueDollars: formData.get("valueDollars")
   });
 
@@ -119,6 +129,7 @@ export async function saveReward(formData: FormData) {
     title: parsed.title,
     description: parsed.description,
     imageUrl: parsed.imageUrl,
+    prizeCategory: parsed.prizeCategory,
     valueCents: Math.round(parsed.valueDollars * 100),
     sortOrder: level.level
   };
@@ -150,6 +161,8 @@ export async function saveRewardLevelBundle(formData: FormData) {
     rewardTitle: formData.get("rewardTitle"),
     rewardDescription: formData.get("rewardDescription") || "",
     rewardImageUrl: formData.get("rewardImageUrl") || "",
+    rewardPrizeCategory: formData.get("rewardPrizeCategory") || "CUSTOM",
+    rewardIsActive: formData.get("rewardIsActive") === "on",
     rewardValueDollars: formData.get("rewardValueDollars")
   });
 
@@ -175,6 +188,8 @@ export async function saveRewardLevelBundle(formData: FormData) {
     description: parsed.rewardDescription,
     imageUrl: parsed.rewardImageUrl,
     valueCents: Math.round(parsed.rewardValueDollars * 100),
+    prizeCategory: parsed.rewardPrizeCategory,
+    isActive: parsed.rewardIsActive,
     sortOrder: level.level
   };
 
@@ -204,17 +219,23 @@ async function persistRewardCampaign(formData: FormData) {
     description: formData.get("description") || "",
     startsAt: formData.get("startsAt"),
     endsAt: formData.get("endsAt"),
-    status: formData.get("status") || "ACTIVE",
+    status: formData.get("status") || "DRAFT",
     goalMode: formData.get("goalMode") || "TOTAL_UNITS",
     windowMode: formData.get("windowMode") || "CAMPAIGN_RANGE",
+    metricMode: formData.get("metricMode") || "UNITS",
+    periodMode: formData.get("periodMode") || "CUSTOM",
+    qualificationEvent: formData.get("qualificationEvent") || "CAPTURED_PAYMENT",
     rollingWindowDays: formData.get("rollingWindowDays") || undefined,
     targetQuantity: formData.get("targetQuantity") || 1,
+    minQualifiedMarginDollars: formData.get("minQualifiedMarginDollars") || 0,
+    pointValueDollars: formData.get("pointValueDollars") || 100,
     maxWinsPerParticipant: formData.get("maxWinsPerParticipant") || 1,
     maxTotalClaims: formData.get("maxTotalClaims") || undefined,
     rewardTitle: formData.get("rewardTitle"),
     rewardDescription: formData.get("rewardDescription") || "",
     rewardImageUrl: formData.get("rewardImageUrl") || "",
     rewardValueType: formData.get("rewardValueType") || "NON_CASH",
+    prizeCategory: formData.get("prizeCategory") || (formData.get("rewardValueType") === "CASH" ? "MONEY" : "CUSTOM"),
     rewardValueDollars: formData.get("rewardValueDollars")
   });
 
@@ -257,14 +278,20 @@ async function persistRewardCampaign(formData: FormData) {
     status: parsed.status,
     goalMode: parsed.goalMode,
     windowMode: parsed.windowMode,
+    metricMode: parsed.metricMode,
+    periodMode: parsed.periodMode,
+    qualificationEvent: parsed.qualificationEvent,
     rollingWindowDays: parsed.windowMode === "ROLLING_DAYS" ? parsed.rollingWindowDays ?? 1 : null,
     targetQuantity: totalTargetQuantity,
+    minQualifiedMarginCents: Math.round(parsed.minQualifiedMarginDollars * 100),
+    pointValueCents: Math.max(Math.round(parsed.pointValueDollars * 100), 1),
     maxWinsPerParticipant: parsed.maxWinsPerParticipant,
     maxTotalClaims: parsed.maxTotalClaims ?? null,
     rewardTitle: parsed.rewardTitle,
     rewardDescription: parsed.rewardDescription,
     rewardImageUrl: parsed.rewardImageUrl,
     rewardValueType: parsed.rewardValueType,
+    prizeCategory: parsed.rewardValueType === "CASH" ? "MONEY" : parsed.prizeCategory,
     rewardValueCents: Math.round(parsed.rewardValueDollars * 100)
   };
 
@@ -335,8 +362,8 @@ export async function saveRewardCampaignWithState(
       ok: true,
       message:
         result.mode === "created"
-          ? "Campaign created successfully. Agent progress is now tracking."
-          : "Campaign saved successfully. Agent progress has been refreshed.",
+          ? "Campaign created successfully. Qualified reward progress is now tracking."
+          : "Campaign saved successfully. Qualified reward progress has been refreshed.",
       error: null,
       savedAt: Date.now()
     };

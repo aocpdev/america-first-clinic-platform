@@ -78,9 +78,17 @@ async function markOrderCaptured({
     where: { id: orderId },
     include: {
       customer: true,
-      consultantProfile: { include: { user: true } },
+      consultantProfile: {
+        include: {
+          user: true,
+          partnerProfile: true,
+          managerProfile: true,
+          groupLeaderProfile: { include: { managerProfile: true } }
+        }
+      },
       partnerProfile: { include: { user: true } },
-      groupLeaderProfile: { include: { user: true } }
+      managerProfile: true,
+      groupLeaderProfile: { include: { user: true, managerProfile: true } }
     }
   });
 
@@ -134,6 +142,7 @@ async function markOrderCaptured({
         title: "Payment received",
         body: `${customerName}'s order is paid and now pending clinical review.`,
         metadata: {
+          type: "order_payment",
           orderId: order.id,
           customerId: order.customerId,
           stage: "NEW_SALE",
@@ -145,6 +154,7 @@ async function markOrderCaptured({
         title: "New sale ready for Exam",
         body: `${customerName} paid ${moneyFromCents(order.totalCents)}. Start the Exam workflow.`,
         metadata: {
+          type: "order_payment",
           orderId: order.id,
           customerId: order.customerId,
           stage: "NEW_SALE",

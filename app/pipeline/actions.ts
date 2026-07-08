@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
+import { notifyUsers, orderRecipientUserIds, personDisplayName } from "@/lib/notifications";
 import { getPaymentProvider } from "@/lib/payments/registry";
 import type { PaymentProviderCode } from "@/lib/payments/types";
 import { phoneForWebhook } from "@/lib/phone";
@@ -29,6 +30,62 @@ function returnPipelinePath(role: string) {
 
 function personName(person: { firstName: string | null; lastName: string | null; email?: string }) {
   return [person.firstName, person.lastName].filter(Boolean).join(" ").trim() || person.email || "Customer";
+}
+
+function pipelineNotificationCopy(stage: string, customerName: string) {
+  if (stage === "GFE") {
+    return {
+      title: "Exam step started",
+      body: `${customerName}'s order moved to Exam.`
+    };
+  }
+
+  if (stage === "MEDICAL_REVIEW") {
+    return {
+      title: "Medical review needed",
+      body: `${customerName}'s order needs medical review.`
+    };
+  }
+
+  if (stage === "APPROVAL") {
+    return {
+      title: "Client approved",
+      body: `${customerName}'s order was approved. Commission remains pending until fulfillment is complete.`
+    };
+  }
+
+  if (stage === "PRESCRIPTION_CONFIRMED") {
+    return {
+      title: "Prescription confirmed",
+      body: `${customerName}'s prescription was confirmed.`
+    };
+  }
+
+  if (stage === "FULFILLMENT") {
+    return {
+      title: "Fulfillment started",
+      body: `${customerName}'s order moved to fulfillment.`
+    };
+  }
+
+  if (stage === "SHIPPED") {
+    return {
+      title: "Commission approved",
+      body: `${customerName}'s order has shipped and commission was approved.`
+    };
+  }
+
+  if (stage === "DEFERRED") {
+    return {
+      title: "Client deferred",
+      body: `${customerName}'s order was deferred and pending commission was rejected.`
+    };
+  }
+
+  return {
+    title: "Pipeline updated",
+    body: `${customerName}'s order moved to ${orderPipelineLabel(stage)}.`
+  };
 }
 
 function jsonSafe(value: unknown) {
@@ -61,6 +118,8 @@ function stringField(record: Record<string, unknown> | null, key: string) {
 
 type QualiphySelection = {
   mode: "SEND" | "SKIP";
+  isTest: boolean;
+  environment: "live" | "test";
   selectedAt: string;
   selectedByUserId: string;
   exam: {
@@ -129,7 +188,16 @@ async function accessibleOrder(user: Awaited<ReturnType<typeof requireUser>>, or
           }
         }
       },
-      consultantProfile: true,
+      consultantProfile: {
+        include: {
+          partnerProfile: true,
+          managerProfile: true,
+          groupLeaderProfile: { include: { managerProfile: true } }
+        }
+      },
+      partnerProfile: true,
+      managerProfile: true,
+      groupLeaderProfile: { include: { managerProfile: true } },
       paymentTransactions: {
         where: { status: "CAPTURED", providerTransactionId: { not: null } },
         orderBy: { createdAt: "desc" },
@@ -447,6 +515,7 @@ export async function updatePipelineOrderStage(formData: FormData) {
   const qualiphyExamTitle = value(formData, "qualiphyExamTitle");
   const qualiphyExamRxType = value(formData, "qualiphyExamRxType");
   const qualiphyExamAttachmentsRequired = value(formData, "qualiphyExamAttachmentsRequired");
+  const qualiphyTestMode = value(formData, "qualiphyTestMode") === "true";
   const now = new Date();
   const metadata = objectMetadata(order.referralMetadata);
   const shippingMetadata = metadataRecord(metadata.shippingAddress);
@@ -459,6 +528,8 @@ export async function updatePipelineOrderStage(formData: FormData) {
     requestedStage === "GFE"
       ? {
           mode: qualiphyExamMode === "send" ? "SEND" : "SKIP",
+          isTest: qualiphyExamMode === "send" && qualiphyTestMode,
+          environment: qualiphyExamMode === "send" && qualiphyTestMode ? "test" : "live",
           selectedAt: now.toISOString(),
           selectedByUserId: user.id,
           exam:
@@ -502,7 +573,10 @@ export async function updatePipelineOrderStage(formData: FormData) {
           orderId: order.id,
           customerId: order.customerId,
           companyId: order.companyId,
-          source: "go_virtual_health_crm"
+          source: "go_virtual_health_crm",
+          is_test: qualiphyTestMode,
+          test_mode: qualiphyTestMode,
+          environment: qualiphyTestMode ? "test" : "live"
         },
         addressLine1: stringField(shippingMetadata, "line1") || fallbackAddress?.line1,
         addressLine2: stringField(shippingMetadata, "line2") || fallbackAddress?.line2,
@@ -706,9 +780,43 @@ export async function updatePipelineOrderStage(formData: FormData) {
         meetingUrl: invite.meetingUrl ?? null,
         meetingUuid: invite.meetingUuid ?? null,
         patientExamId: invite.patientExamId ?? null,
-        patientExams: invite.patientExams ?? []
+        patientExams: invite.patientExams ?? [],
+        isTest: qualiphyTestMode,
+        environment: qualiphyTestMode ? "test" : "live"
       }
     });
+  }
+
+  const customerName = personDisplayName(order.customer);
+  const copy = pipelineNotificationCopy(requestedStage, customerName);
+  const shouldNotifyStage =
+    requestedStage === "GFE" ||
+    requestedStage === "MEDICAL_REVIEW" ||
+    requestedStage === "APPROVAL" ||
+    requestedStage === "PRESCRIPTION_CONFIRMED" ||
+    requestedStage === "FULFILLMENT" ||
+    requestedStage === "SHIPPED" ||
+    requestedStage === "DEFERRED";
+
+  if (shouldNotifyStage) {
+    await notifyUsers(
+      prisma,
+      orderRecipientUserIds(order).map((userId) => ({
+        userId,
+        title: copy.title,
+        body: copy.body,
+        metadata: {
+          type: "order_stage",
+          orderId: order.id,
+          customerId: order.customerId,
+          stage: requestedStage,
+          trackingCode: nextTrackingCode || null,
+          trackingUrl: nextTrackingCode ? carrierTrackingUrl(nextCarrier, nextTrackingCode) : null,
+          qualiphyMode: qualiphySelection?.mode ?? null,
+          qualiphyTest: qualiphySelection?.isTest ?? false
+        }
+      }))
+    );
   }
 
   revalidatePath("/admin/pipeline");

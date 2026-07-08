@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { requireRole } from "@/lib/auth/current-user";
 import { adminNav } from "@/lib/constants/navigation";
 import { SidebarShell } from "@/components/layout/sidebar-shell";
+import { prisma } from "@/lib/db/prisma";
 import { getRewardCampaigns, getRewardClaimQueue, getRewardLevelAdminModels, getRewardProducts } from "@/lib/rewards/reward-engine";
 
 export default async function AdminRewardsPage() {
@@ -20,11 +21,15 @@ export default async function AdminRewardsPage() {
     );
   }
 
-  const [levels, products, campaigns, claims] = await Promise.all([
+  const [levels, products, campaigns, claims, agencyFeeSetting] = await Promise.all([
     getRewardLevelAdminModels(user.companyId),
     getRewardProducts(user.companyId),
     getRewardCampaigns(user.companyId),
-    getRewardClaimQueue(user.companyId)
+    getRewardClaimQueue(user.companyId),
+    prisma.agencyFeeSetting.findUnique({
+      where: { companyId: user.companyId },
+      select: { feeBps: true, isEnabled: true }
+    })
   ]);
   const serializedLevels = levels.map((level) => ({
     id: level.id,
@@ -41,7 +46,9 @@ export default async function AdminRewardsPage() {
       title: reward.title,
       description: reward.description,
       imageUrl: reward.imageUrl,
-      valueCents: reward.valueCents
+      valueCents: reward.valueCents,
+      prizeCategory: reward.prizeCategory,
+      isActive: reward.isActive
     }))
   }));
   const serializedCampaigns = campaigns.map((campaign) => ({
@@ -53,11 +60,17 @@ export default async function AdminRewardsPage() {
     status: campaign.status,
     goalMode: campaign.goalMode,
     windowMode: campaign.windowMode,
+    metricMode: campaign.metricMode,
+    periodMode: campaign.periodMode,
+    qualificationEvent: campaign.qualificationEvent,
     rollingWindowDays: campaign.rollingWindowDays,
+    minQualifiedMarginCents: campaign.minQualifiedMarginCents,
+    pointValueCents: campaign.pointValueCents,
     rewardTitle: campaign.rewardTitle,
     rewardDescription: campaign.rewardDescription,
     rewardImageUrl: campaign.rewardImageUrl,
     rewardValueType: campaign.rewardValueType,
+    prizeCategory: campaign.prizeCategory,
     rewardValueCents: campaign.rewardValueCents,
     targetQuantity: campaign.targetQuantity,
     maxWinsPerParticipant: campaign.maxWinsPerParticipant,
@@ -91,10 +104,10 @@ export default async function AdminRewardsPage() {
         <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white p-6 shadow-[0_22px_70px_rgba(7,55,99,0.08)]">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-3xl">
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Sales gamification</p>
-              <h2 className="mt-2 text-3xl font-semibold tracking-tight text-clinic-ink">Control individual rewards without making admins or partners competitors.</h2>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Executive gamification suite</p>
+              <h2 className="mt-2 text-3xl font-semibold tracking-tight text-clinic-ink">Design profitable competitions before anything goes live.</h2>
               <p className="mt-3 text-sm leading-6 text-slate-500">
-                Configure personal achievement levels, reward value, images, and timed campaigns while previewing projected revenue and gross margin before launch.
+                Build rewards as drafts, model the margin impact, and activate campaigns only when Go Virtual Health is ready to launch a focused sales push.
               </p>
             </div>
             <div className="grid size-20 place-items-center rounded-3xl bg-clinic-navy text-white shadow-soft">
@@ -103,7 +116,13 @@ export default async function AdminRewardsPage() {
           </div>
         </Card>
 
-        <AdminRewardsEditor levels={serializedLevels} products={products} campaigns={serializedCampaigns} claims={serializedClaims} />
+        <AdminRewardsEditor
+          levels={serializedLevels}
+          products={products}
+          campaigns={serializedCampaigns}
+          claims={serializedClaims}
+          agencyFeeBps={agencyFeeSetting?.isEnabled ? agencyFeeSetting.feeBps : 0}
+        />
       </div>
     </SidebarShell>
   );

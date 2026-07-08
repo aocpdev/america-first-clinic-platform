@@ -28,6 +28,43 @@ function orderMetadata(order: OrderListRecord) {
   return metadata as Record<string, unknown>;
 }
 
+function metadataRecord(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function stringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function numberOrStringValue(value: unknown) {
+  return typeof value === "string" || typeof value === "number" ? value : null;
+}
+
+function qualiphyWorkflow(order: OrderListRecord) {
+  const qualiphy = metadataRecord(orderMetadata(order)?.qualiphy);
+  if (!qualiphy) return null;
+
+  const exam = metadataRecord(qualiphy.exam);
+  const invite = metadataRecord(qualiphy.invite);
+  const events = Array.isArray(qualiphy.events) ? qualiphy.events : [];
+
+  return {
+    mode: stringValue(qualiphy.mode) ?? "SEND",
+    isTest: qualiphy.isTest === true || stringValue(qualiphy.environment) === "test",
+    examTitle: stringValue(exam?.title),
+    examId: numberOrStringValue(exam?.id),
+    meetingUrl: stringValue(invite?.meetingUrl),
+    meetingUuid: stringValue(invite?.meetingUuid),
+    patientExamId: numberOrStringValue(qualiphy.patientExamId) ?? numberOrStringValue(invite?.patientExamId),
+    status: stringValue(invite?.status),
+    sentAt: stringValue(invite?.sentAt),
+    lastEvent: numberOrStringValue(qualiphy.lastEvent),
+    lastStatus: stringValue(qualiphy.lastStatus),
+    lastWebhookAt: stringValue(qualiphy.lastWebhookAt),
+    eventCount: events.length
+  };
+}
+
 function orderOriginator(order: OrderListRecord) {
   const commissionMode = orderMetadata(order)?.commissionMode;
 
@@ -91,6 +128,7 @@ export default async function AdminPipelinePage() {
             gfeDocumentUrl: order.gfeDocumentUrl,
             paymentStatus: order.paymentStatus,
             orderStatus: order.orderStatus,
+            qualiphy: qualiphyWorkflow(order),
             clinicalDocuments: order.clinicalDocuments.map((document) => ({
               id: document.id,
               type: document.type,

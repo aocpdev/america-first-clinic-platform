@@ -1,6 +1,6 @@
 "use client";
 
-import { type MouseEvent, useActionState, useEffect, useMemo, useState } from "react";
+import { type MouseEvent, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { AlertTriangle, CalendarDays, CheckCircle2, DollarSign, Gift, Loader2, Pencil, Plus, Send, Settings2, Target, Trash2, Trophy } from "lucide-react";
 import {
@@ -14,6 +14,16 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { currency } from "@/lib/utils";
+
+type RewardPrizeCategory =
+  | "MONEY"
+  | "TRAVEL"
+  | "ELECTRONICS"
+  | "EXPERIENCE"
+  | "PRODUCT"
+  | "GIFT_CARD"
+  | "RECOGNITION"
+  | "CUSTOM";
 
 type RewardLevel = {
   id: string;
@@ -30,7 +40,9 @@ type RewardLevel = {
     title: string;
     description: string | null;
     imageUrl: string | null;
+    prizeCategory: RewardPrizeCategory;
     valueCents: number;
+    isActive: boolean;
   }>;
 };
 
@@ -51,11 +63,17 @@ type RewardCampaign = {
   status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED";
   goalMode: "TOTAL_UNITS" | "PRODUCT_BUNDLE";
   windowMode: "CAMPAIGN_RANGE" | "ROLLING_DAYS";
+  metricMode: "UNITS" | "QUALIFIED_POINTS";
+  periodMode: "CUSTOM" | "MONTHLY" | "QUARTERLY" | "ACCUMULATIVE";
+  qualificationEvent: "CAPTURED_PAYMENT" | "SHIPPED_ORDER";
   rollingWindowDays: number | null;
+  minQualifiedMarginCents: number;
+  pointValueCents: number;
   rewardTitle: string;
   rewardDescription: string | null;
   rewardImageUrl: string | null;
   rewardValueType: "CASH" | "NON_CASH";
+  prizeCategory: RewardPrizeCategory;
   rewardValueCents: number;
   projectedRevenueCents: number;
   projectedMarginCents: number;
@@ -90,8 +108,31 @@ type RewardClaim = {
   };
 };
 
+const rewardPrizeOptions: Array<{ value: RewardPrizeCategory; label: string; description: string }> = [
+  { value: "MONEY", label: "Money", description: "Cash bonus or direct money reward." },
+  { value: "TRAVEL", label: "Travel", description: "Trips, hotel stays, flights, or travel credits." },
+  { value: "ELECTRONICS", label: "Electronics", description: "Phones, tablets, laptops, watches, or devices." },
+  { value: "EXPERIENCE", label: "Experience", description: "Events, dinners, wellness days, or premium access." },
+  { value: "PRODUCT", label: "Product", description: "Company products, kits, or internal merchandise." },
+  { value: "GIFT_CARD", label: "Gift card", description: "Gift cards or prepaid shopping credits." },
+  { value: "RECOGNITION", label: "Recognition", description: "Status, public recognition, trophies, or badges." },
+  { value: "CUSTOM", label: "Custom", description: "Any reward that does not fit the standard categories." }
+];
+
 function money(cents: number) {
   return currency(cents / 100);
+}
+
+function prizeCategoryLabel(category: RewardPrizeCategory) {
+  return rewardPrizeOptions.find((option) => option.value === category)?.label ?? "Custom";
+}
+
+function feeFromBps(cents: number, bps: number) {
+  return Math.max(0, Math.round((Math.max(cents, 0) * Math.max(bps, 0)) / 10000));
+}
+
+function percentFromBps(bps: number) {
+  return `${(Math.max(bps, 0) / 100).toFixed(2).replace(/\.00$/, "")}%`;
 }
 
 function personName(person: RewardClaim["user"]) {
@@ -125,6 +166,34 @@ function defaultCampaignEnd() {
   date.setDate(date.getDate() + 30);
   date.setHours(23, 59, 0, 0);
   return dateInputValue(date);
+}
+
+function periodDateRange(mode: RewardCampaign["periodMode"]) {
+  const now = new Date();
+  const start = new Date(now);
+  const end = new Date(now);
+
+  if (mode === "MONTHLY") {
+    start.setDate(1);
+    start.setHours(0, 0, 0, 0);
+    end.setMonth(start.getMonth() + 1, 0);
+    end.setHours(23, 59, 0, 0);
+  } else if (mode === "QUARTERLY") {
+    const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+    start.setMonth(quarterStartMonth, 1);
+    start.setHours(0, 0, 0, 0);
+    end.setMonth(quarterStartMonth + 3, 0);
+    end.setHours(23, 59, 0, 0);
+  } else if (mode === "ACCUMULATIVE") {
+    start.setMonth(0, 1);
+    start.setHours(0, 0, 0, 0);
+    end.setMonth(11, 31);
+    end.setHours(23, 59, 0, 0);
+  } else {
+    return null;
+  }
+
+  return { startsAt: dateInputValue(start), endsAt: dateInputValue(end) };
 }
 
 function formatDateRange(startsAt: Date | string, endsAt: Date | string) {
@@ -196,8 +265,21 @@ function campaignTargetLabel(campaign: RewardCampaign) {
   }`;
 }
 
-function LevelModal({ level, onClose }: { level: RewardLevel; onClose: () => void }) {
+function campaignMetricLabel(campaign: Pick<RewardCampaign, "metricMode" | "targetQuantity" | "pointValueCents" | "minQualifiedMarginCents">) {
+  if (campaign.metricMode === "QUALIFIED_POINTS") {
+    return `${campaign.targetQuantity} qualified points · 1 point per ${money(campaign.pointValueCents)} net margin`;
+  }
+
+  return `${campaign.targetQuantity} qualified unit${campaign.targetQuantity === 1 ? "" : "s"}`;
+}
+
+function LevelModal({ level, agencyFeeBps, onClose }: { level: RewardLevel; agencyFeeBps: number; onClose: () => void }) {
   const reward = level.rewards[0];
+  const [rewardValueDollars, setRewardValueDollars] = useState(reward ? String(reward.valueCents / 100) : "0");
+  const agencyFeeCents = feeFromBps(level.projectedMarginCents, agencyFeeBps);
+  const availableMarginCents = Math.max(level.projectedMarginCents - agencyFeeCents, 0);
+  const rewardCostCents = Math.max(Math.round((Number(rewardValueDollars) || 0) * 100), 0);
+  const finalProfitCents = availableMarginCents - rewardCostCents;
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-clinic-ink/30 px-4 py-6 backdrop-blur-sm">
@@ -206,7 +288,7 @@ function LevelModal({ level, onClose }: { level: RewardLevel; onClose: () => voi
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Level {level.level}</p>
             <h3 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Edit level and reward</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">Update the agent milestone, reward details, image, and visible value.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Configure the milestone and keep the reward inactive until Go Virtual Health is ready to launch.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-clinic-navy">
             Close
@@ -231,16 +313,51 @@ function LevelModal({ level, onClose }: { level: RewardLevel; onClose: () => voi
             </label>
           </div>
 
-          <div className="grid gap-4 rounded-3xl bg-clinic-mist p-4 md:grid-cols-2">
+          <div className="rounded-3xl bg-clinic-mist p-4">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Rank economics</p>
+                <h4 className="mt-1 text-xl font-semibold text-clinic-ink">Profit preview for this level</h4>
+              </div>
+              <span className={`rounded-full px-3 py-1 text-xs font-bold ${finalProfitCents < 0 ? "bg-red-50 text-clinic-red" : "bg-emerald-50 text-emerald-800"}`}>
+                {finalProfitCents < 0 ? "Review reward cost" : "Profitable"}
+              </span>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div className="rounded-2xl bg-white p-4 shadow-line">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Projected gross revenue</p>
               <p className="mt-2 text-2xl font-semibold text-clinic-navy">{money(level.projectedRevenueCents)}</p>
               <p className="mt-1 text-xs text-slate-500">Based on average active product price.</p>
             </div>
-            <div className="rounded-2xl bg-emerald-50 p-4 shadow-line">
+            <div className="rounded-2xl bg-white p-4 shadow-line">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Projected gross margin</p>
               <p className="mt-2 text-2xl font-semibold text-emerald-800">{money(level.projectedMarginCents)}</p>
               <p className="mt-1 text-xs text-emerald-700">Based on price minus internal cost.</p>
+            </div>
+            <div className="rounded-2xl bg-white p-4 shadow-line">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Agency fee</p>
+              <p className="mt-2 text-2xl font-semibold text-clinic-navy">{money(agencyFeeCents)}</p>
+              <p className="mt-1 text-xs text-slate-500">{percentFromBps(agencyFeeBps)} of projected margin.</p>
+            </div>
+            <div className="rounded-2xl bg-emerald-50 p-4 shadow-line">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Available margin</p>
+              <p className="mt-2 text-2xl font-semibold text-emerald-800">{money(availableMarginCents)}</p>
+              <p className="mt-1 text-xs text-emerald-700">Margin left after agency fee.</p>
+            </div>
+            <div className="rounded-2xl bg-white p-4 shadow-line">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Reward cost</p>
+              <p className="mt-2 text-2xl font-semibold text-clinic-navy">{money(rewardCostCents)}</p>
+              <p className="mt-1 text-xs text-slate-500">Updates after saving the reward value.</p>
+            </div>
+            <div className={`rounded-2xl p-4 shadow-line ${finalProfitCents < 0 ? "bg-red-50" : "bg-white"}`}>
+              <p className={`text-xs font-bold uppercase tracking-[0.14em] ${finalProfitCents < 0 ? "text-clinic-red" : "text-slate-500"}`}>
+                Final profit
+              </p>
+              <p className={`mt-2 text-2xl font-semibold ${finalProfitCents < 0 ? "text-clinic-red" : "text-clinic-navy"}`}>
+                {money(finalProfitCents)}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Available margin minus reward cost.</p>
+            </div>
             </div>
           </div>
 
@@ -250,8 +367,43 @@ function LevelModal({ level, onClose }: { level: RewardLevel; onClose: () => voi
               <Input name="rewardTitle" defaultValue={reward?.title ?? ""} placeholder="Reward title" />
             </label>
             <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Prize category</span>
+              <select
+                name="rewardPrizeCategory"
+                defaultValue={reward?.prizeCategory ?? "CUSTOM"}
+                className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring"
+              >
+                {rewardPrizeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500">Used for reporting and to make non-cash rewards clear.</p>
+            </label>
+            <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Valued at</span>
-              <Input name="rewardValueDollars" type="number" min={0} step="0.01" defaultValue={reward ? reward.valueCents / 100 : 0} />
+              <Input
+                name="rewardValueDollars"
+                type="number"
+                min={0}
+                step="0.01"
+                value={rewardValueDollars}
+                onChange={(event) => setRewardValueDollars(event.target.value)}
+              />
+            </label>
+            <label className="flex min-h-20 cursor-pointer items-center justify-between gap-4 rounded-[1.5rem] border border-border bg-clinic-mist p-4 md:col-span-2">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Reward visibility</span>
+                <p className="mt-1 text-sm font-semibold text-clinic-ink">{reward?.isActive ? "Active reward" : "Inactive draft"}</p>
+                <p className="mt-1 text-sm leading-6 text-slate-500">Inactive rewards stay hidden from agents until the program is approved.</p>
+              </div>
+              <input
+                name="rewardIsActive"
+                type="checkbox"
+                defaultChecked={reward?.isActive ?? false}
+                className="size-5 rounded border-border text-clinic-navy focus:ring-clinic-navy"
+              />
             </label>
             <label className="space-y-2 md:col-span-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Image URL</span>
@@ -280,11 +432,13 @@ function CampaignModal({
   campaign,
   products,
   campaigns,
+  agencyFeeBps,
   onClose
 }: {
   campaign?: RewardCampaign;
   products: RewardProduct[];
   campaigns: RewardCampaign[];
+  agencyFeeBps: number;
   onClose: () => void;
 }) {
   const initialSelectedProductIds = useMemo(() => campaign?.products.map((item) => item.productId) ?? [], [campaign]);
@@ -300,6 +454,11 @@ function CampaignModal({
   const [targetQuantities, setTargetQuantities] = useState<Record<string, string>>(initialQuantities);
   const [totalTargetQuantity, setTotalTargetQuantity] = useState(String(campaign?.targetQuantity ?? campaign?.totalTargetQuantity ?? 1));
   const [rewardValueDollars, setRewardValueDollars] = useState(campaign ? String(campaign.rewardValueCents / 100) : "0");
+  const [metricMode, setMetricMode] = useState<RewardCampaign["metricMode"]>(campaign?.metricMode ?? "QUALIFIED_POINTS");
+  const [periodMode, setPeriodMode] = useState<RewardCampaign["periodMode"]>(campaign?.periodMode ?? "MONTHLY");
+  const [qualificationEvent, setQualificationEvent] = useState<RewardCampaign["qualificationEvent"]>(campaign?.qualificationEvent ?? "CAPTURED_PAYMENT");
+  const [minQualifiedMarginDollars, setMinQualifiedMarginDollars] = useState(campaign ? String(campaign.minQualifiedMarginCents / 100) : "75");
+  const [pointValueDollars, setPointValueDollars] = useState(campaign ? String(campaign.pointValueCents / 100) : "100");
   const [maxWinsPerParticipant, setMaxWinsPerParticipant] = useState(String(campaign?.maxWinsPerParticipant ?? 1));
   const [maxTotalClaims, setMaxTotalClaims] = useState(campaign?.maxTotalClaims ? String(campaign.maxTotalClaims) : "");
   const [startsAtValue, setStartsAtValue] = useState(campaign ? dateInputValue(campaign.startsAt) : defaultCampaignStart());
@@ -308,12 +467,24 @@ function CampaignModal({
   const [rollingWindowDays, setRollingWindowDays] = useState(String(campaign?.rollingWindowDays ?? 5));
   const [campaignActionState, campaignFormAction] = useActionState(saveRewardCampaignWithState, initialRewardCampaignActionState);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const didHydratePeriod = useRef(false);
 
   useEffect(() => {
     if (campaignActionState.ok) {
       setHasUnsavedChanges(false);
     }
   }, [campaignActionState.ok, campaignActionState.savedAt]);
+
+  useEffect(() => {
+    if (!didHydratePeriod.current) {
+      didHydratePeriod.current = true;
+      return;
+    }
+    const range = periodDateRange(periodMode);
+    if (!range) return;
+    setStartsAtValue(range.startsAt);
+    setEndsAtValue(range.endsAt);
+  }, [periodMode]);
 
   const campaignQuantity = (productId: string) => targetQuantities[productId] ?? "1";
   const rewardValueCents = Math.max(Math.round((Number(rewardValueDollars) || 0) * 100), 0);
@@ -323,20 +494,27 @@ function CampaignModal({
 
     if (goalMode === "TOTAL_UNITS") {
       const targetUnits = Math.max(Number(totalTargetQuantity) || 1, 1);
+      const minMarginCents = Math.max(Math.round((Number(minQualifiedMarginDollars) || 0) * 100), 0);
+      const qualifiedProducts = selectedProducts.filter((product) => Math.max(product.priceCents - product.internalCostCents, 0) >= minMarginCents);
       const averageRevenueCents = selectedProducts.length
         ? Math.round(selectedProducts.reduce((sum, product) => sum + product.priceCents, 0) / selectedProducts.length)
         : 0;
-      const averageMarginCents = selectedProducts.length
+      const averageMarginCents = qualifiedProducts.length
         ? Math.round(
-            selectedProducts.reduce((sum, product) => sum + Math.max(product.priceCents - product.internalCostCents, 0), 0) /
-              selectedProducts.length
+            qualifiedProducts.reduce((sum, product) => sum + Math.max(product.priceCents - product.internalCostCents, 0), 0) /
+              qualifiedProducts.length
           )
         : 0;
+      const targetMetric = metricMode === "QUALIFIED_POINTS" ? Math.max(Number(totalTargetQuantity) || 1, 1) : targetUnits;
+      const pointValueCents = Math.max(Math.round((Number(pointValueDollars) || 100) * 100), 1);
+      const modeledUnits = metricMode === "QUALIFIED_POINTS" ? Math.ceil((targetMetric * pointValueCents) / Math.max(averageMarginCents, 1)) : targetUnits;
 
       return {
-        units: targetUnits,
-        revenueCents: averageRevenueCents * targetUnits,
-        marginCents: averageMarginCents * targetUnits
+        units: modeledUnits,
+        targetMetric,
+        qualifiedProducts: qualifiedProducts.length,
+        revenueCents: averageRevenueCents * modeledUnits,
+        marginCents: averageMarginCents * modeledUnits
       };
     }
 
@@ -347,24 +525,37 @@ function CampaignModal({
 
         return {
           units: total.units + quantity,
+          targetMetric: total.targetMetric + quantity,
+          qualifiedProducts: total.qualifiedProducts + 1,
           revenueCents: total.revenueCents + product.priceCents * quantity,
           marginCents: total.marginCents + productMarginCents * quantity
         };
       },
-      { units: 0, revenueCents: 0, marginCents: 0 }
+      { units: 0, targetMetric: 0, qualifiedProducts: 0, revenueCents: 0, marginCents: 0 }
     );
-  }, [goalMode, products, selectedProductIdSet, targetQuantities, totalTargetQuantity]);
+  }, [goalMode, metricMode, minQualifiedMarginDollars, pointValueDollars, products, selectedProductIdSet, targetQuantities, totalTargetQuantity]);
   const possibleWins = Math.max(Number(maxTotalClaims || maxWinsPerParticipant || 1), 1);
-  const projectedNetCents = projection.marginCents - rewardValueCents;
+  const projectedAgencyFeeCents = feeFromBps(projection.marginCents, agencyFeeBps);
+  const projectedAvailableMarginCents = Math.max(projection.marginCents - projectedAgencyFeeCents, 0);
+  const projectedNetCents = projectedAvailableMarginCents - rewardValueCents;
   const projectedMarginExposureCents = projection.marginCents * possibleWins;
+  const projectedAgencyFeeExposureCents = projectedAgencyFeeCents * possibleWins;
+  const projectedAvailableMarginExposureCents = projectedAvailableMarginCents * possibleWins;
   const projectedRewardExposureCents = rewardValueCents * possibleWins;
-  const projectedNetExposureCents = projectedMarginExposureCents - projectedRewardExposureCents;
+  const projectedNetExposureCents = projectedAvailableMarginExposureCents - projectedRewardExposureCents;
   const isProjectedLoss = projectedNetCents < 0;
   const overlapSummary = useMemo(() => {
     const startsAt = new Date(startsAtValue);
     const endsAt = new Date(endsAtValue);
     if (Number.isNaN(startsAt.getTime()) || Number.isNaN(endsAt.getTime())) {
-      return { overlapping: [] as RewardCampaign[], rewardExposureCents: rewardValueCents, marginExposureCents: projection.marginCents, netExposureCents: projectedNetCents };
+      return {
+        overlapping: [] as RewardCampaign[],
+        rewardExposureCents: rewardValueCents,
+        marginExposureCents: projection.marginCents,
+        agencyFeeExposureCents: projectedAgencyFeeCents,
+        availableMarginExposureCents: projectedAvailableMarginCents,
+        netExposureCents: projectedNetCents
+      };
     }
 
     const overlapping = campaigns.filter((item) => {
@@ -374,13 +565,30 @@ function CampaignModal({
     });
     const rewardExposureCents = projectedRewardExposureCents + overlapping.reduce((sum, item) => sum + item.rewardValueCents, 0);
     const marginExposureCents = projectedMarginExposureCents + overlapping.reduce((sum, item) => sum + item.projectedMarginCents, 0);
+    const agencyFeeExposureCents = projectedAgencyFeeExposureCents + overlapping.reduce((sum, item) => sum + feeFromBps(item.projectedMarginCents, agencyFeeBps), 0);
+    const availableMarginExposureCents = Math.max(marginExposureCents - agencyFeeExposureCents, 0);
     return {
       overlapping,
       rewardExposureCents,
       marginExposureCents,
-      netExposureCents: marginExposureCents - rewardExposureCents
+      agencyFeeExposureCents,
+      availableMarginExposureCents,
+      netExposureCents: availableMarginExposureCents - rewardExposureCents
     };
-  }, [campaign?.id, campaigns, endsAtValue, projectedMarginExposureCents, projectedNetCents, projectedRewardExposureCents, rewardValueCents, startsAtValue]);
+  }, [
+    agencyFeeBps,
+    campaign?.id,
+    campaigns,
+    endsAtValue,
+    projectedAgencyFeeCents,
+    projectedAgencyFeeExposureCents,
+    projectedAvailableMarginCents,
+    projectedMarginExposureCents,
+    projectedNetCents,
+    projectedRewardExposureCents,
+    rewardValueCents,
+    startsAtValue
+  ]);
 
   function toggleProduct(productId: string, checked: boolean) {
     setSelectedProductIds((current) => {
@@ -397,7 +605,7 @@ function CampaignModal({
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Timed campaign</p>
             <h3 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">{campaign ? "Edit reward campaign" : "Create reward campaign"}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">Choose products, quantities, a custom date window, and the reward agents unlock.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">Choose eligible products, qualified points, timing, and the reward participants unlock.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-full border border-border px-4 py-2 text-sm font-semibold text-clinic-navy">
             Close
@@ -436,9 +644,9 @@ function CampaignModal({
             </label>
             <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Status</span>
-              <select name="status" defaultValue={campaign?.status ?? "ACTIVE"} className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring">
-                <option value="ACTIVE">Active</option>
+              <select name="status" defaultValue={campaign?.status ?? "DRAFT"} className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring">
                 <option value="DRAFT">Draft</option>
+                <option value="ACTIVE">Active</option>
                 <option value="PAUSED">Paused</option>
                 <option value="COMPLETED">Completed</option>
               </select>
@@ -455,6 +663,159 @@ function CampaignModal({
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Description</span>
               <textarea name="description" defaultValue={campaign?.description ?? ""} className="min-h-20 w-full rounded-2xl border border-input bg-white px-4 py-3 text-sm text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring" />
             </label>
+          </div>
+
+          <div className="rounded-[1.75rem] border border-white/80 bg-white/85 p-5 shadow-[0_20px_60px_rgba(7,55,99,0.08)] backdrop-blur">
+            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Qualification model</p>
+                <h4 className="mt-1 text-xl font-semibold text-clinic-ink">Protect margin before rewards unlock</h4>
+                <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">
+                  Use qualified points when low-margin products should not count the same as high-margin products.
+                </p>
+              </div>
+              <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-800">
+                {metricMode === "QUALIFIED_POINTS" ? "Margin protected" : "Unit based"}
+              </span>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="cursor-pointer rounded-[1.5rem] border border-border bg-clinic-mist p-4 transition has-[:checked]:border-clinic-navy has-[:checked]:bg-blue-50">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="metricMode"
+                    value="QUALIFIED_POINTS"
+                    checked={metricMode === "QUALIFIED_POINTS"}
+                    onChange={() => setMetricMode("QUALIFIED_POINTS")}
+                    className="mt-1 size-5"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-clinic-ink">Qualified reward points</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      Points are generated from available margin after discounts and agency fee. Best for scaling safely.
+                    </p>
+                  </div>
+                </div>
+              </label>
+              <label className="cursor-pointer rounded-[1.5rem] border border-border bg-clinic-mist p-4 transition has-[:checked]:border-clinic-navy has-[:checked]:bg-blue-50">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="metricMode"
+                    value="UNITS"
+                    checked={metricMode === "UNITS"}
+                    onChange={() => setMetricMode("UNITS")}
+                    className="mt-1 size-5"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-clinic-ink">Qualified units</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      Counts eligible product units. Use this only when selected products have similar margins.
+                    </p>
+                  </div>
+                </div>
+              </label>
+            </div>
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Reward period</span>
+                <select
+                  name="periodMode"
+                  value={periodMode}
+                  onChange={(event) => setPeriodMode(event.target.value as RewardCampaign["periodMode"])}
+                  className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="MONTHLY">Monthly</option>
+                  <option value="QUARTERLY">Quarterly</option>
+                  <option value="ACCUMULATIVE">Accumulative</option>
+                  <option value="CUSTOM">Custom dates</option>
+                </select>
+              </label>
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                  {metricMode === "QUALIFIED_POINTS" ? "Points required" : "Units required"}
+                </span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={999999}
+                  value={totalTargetQuantity}
+                  onChange={(event) => setTotalTargetQuantity(event.target.value)}
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Minimum margin / unit</span>
+                <Input
+                  name="minQualifiedMarginDollars"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={minQualifiedMarginDollars}
+                  onChange={(event) => setMinQualifiedMarginDollars(event.target.value)}
+                />
+              </label>
+              <label className="space-y-2 md:col-span-3">
+                <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Point conversion</span>
+                <div className="grid gap-3 rounded-[1.5rem] border border-border bg-clinic-mist p-4 md:grid-cols-[1fr_180px] md:items-center">
+                  <p className="text-sm leading-6 text-slate-600">
+                    One point is earned for each margin block. For example, if this is $100, a sale with $240 of available margin generates 2.4 qualified points.
+                  </p>
+                  <Input
+                    name="pointValueDollars"
+                    type="number"
+                    min={1}
+                    step="0.01"
+                    value={pointValueDollars}
+                    onChange={(event) => setPointValueDollars(event.target.value)}
+                  />
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div className="rounded-3xl border border-border bg-white p-5 shadow-line">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-clinic-red" />
+              <p className="text-sm font-semibold text-clinic-ink">When progress counts</p>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className="cursor-pointer rounded-[1.5rem] border border-border bg-clinic-mist p-4 transition has-[:checked]:border-clinic-navy has-[:checked]:bg-blue-50">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="qualificationEvent"
+                    value="CAPTURED_PAYMENT"
+                    checked={qualificationEvent === "CAPTURED_PAYMENT"}
+                    onChange={() => setQualificationEvent("CAPTURED_PAYMENT")}
+                    className="mt-1 size-5"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-clinic-ink">Paid sale</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      Counts the order when payment is captured. Best for velocity campaigns where speed matters.
+                    </p>
+                  </div>
+                </div>
+              </label>
+              <label className="cursor-pointer rounded-[1.5rem] border border-border bg-clinic-mist p-4 transition has-[:checked]:border-clinic-navy has-[:checked]:bg-blue-50">
+                <div className="flex items-start gap-3">
+                  <input
+                    type="radio"
+                    name="qualificationEvent"
+                    value="SHIPPED_ORDER"
+                    checked={qualificationEvent === "SHIPPED_ORDER"}
+                    onChange={() => setQualificationEvent("SHIPPED_ORDER")}
+                    className="mt-1 size-5"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-clinic-ink">Shipped order</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      Counts only after the order is shipped. Use this when rewards should wait until fulfillment is complete.
+                    </p>
+                  </div>
+                </div>
+              </label>
+            </div>
           </div>
 
           <div className="rounded-3xl border border-border bg-white p-5 shadow-line">
@@ -491,7 +852,9 @@ function CampaignModal({
                   />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-semibold text-clinic-ink">Rolling day sprint</p>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">The agent must hit the target inside any rolling X-day window during this campaign.</p>
+                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                      Only the latest X days count. When the agent earns this reward, that used progress resets toward the next win.
+                    </p>
                     {windowMode === "ROLLING_DAYS" ? (
                       <Input
                         name="rollingWindowDays"
@@ -558,15 +921,17 @@ function CampaignModal({
                   <div>
                     <p className="text-sm font-semibold text-clinic-ink">Any selected product target</p>
                     <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Agents can sell any combination of the selected products. The reward unlocks when the total reaches this quantity.
+                      Participants can sell any combination of the selected products. The reward unlocks when the total reaches this target.
                     </p>
                   </div>
                   <label className="space-y-2">
-                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Total units required</span>
+                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                      {metricMode === "QUALIFIED_POINTS" ? "Points required" : "Total units required"}
+                    </span>
                     <Input
                       type="number"
                       min={1}
-                      max={999}
+                      max={999999}
                       value={totalTargetQuantity}
                       onChange={(event) => setTotalTargetQuantity(event.target.value)}
                     />
@@ -627,16 +992,18 @@ function CampaignModal({
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-red">Campaign projection</p>
                 <h4 className="mt-1 text-2xl font-semibold text-clinic-ink">Reward economics</h4>
                 <p className="mt-1 text-sm leading-6 text-slate-500">
-                  Calculated from the selected products, target units, margin, and reward value.
+                  Calculates revenue, gross margin, agency fee, available margin, reward cost, and final profit as you edit.
                 </p>
               </div>
               <span className={`rounded-full px-3 py-1 text-xs font-bold ${isProjectedLoss ? "bg-red-50 text-clinic-red" : "bg-emerald-50 text-emerald-800"}`}>
                 {isProjectedLoss ? "Projected loss" : "Projected gain"}
               </span>
             </div>
-            <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
               <div className="rounded-2xl bg-clinic-mist p-4">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Target units</p>
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                  {metricMode === "QUALIFIED_POINTS" ? "Modeled units" : "Target units"}
+                </p>
                 <p className="mt-1 text-2xl font-semibold text-clinic-navy">{projection.units}</p>
               </div>
               <div className="rounded-2xl bg-clinic-mist p-4">
@@ -647,19 +1014,32 @@ function CampaignModal({
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Gross margin</p>
                 <p className="mt-1 text-2xl font-semibold text-emerald-800">{money(projection.marginCents)}</p>
               </div>
+              <div className="rounded-2xl bg-white p-4 shadow-line">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Agency fee</p>
+                <p className="mt-1 text-2xl font-semibold text-clinic-navy">{money(projectedAgencyFeeCents)}</p>
+                <p className="mt-1 text-[11px] font-semibold text-slate-400">{percentFromBps(agencyFeeBps)}</p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Available margin</p>
+                <p className="mt-1 text-2xl font-semibold text-emerald-800">{money(projectedAvailableMarginCents)}</p>
+              </div>
               <div className={`rounded-2xl p-4 ${isProjectedLoss ? "bg-red-50" : "bg-white shadow-line"}`}>
                 <p className={`text-[11px] font-bold uppercase tracking-[0.12em] ${isProjectedLoss ? "text-clinic-red" : "text-slate-500"}`}>
-                  Net after reward
+                  Final profit
                 </p>
                 <p className={`mt-1 text-2xl font-semibold ${isProjectedLoss ? "text-clinic-red" : "text-clinic-navy"}`}>
                   {money(projectedNetCents)}
                 </p>
               </div>
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="mt-4 grid gap-3 md:grid-cols-4">
               <div className="rounded-2xl bg-white p-4 shadow-line">
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Possible wins modeled</p>
                 <p className="mt-1 text-xl font-semibold text-clinic-navy">{possibleWins}</p>
+              </div>
+              <div className="rounded-2xl bg-white p-4 shadow-line">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Available exposure</p>
+                <p className="mt-1 text-xl font-semibold text-clinic-navy">{money(projectedAvailableMarginExposureCents)}</p>
               </div>
               <div className="rounded-2xl bg-white p-4 shadow-line">
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Reward exposure</p>
@@ -700,10 +1080,18 @@ function CampaignModal({
                 </div>
               ) : null}
             </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="mt-4 grid gap-3 md:grid-cols-5">
               <div className="rounded-2xl bg-white p-4 shadow-line">
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Margin exposure</p>
                 <p className="mt-1 text-xl font-semibold text-clinic-navy">{money(overlapSummary.marginExposureCents)}</p>
+              </div>
+              <div className="rounded-2xl bg-white p-4 shadow-line">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Agency fee</p>
+                <p className="mt-1 text-xl font-semibold text-clinic-navy">{money(overlapSummary.agencyFeeExposureCents)}</p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Available margin</p>
+                <p className="mt-1 text-xl font-semibold text-emerald-800">{money(overlapSummary.availableMarginExposureCents)}</p>
               </div>
               <div className="rounded-2xl bg-white p-4 shadow-line">
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Reward exposure</p>
@@ -733,6 +1121,21 @@ function CampaignModal({
               </select>
             </label>
             <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Prize category</span>
+              <select
+                name="prizeCategory"
+                defaultValue={campaign?.prizeCategory ?? (campaign?.rewardValueType === "CASH" ? "MONEY" : "CUSTOM")}
+                className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring"
+              >
+                {rewardPrizeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500">For cash rewards this is stored as Money automatically.</p>
+            </label>
+            <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Reward value / company cost</span>
               <Input
                 name="rewardValueDollars"
@@ -744,7 +1147,7 @@ function CampaignModal({
               />
             </label>
             <label className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Wins per agent</span>
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Wins per participant</span>
               <Input
                 name="maxWinsPerParticipant"
                 type="number"
@@ -773,7 +1176,8 @@ function CampaignModal({
             <div className="rounded-[1.5rem] border border-border bg-clinic-mist p-4 md:col-span-2">
               <p className="text-sm font-semibold text-clinic-ink">Limit behavior</p>
               <p className="mt-1 text-sm leading-6 text-slate-600">
-                Participants can win this campaign up to the agent limit. If the total campaign cap is reached, the campaign stops issuing new rewards while keeping all history visible.
+                Participants can win up to this limit. Each claim consumes one complete target, so the same sales or points do not count toward the next reward.
+                If the total campaign cap is reached, the campaign stops issuing new rewards while keeping all history visible.
               </p>
             </div>
             <label className="space-y-2 md:col-span-2">
@@ -879,12 +1283,14 @@ export function AdminRewardsEditor({
   levels,
   products,
   campaigns,
-  claims
+  claims,
+  agencyFeeBps
 }: {
   levels: RewardLevel[];
   products: RewardProduct[];
   campaigns: RewardCampaign[];
   claims: RewardClaim[];
+  agencyFeeBps: number;
 }) {
   const [editingLevel, setEditingLevel] = useState<RewardLevel | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<RewardCampaign | null | "new">(null);
@@ -892,24 +1298,54 @@ export function AdminRewardsEditor({
     () => ({
       levelMargin: levels.reduce((sum, level) => sum + level.projectedMarginCents, 0),
       campaignMargin: campaigns.reduce((sum, campaign) => sum + campaign.projectedMarginCents, 0),
+      campaignAgencyFee: campaigns.reduce((sum, campaign) => sum + feeFromBps(campaign.projectedMarginCents, agencyFeeBps), 0),
       campaignRewardCost: campaigns.reduce((sum, campaign) => sum + campaign.rewardValueCents, 0),
-      campaignNet: campaigns.reduce((sum, campaign) => sum + campaign.projectedMarginCents - campaign.rewardValueCents, 0),
-      activeCampaigns: campaigns.filter((campaign) => campaign.status === "ACTIVE").length
+      campaignNet: campaigns.reduce(
+        (sum, campaign) => sum + Math.max(campaign.projectedMarginCents - feeFromBps(campaign.projectedMarginCents, agencyFeeBps), 0) - campaign.rewardValueCents,
+        0
+      ),
+      activeCampaigns: campaigns.filter((campaign) => campaign.status === "ACTIVE").length,
+      activeRewards: levels.reduce((sum, level) => sum + level.rewards.filter((reward) => reward.isActive).length, 0),
+      draftCampaigns: campaigns.filter((campaign) => campaign.status === "DRAFT").length
     }),
-    [levels, campaigns]
+    [agencyFeeBps, levels, campaigns]
   );
+  const isProgramParked = totals.activeCampaigns === 0 && totals.activeRewards === 0;
 
   return (
     <div className="space-y-6">
+      {isProgramParked ? (
+        <Card className="overflow-hidden rounded-[2rem] border-emerald-100 bg-gradient-to-br from-white via-white to-emerald-50/70 p-6 shadow-[0_22px_70px_rgba(7,55,99,0.08)]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-3xl">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Program parked</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-clinic-ink">No active rewards or campaigns are live.</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Build reward levels and campaign drafts here, review the economics, then activate only when Go Virtual Health is ready to launch the competition.
+              </p>
+            </div>
+            <Button type="button" variant="accent" onClick={() => setEditingCampaign("new")} className="rounded-2xl">
+              <Plus className="mr-2 h-4 w-4" />
+              Draft first campaign
+            </Button>
+          </div>
+        </Card>
+      ) : null}
+
       <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_22px_70px_rgba(7,55,99,0.08)]">
-        <div className="grid gap-4 p-6 md:grid-cols-4">
+        <div className="grid gap-4 p-6 md:grid-cols-5">
           <div className="rounded-3xl bg-clinic-mist p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Active campaigns</p>
             <p className="mt-2 text-3xl font-semibold text-clinic-navy">{totals.activeCampaigns}</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">{totals.draftCampaigns} drafts staged</p>
           </div>
           <div className="rounded-3xl bg-emerald-50 p-5">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">Projected campaign margin</p>
             <p className="mt-2 text-3xl font-semibold text-emerald-800">{money(totals.campaignMargin)}</p>
+          </div>
+          <div className="rounded-3xl bg-white p-5 shadow-line">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Agency fee</p>
+            <p className="mt-2 text-3xl font-semibold text-clinic-navy">{money(totals.campaignAgencyFee)}</p>
           </div>
           <div className="rounded-3xl bg-white p-5 shadow-line">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Reward cost</p>
@@ -941,6 +1377,8 @@ export function AdminRewardsEditor({
         <div className="grid gap-4 p-6 xl:grid-cols-3">
           {levels.length ? levels.map((level) => {
             const reward = level.rewards[0];
+            const agencyFeeCents = feeFromBps(level.projectedMarginCents, agencyFeeBps);
+            const finalProfitCents = Math.max(level.projectedMarginCents - agencyFeeCents, 0) - (reward?.valueCents ?? 0);
             return (
               <button
                 key={level.id}
@@ -971,12 +1409,36 @@ export function AdminRewardsEditor({
                       <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-emerald-700">Margin</p>
                       <p className="mt-1 font-semibold text-emerald-800">{money(level.projectedMarginCents)}</p>
                     </div>
+                    <div className="rounded-2xl bg-white p-4 shadow-line">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Agency fee</p>
+                      <p className="mt-1 font-semibold text-clinic-navy">{money(agencyFeeCents)}</p>
+                    </div>
+                    <div className={`rounded-2xl p-4 ${finalProfitCents < 0 ? "bg-red-50" : "bg-white shadow-line"}`}>
+                      <p className={`text-[11px] font-bold uppercase tracking-[0.12em] ${finalProfitCents < 0 ? "text-clinic-red" : "text-slate-500"}`}>
+                        Profit after reward
+                      </p>
+                      <p className={`mt-1 font-semibold ${finalProfitCents < 0 ? "text-clinic-red" : "text-clinic-navy"}`}>
+                        {money(finalProfitCents)}
+                      </p>
+                    </div>
                   </div>
                 </div>
                 <div className="mt-5 flex items-center justify-between gap-3 border-t border-border pt-4">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-clinic-ink">{reward?.title ?? "No reward set"}</p>
-                    <p className="text-sm text-slate-500">{reward ? `Valued at ${money(reward.valueCents)}` : "Add a reward"}</p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-sm font-semibold text-clinic-ink">{reward?.title ?? "No reward set"}</p>
+                      {reward ? (
+                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${reward.isActive ? "bg-emerald-50 text-emerald-800" : "bg-slate-100 text-slate-600"}`}>
+                          {reward.isActive ? "Active" : "Inactive"}
+                        </span>
+                      ) : null}
+                      {reward ? (
+                        <span className="rounded-full bg-clinic-mist px-2.5 py-1 text-[11px] font-bold text-clinic-navy">
+                          {prizeCategoryLabel(reward.prizeCategory)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 text-sm text-slate-500">{reward ? `Valued at ${money(reward.valueCents)}` : "Add a reward"}</p>
                   </div>
                   <Pencil className="h-5 w-5 shrink-0 text-clinic-navy transition group-hover:text-clinic-red" />
                 </div>
@@ -1009,7 +1471,9 @@ export function AdminRewardsEditor({
         <div className="grid gap-4 p-6 xl:grid-cols-2">
           {campaigns.length ? (
             campaigns.map((campaign) => {
-              const netCents = campaign.projectedMarginCents - campaign.rewardValueCents;
+              const agencyFeeCents = feeFromBps(campaign.projectedMarginCents, agencyFeeBps);
+              const availableMarginCents = Math.max(campaign.projectedMarginCents - agencyFeeCents, 0);
+              const netCents = availableMarginCents - campaign.rewardValueCents;
               return (
                 <div
                   key={campaign.id}
@@ -1020,15 +1484,16 @@ export function AdminRewardsEditor({
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{campaign.status}</p>
                     <h3 className="mt-1 truncate text-xl font-semibold text-clinic-ink">{campaign.title}</h3>
                     <p className="mt-1 line-clamp-2 text-sm text-slate-500">{campaignTargetLabel(campaign)}</p>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">{campaignMetricLabel(campaign)}</p>
                     <p className="mt-2 text-sm font-semibold text-clinic-navy">
                       {campaignTimingLabel(campaign)}
                     </p>
                   </div>
                   <span className="rounded-full bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">
-                    {campaign.rewardValueType === "CASH" ? "Cash" : "Reward"}
+                    {prizeCategoryLabel(campaign.prizeCategory)}
                   </span>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                <div className="mt-4 grid gap-3 sm:grid-cols-5">
                   <div className="rounded-2xl bg-clinic-mist p-4">
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Revenue</p>
                     <p className="mt-1 font-semibold text-clinic-navy">{money(campaign.projectedRevenueCents)}</p>
@@ -1038,17 +1503,21 @@ export function AdminRewardsEditor({
                     <p className="mt-1 font-semibold text-emerald-800">{money(campaign.projectedMarginCents)}</p>
                   </div>
                   <div className="rounded-2xl bg-white p-4 shadow-line">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Fee</p>
+                    <p className="mt-1 font-semibold text-clinic-navy">{money(agencyFeeCents)}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white p-4 shadow-line">
                     <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Reward</p>
                     <p className="mt-1 font-semibold text-clinic-navy">{money(campaign.rewardValueCents)}</p>
                   </div>
                   <div className={`rounded-2xl p-4 ${netCents < 0 ? "bg-red-50" : "bg-white shadow-line"}`}>
-                    <p className={`text-[11px] font-bold uppercase tracking-[0.12em] ${netCents < 0 ? "text-clinic-red" : "text-slate-500"}`}>Net</p>
+                    <p className={`text-[11px] font-bold uppercase tracking-[0.12em] ${netCents < 0 ? "text-clinic-red" : "text-slate-500"}`}>Profit</p>
                     <p className={`mt-1 font-semibold ${netCents < 0 ? "text-clinic-red" : "text-clinic-navy"}`}>{money(netCents)}</p>
                   </div>
                 </div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl bg-clinic-mist p-4">
-                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Wins per agent</p>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Wins per participant</p>
                     <p className="mt-1 font-semibold text-clinic-navy">{campaign.maxWinsPerParticipant}</p>
                   </div>
                   <div className="rounded-2xl bg-clinic-mist p-4">
@@ -1065,7 +1534,9 @@ export function AdminRewardsEditor({
                 <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex min-w-0 items-center gap-2 text-sm font-semibold text-clinic-navy">
                     <Gift className="h-4 w-4 shrink-0 text-clinic-red" />
-                    <span className="truncate">{campaign.rewardTitle}</span>
+                    <span className="truncate">
+                      {campaign.rewardTitle} · {money(campaign.rewardValueCents)} value
+                    </span>
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <Button
@@ -1102,12 +1573,13 @@ export function AdminRewardsEditor({
         </div>
       </Card>
 
-      {editingLevel ? <LevelModal level={editingLevel} onClose={() => setEditingLevel(null)} /> : null}
+      {editingLevel ? <LevelModal level={editingLevel} agencyFeeBps={agencyFeeBps} onClose={() => setEditingLevel(null)} /> : null}
       {editingCampaign ? (
         <CampaignModal
           campaign={editingCampaign === "new" ? undefined : editingCampaign}
           products={products}
           campaigns={campaigns}
+          agencyFeeBps={agencyFeeBps}
           onClose={() => setEditingCampaign(null)}
         />
       ) : null}

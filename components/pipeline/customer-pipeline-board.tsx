@@ -60,8 +60,25 @@ type PipelineOpportunity = {
   gfeDocumentUrl: string | null;
   paymentStatus: string;
   orderStatus: string;
+  qualiphy: QualiphyWorkflow | null;
   clinicalDocuments: CustomerClinicalDocument[];
   orderHistory: CustomerOrderHistoryItem[];
+};
+
+type QualiphyWorkflow = {
+  mode: "SEND" | "SKIP" | string;
+  isTest: boolean;
+  examTitle: string | null;
+  examId: number | string | null;
+  meetingUrl: string | null;
+  meetingUuid: string | null;
+  patientExamId: string | number | null;
+  status: string | null;
+  sentAt: string | null;
+  lastEvent: number | string | null;
+  lastStatus: string | null;
+  lastWebhookAt: string | null;
+  eventCount: number;
 };
 
 type CustomerClinicalDocument = {
@@ -325,7 +342,7 @@ function PipelineFilterBar({
 
       <div
         ref={wrapperRef}
-        className="relative inline-flex self-start sm:self-auto"
+        className="relative inline-flex self-end sm:self-auto"
         onBlur={(event) => {
           const nextFocus = event.relatedTarget as Node | null;
           if (!event.currentTarget.contains(nextFocus)) {
@@ -347,11 +364,7 @@ function PipelineFilterBar({
         >
           <SlidersHorizontal className="size-4" />
           Filters
-          {activeFilterCount ? (
-            <span className="grid min-w-5 place-items-center rounded-full bg-clinic-red px-1.5 py-0.5 text-[11px] font-bold text-white">
-              {activeFilterCount}
-            </span>
-          ) : null}
+          {activeFilterCount ? <span className="size-2 rounded-full bg-clinic-red" /> : null}
           <ChevronDown className={`size-4 text-slate-400 transition ${isOpen ? "rotate-180" : ""}`} />
         </button>
 
@@ -992,6 +1005,8 @@ function OpportunityModal({
 
                 {canManageInternalDocs ? (
                   <div className="grid gap-5">
+                    <QualiphyWorkflowCard workflow={opportunity.qualiphy} />
+
                     <div className="rounded-3xl border border-border bg-clinic-mist p-4">
                       <div className="flex items-start gap-3">
                         <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-white text-clinic-navy shadow-line">
@@ -1077,6 +1092,79 @@ function OpportunityModal({
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function QualiphyWorkflowCard({ workflow }: { workflow: QualiphyWorkflow | null }) {
+  if (!workflow) {
+    return (
+      <div className="rounded-3xl border border-border bg-white p-4 shadow-line">
+        <div className="flex items-start gap-3">
+          <div className="grid size-11 shrink-0 place-items-center rounded-2xl bg-clinic-mist text-clinic-navy">
+            <Pill className="size-5" />
+          </div>
+          <div>
+            <p className="text-lg font-semibold text-clinic-ink">Qualiphy workflow</p>
+            <p className="mt-1 text-sm leading-6 text-slate-500">No Qualiphy invite has been sent for this opportunity yet.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const status = workflow.lastStatus || workflow.status || (workflow.mode === "SKIP" ? "Managed internally" : "Waiting for Qualiphy");
+
+  return (
+    <div className="rounded-3xl border border-blue-100 bg-gradient-to-br from-white to-blue-50 p-4 shadow-line">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-clinic-navy">Qualiphy workflow</p>
+            {workflow.isTest ? (
+              <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-bold text-amber-700">Test</span>
+            ) : null}
+            <span className="rounded-full border border-blue-100 bg-white px-3 py-1 text-xs font-bold text-clinic-navy">
+              {workflow.mode === "SKIP" ? "Internal" : "Sent"}
+            </span>
+          </div>
+          <h5 className="mt-2 text-xl font-semibold text-clinic-ink">{workflow.examTitle || "No external exam selected"}</h5>
+          <p className="mt-1 text-sm leading-6 text-slate-500">{status}</p>
+        </div>
+        {workflow.meetingUrl ? (
+          <a
+            href={workflow.meetingUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-clinic-navy px-4 text-sm font-semibold text-white transition hover:bg-clinic-blue"
+          >
+            <ExternalLink className="size-4" />
+            Open meeting
+          </a>
+        ) : null}
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <QualiphyFact label="Exam ID" value={workflow.examId ?? "N/A"} />
+        <QualiphyFact label="Patient exam" value={workflow.patientExamId ?? "N/A"} />
+        <QualiphyFact label="Events" value={workflow.eventCount} />
+        <QualiphyFact label="Last webhook" value={workflow.lastWebhookAt ? formatFullDate(workflow.lastWebhookAt) : "Not received"} />
+      </div>
+
+      {workflow.meetingUuid ? (
+        <p className="mt-3 truncate text-xs font-semibold text-slate-500" title={workflow.meetingUuid}>
+          Meeting UUID: {workflow.meetingUuid}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function QualiphyFact({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-2xl border border-blue-100 bg-white/80 px-3 py-3">
+      <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">{label}</p>
+      <p className="mt-1 truncate text-sm font-semibold text-clinic-ink" title={String(value)}>{value}</p>
     </div>
   );
 }
@@ -1208,6 +1296,7 @@ function StageMoveModal({
   const needsTracking = stage === "FULFILLMENT" || stage === "SHIPPED";
   const showsQualiphyChoice = stage === "GFE";
   const [qualiphyMode, setQualiphyMode] = useState<"skip" | "send">("skip");
+  const [qualiphyTestMode, setQualiphyTestMode] = useState(false);
   const [selectedExamId, setSelectedExamId] = useState("");
   const [examSearch, setExamSearch] = useState("");
   const selectedExam = qualiphyExams.find((exam) => exam.id.toString() === selectedExamId) ?? null;
@@ -1331,6 +1420,7 @@ function StageMoveModal({
                 {qualiphyMode === "send" ? (
                   <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
                     <input type="hidden" name="qualiphyExamId" value={selectedExamId} />
+                    <input type="hidden" name="qualiphyTestMode" value={qualiphyTestMode ? "true" : "false"} />
                     <label className="block">
                       <span className="text-xs font-bold uppercase tracking-[0.14em] text-clinic-navy">Find exam</span>
                       <input
@@ -1372,6 +1462,21 @@ function StageMoveModal({
                         </div>
                       </div>
                     ) : null}
+
+                    <label className="mt-3 flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 transition hover:bg-amber-100/60">
+                      <input
+                        type="checkbox"
+                        checked={qualiphyTestMode}
+                        onChange={(event) => setQualiphyTestMode(event.target.checked)}
+                        className="mt-1"
+                      />
+                      <span>
+                        <span className="block text-sm font-semibold text-amber-900">Send as Qualiphy test</span>
+                        <span className="mt-1 block text-xs leading-5 text-amber-800">
+                          Marks this invite and webhook trail as test data in the pipeline. Use only with a test customer/order.
+                        </span>
+                      </span>
+                    </label>
 
                     <div className="mt-3 max-h-64 overflow-y-auto rounded-2xl border border-border bg-white p-2">
                       {filteredExams.length ? (

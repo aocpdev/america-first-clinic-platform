@@ -59,7 +59,7 @@ export function OrdersFilterBar({ filters, selects, resetHref, visibleCount, tot
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex w-full flex-wrap justify-end gap-2 lg:w-auto">
           <div
             ref={menuRef}
             className="relative inline-flex"

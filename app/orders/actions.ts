@@ -72,9 +72,16 @@ async function ensureOrderAccess(user: Awaited<ReturnType<typeof requireUser>>, 
     },
     include: {
       customer: true,
-      consultantProfile: true,
+      consultantProfile: {
+        include: {
+          partnerProfile: true,
+          managerProfile: true,
+          groupLeaderProfile: { include: { managerProfile: true } }
+        }
+      },
       partnerProfile: true,
-      groupLeaderProfile: true,
+      managerProfile: true,
+      groupLeaderProfile: { include: { managerProfile: true } },
       paymentTransactions: {
         where: { status: "CAPTURED", providerTransactionId: { not: null } },
         orderBy: { createdAt: "desc" },
@@ -248,6 +255,25 @@ export async function updateOrderShippingTracking(formData: FormData) {
       trackingUrl: carrierTrackingUrl(carrier, trackingCode)
     }
   });
+
+  const customerName = personDisplayName(order.customer);
+  await notifyUsers(
+    prisma,
+    orderRecipientUserIds(order).map((userId) => ({
+      userId,
+      title: order.shippingTrackingCode ? "Tracking updated" : "Tracking ready",
+      body: `${customerName}'s order now has ${carrier.toUpperCase()} tracking ${trackingCode}.`,
+      metadata: {
+        type: "order_tracking",
+        orderId: order.id,
+        customerId: order.customerId,
+        stage: order.orderPipelineStage,
+        carrier,
+        trackingCode,
+        trackingUrl: carrierTrackingUrl(carrier, trackingCode)
+      }
+    }))
+  );
 
   revalidatePath(returnPath);
   revalidatePath("/admin/orders");
@@ -455,6 +481,7 @@ export async function updateOrderPipelineStage(formData: FormData) {
         title,
         body,
         metadata: {
+          type: "order_stage",
           orderId: order.id,
           customerId: order.customerId,
           stage: requestedStage,
@@ -486,6 +513,7 @@ export async function updateOrderPipelineStage(formData: FormData) {
   revalidatePath(returnPath);
   revalidatePath("/admin/orders");
   revalidatePath("/partner/orders");
+  revalidatePath("/manager/orders");
   revalidatePath("/consultant/orders");
   redirect(`${returnPath}?stage=updated`);
 }
