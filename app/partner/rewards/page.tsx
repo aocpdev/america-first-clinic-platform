@@ -83,7 +83,7 @@ export default async function PartnerRewardsPage() {
 
   if (!user.companyId || (!user.partnerProfile?.id && !user.managerProfile?.id && !user.groupLeaderProfile?.id)) {
     return (
-      <SidebarShell nav={nav} eyebrow={isManager ? "Manager" : isGroupLeader ? "Group leader" : "Partner"} title="Rewards">
+      <SidebarShell nav={nav} eyebrow={isManager ? "Manager" : isGroupLeader ? "Leader" : "Partner"} title="Rewards">
         <Card className="p-6">
           <h2 className="text-xl font-semibold text-clinic-ink">Agent profile required</h2>
           <p className="mt-2 text-slate-600">Your partner, manager, or group leader profile is required before rewards can be viewed.</p>
@@ -136,24 +136,32 @@ export default async function PartnerRewardsPage() {
     ]);
 
     return (
-      <SidebarShell nav={nav} eyebrow="Group leader" title="Rewards">
+      <SidebarShell nav={nav} eyebrow="Leader" title="Rewards">
         <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} claimHistory={claimHistory} />
       </SidebarShell>
     );
   }
 
-  const [networkRows, campaigns, levels] = await Promise.all([
+  const [networkRows, campaigns, agentLevels, leaderLevels, managerLevels] = await Promise.all([
     getScopedRewardLeaderboard({
       companyId: user.companyId,
       partnerProfileId: user.partnerProfile?.id
     }),
     getRewardCampaigns(user.companyId),
-    getRewardLevels(user.companyId)
+    getRewardLevels(user.companyId, "CONSULTANT"),
+    getRewardLevels(user.companyId, "GROUP_LEADER"),
+    getRewardLevels(user.companyId, "MANAGER")
   ]);
 
   const activeCampaigns = campaigns.filter((campaign) => campaign.isLive);
   const totalSales = networkRows.reduce((sum, row) => sum + row.salesCount, 0);
   const topAgent = networkRows[0] ?? null;
+  const configuredLevelCount = agentLevels.length + leaderLevels.length + managerLevels.length;
+  const levelsByRole = {
+    Agent: agentLevels,
+    Leader: leaderLevels,
+    Manager: managerLevels
+  };
 
   return (
     <SidebarShell nav={nav} eyebrow="Partner" title="Rewards">
@@ -201,7 +209,7 @@ export default async function PartnerRewardsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="rounded-[1.5rem] border border-border bg-white p-4 shadow-line">
                   <p className="text-xs font-bold uppercase text-slate-500">Configured levels</p>
-                  <p className="mt-2 text-3xl font-semibold text-clinic-navy">{levels.length}</p>
+                  <p className="mt-2 text-3xl font-semibold text-clinic-navy">{configuredLevelCount}</p>
                 </div>
                 <div className="rounded-[1.5rem] border border-border bg-white p-4 shadow-line">
                   <p className="text-xs font-bold uppercase text-slate-500">People with sales</p>
@@ -226,6 +234,7 @@ export default async function PartnerRewardsPage() {
             <div className="space-y-3 p-5">
               {networkRows.length ? (
                 networkRows.map((row, index) => {
+                  const levels = levelsByRole[row.role as keyof typeof levelsByRole] ?? agentLevels;
                   const nextLevel = levels.find((level) => level.salesThreshold > row.salesCount);
                   const currentLevel = [...levels].reverse().find((level) => row.salesCount >= level.salesThreshold);
                   const previousThreshold = currentLevel?.salesThreshold ?? 0;

@@ -30,6 +30,12 @@ type RewardLevel = {
   level: number;
   name: string;
   salesThreshold: number;
+  participantRole: "MANAGER" | "GROUP_LEADER" | "CONSULTANT";
+  scopeMode: "PERSONAL" | "DIRECT_TEAM" | "FULL_DOWNLINE";
+  metricMode: "UNITS" | "QUALIFIED_POINTS";
+  qualificationEvent: "CAPTURED_PAYMENT" | "SHIPPED_ORDER";
+  minQualifiedMarginCents: number;
+  pointValueCents: number;
   accentColor: string;
   projectedRevenueCents: number;
   projectedMarginCents: number;
@@ -61,6 +67,8 @@ type RewardCampaign = {
   startsAt: Date | string;
   endsAt: Date | string;
   status: "DRAFT" | "ACTIVE" | "PAUSED" | "COMPLETED";
+  participantRole: "MANAGER" | "GROUP_LEADER" | "CONSULTANT";
+  scopeMode: "PERSONAL" | "DIRECT_TEAM" | "FULL_DOWNLINE";
   goalMode: "TOTAL_UNITS" | "PRODUCT_BUNDLE";
   windowMode: "CAMPAIGN_RANGE" | "ROLLING_DAYS";
   metricMode: "UNITS" | "QUALIFIED_POINTS";
@@ -118,6 +126,26 @@ const rewardPrizeOptions: Array<{ value: RewardPrizeCategory; label: string; des
   { value: "RECOGNITION", label: "Recognition", description: "Status, public recognition, trophies, or badges." },
   { value: "CUSTOM", label: "Custom", description: "Any reward that does not fit the standard categories." }
 ];
+
+const rewardRoleOptions = [
+  { value: "CONSULTANT", label: "Agents", scope: "Personal production" },
+  { value: "GROUP_LEADER", label: "Leaders", scope: "Leader team production" },
+  { value: "MANAGER", label: "Managers", scope: "Manager organization production" }
+] as const;
+
+function rewardRoleLabel(role: RewardLevel["participantRole"]) {
+  return rewardRoleOptions.find((option) => option.value === role)?.label ?? "Agents";
+}
+
+function scopeLabel(scope: RewardLevel["scopeMode"]) {
+  if (scope === "FULL_DOWNLINE") return "Full downline";
+  if (scope === "DIRECT_TEAM") return "Direct team";
+  return "Personal";
+}
+
+function rewardMetricLabel(metricMode: RewardLevel["metricMode"]) {
+  return metricMode === "QUALIFIED_POINTS" ? "Qualified points" : "Qualified units";
+}
 
 function money(cents: number) {
   return currency(cents / 100);
@@ -304,13 +332,57 @@ function LevelModal({ level, agencyFeeBps, onClose }: { level: RewardLevel; agen
               <Input name="name" defaultValue={level.name} />
             </label>
             <label className="space-y-2">
-              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Sales needed</span>
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Target needed</span>
               <Input name="salesThreshold" type="number" min={0} defaultValue={level.salesThreshold} />
             </label>
             <label className="space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Accent</span>
               <Input name="accentColor" defaultValue={level.accentColor} />
             </label>
+          </div>
+
+          <div className="grid gap-4 rounded-[1.75rem] border border-border bg-white p-4 shadow-line md:grid-cols-3">
+            <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Level audience</span>
+              <select name="participantRole" defaultValue={level.participantRole} className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring">
+                <option value="CONSULTANT">Agents</option>
+                <option value="GROUP_LEADER">Leaders</option>
+                <option value="MANAGER">Managers</option>
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Counts from</span>
+              <select name="scopeMode" defaultValue={level.scopeMode} className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring">
+                <option value="PERSONAL">Personal sales</option>
+                <option value="DIRECT_TEAM">Direct team</option>
+                <option value="FULL_DOWNLINE">Full downline</option>
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Metric</span>
+              <select name="metricMode" defaultValue={level.metricMode} className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring">
+                <option value="UNITS">Qualified units</option>
+                <option value="QUALIFIED_POINTS">Qualified margin points</option>
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Qualification event</span>
+              <select name="qualificationEvent" defaultValue={level.qualificationEvent} className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring">
+                <option value="CAPTURED_PAYMENT">Payment captured</option>
+                <option value="SHIPPED_ORDER">Order shipped</option>
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Minimum margin</span>
+              <Input name="minQualifiedMarginDollars" type="number" min={0} step="0.01" defaultValue={level.minQualifiedMarginCents / 100} />
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Point value</span>
+              <Input name="pointValueDollars" type="number" min={1} step="0.01" defaultValue={level.pointValueCents / 100} />
+            </label>
+            <p className="text-sm leading-6 text-slate-500 md:col-span-3">
+              Rank levels are permanent career milestones. Campaigns below are temporary pushes. Keeping these separate prevents Agent, Leader, and Manager rewards from being mixed.
+            </p>
           </div>
 
           <div className="rounded-3xl bg-clinic-mist p-4">
@@ -649,6 +721,22 @@ function CampaignModal({
                 <option value="ACTIVE">Active</option>
                 <option value="PAUSED">Paused</option>
                 <option value="COMPLETED">Completed</option>
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Campaign audience</span>
+              <select name="participantRole" defaultValue={campaign?.participantRole ?? "CONSULTANT"} className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring">
+                <option value="CONSULTANT">Agents</option>
+                <option value="GROUP_LEADER">Leaders</option>
+                <option value="MANAGER">Managers</option>
+              </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Counts from</span>
+              <select name="scopeMode" defaultValue={campaign?.scopeMode ?? "PERSONAL"} className="h-12 w-full rounded-2xl border border-input bg-white px-4 text-sm font-semibold text-clinic-ink shadow-line outline-none focus:ring-2 focus:ring-ring">
+                <option value="PERSONAL">Personal sales</option>
+                <option value="DIRECT_TEAM">Direct team</option>
+                <option value="FULL_DOWNLINE">Full downline</option>
               </select>
             </label>
             <label className="space-y-2">
@@ -1294,6 +1382,7 @@ export function AdminRewardsEditor({
 }) {
   const [editingLevel, setEditingLevel] = useState<RewardLevel | null>(null);
   const [editingCampaign, setEditingCampaign] = useState<RewardCampaign | null | "new">(null);
+  const [selectedLevelRole, setSelectedLevelRole] = useState<RewardLevel["participantRole"]>("CONSULTANT");
   const totals = useMemo(
     () => ({
       levelMargin: levels.reduce((sum, level) => sum + level.projectedMarginCents, 0),
@@ -1311,6 +1400,7 @@ export function AdminRewardsEditor({
     [agencyFeeBps, levels, campaigns]
   );
   const isProgramParked = totals.activeCampaigns === 0 && totals.activeRewards === 0;
+  const visibleLevels = levels.filter((level) => level.participantRole === selectedLevelRole);
 
   return (
     <div className="space-y-6">
@@ -1367,15 +1457,34 @@ export function AdminRewardsEditor({
           <div className="flex items-center gap-3">
             <Settings2 className="h-5 w-5 text-clinic-red" />
             <div>
-              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Go Virtual Health configuration</p>
-              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Reward levels</h2>
-              <p className="mt-1 text-sm leading-6 text-slate-500">Each level estimates company revenue and gross margin using active product pricing and cost.</p>
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Rank levels</p>
+              <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Permanent role-based achievement paths</h2>
+              <p className="mt-1 text-sm leading-6 text-slate-500">Levels are career milestones. Agents, Leaders, and Managers can have different goals, scopes, prizes, and profit rules.</p>
             </div>
+          </div>
+          <div className="grid gap-2 rounded-[1.5rem] bg-clinic-mist p-2 sm:grid-cols-3">
+            {rewardRoleOptions.map((option) => {
+              const count = levels.filter((level) => level.participantRole === option.value).length;
+              const active = selectedLevelRole === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setSelectedLevelRole(option.value)}
+                  className={`rounded-2xl px-4 py-3 text-left transition ${
+                    active ? "bg-white text-clinic-navy shadow-line" : "text-slate-600 hover:bg-white/70"
+                  }`}
+                >
+                  <span className="block text-sm font-bold">{option.label}</span>
+                  <span className="mt-1 block text-xs font-semibold">{count} levels · {option.scope}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="grid gap-4 p-6 xl:grid-cols-3">
-          {levels.length ? levels.map((level) => {
+          {visibleLevels.length ? visibleLevels.map((level) => {
             const reward = level.rewards[0];
             const agencyFeeCents = feeFromBps(level.projectedMarginCents, agencyFeeBps);
             const finalProfitCents = Math.max(level.projectedMarginCents - agencyFeeCents, 0) - (reward?.valueCents ?? 0);
@@ -1388,8 +1497,13 @@ export function AdminRewardsEditor({
               >
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Level {level.level}</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                      {rewardRoleLabel(level.participantRole)} · Level {level.level}
+                    </p>
                     <h3 className="mt-1 text-xl font-semibold text-clinic-ink">{level.name}</h3>
+                    <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">
+                      {scopeLabel(level.scopeMode)} · {rewardMetricLabel(level.metricMode)}
+                    </p>
                   </div>
                   <div className="grid size-12 place-items-center rounded-2xl text-sm font-bold text-white" style={{ backgroundColor: level.accentColor }}>
                     {level.level}
@@ -1397,7 +1511,9 @@ export function AdminRewardsEditor({
                 </div>
                 <div className="mt-5 grid gap-3">
                   <div className="rounded-2xl bg-clinic-mist p-4">
-                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Captured sales</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                      {rewardMetricLabel(level.metricMode)}
+                    </p>
                     <p className="mt-1 text-2xl font-semibold text-clinic-navy">{level.salesThreshold}</p>
                   </div>
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -1446,7 +1562,7 @@ export function AdminRewardsEditor({
             );
           }) : (
             <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500 xl:col-span-3">
-              No reward levels are configured. Default Go Virtual Health-created rewards are disabled, so this area stays empty until levels are intentionally added through a future workflow.
+              No {rewardRoleLabel(selectedLevelRole).toLowerCase()} rank levels are configured yet. Add or edit levels for this role when Go Virtual Health is ready to define that path.
             </div>
           )}
         </div>
@@ -1481,12 +1597,14 @@ export function AdminRewardsEditor({
                 >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{campaign.status}</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                      {campaign.status} · {rewardRoleLabel(campaign.participantRole)}
+                    </p>
                     <h3 className="mt-1 truncate text-xl font-semibold text-clinic-ink">{campaign.title}</h3>
                     <p className="mt-1 line-clamp-2 text-sm text-slate-500">{campaignTargetLabel(campaign)}</p>
                     <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-emerald-700">{campaignMetricLabel(campaign)}</p>
                     <p className="mt-2 text-sm font-semibold text-clinic-navy">
-                      {campaignTimingLabel(campaign)}
+                      {scopeLabel(campaign.scopeMode)} · {campaignTimingLabel(campaign)}
                     </p>
                   </div>
                   <span className="rounded-full bg-clinic-mist px-3 py-1 text-xs font-bold text-clinic-navy">

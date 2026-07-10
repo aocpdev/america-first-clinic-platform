@@ -9,6 +9,12 @@ const levelSchema = z.object({
   levelId: z.string().uuid(),
   name: z.string().min(2),
   salesThreshold: z.coerce.number().int().min(0),
+  participantRole: z.enum(["MANAGER", "GROUP_LEADER", "CONSULTANT"]).default("CONSULTANT"),
+  scopeMode: z.enum(["PERSONAL", "DIRECT_TEAM", "FULL_DOWNLINE"]).default("PERSONAL"),
+  metricMode: z.enum(["UNITS", "QUALIFIED_POINTS"]).default("UNITS"),
+  qualificationEvent: z.enum(["CAPTURED_PAYMENT", "SHIPPED_ORDER"]).default("CAPTURED_PAYMENT"),
+  minQualifiedMarginDollars: z.coerce.number().min(0).default(0),
+  pointValueDollars: z.coerce.number().min(1).default(100),
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#073763")
 });
 
@@ -42,6 +48,8 @@ const campaignSchema = z
     startsAt: z.coerce.date(),
     endsAt: z.coerce.date(),
     status: z.enum(["DRAFT", "ACTIVE", "PAUSED", "COMPLETED"]),
+    participantRole: z.enum(["MANAGER", "GROUP_LEADER", "CONSULTANT"]).default("CONSULTANT"),
+    scopeMode: z.enum(["PERSONAL", "DIRECT_TEAM", "FULL_DOWNLINE"]).default("PERSONAL"),
     goalMode: z.enum(["TOTAL_UNITS", "PRODUCT_BUNDLE"]).default("TOTAL_UNITS"),
     windowMode: z.enum(["CAMPAIGN_RANGE", "ROLLING_DAYS"]).default("CAMPAIGN_RANGE"),
     metricMode: z.enum(["UNITS", "QUALIFIED_POINTS"]).default("UNITS"),
@@ -88,6 +96,12 @@ export async function updateRewardLevel(formData: FormData) {
     levelId: formData.get("levelId"),
     name: formData.get("name"),
     salesThreshold: formData.get("salesThreshold"),
+    participantRole: formData.get("participantRole") || "CONSULTANT",
+    scopeMode: formData.get("scopeMode") || "PERSONAL",
+    metricMode: formData.get("metricMode") || "UNITS",
+    qualificationEvent: formData.get("qualificationEvent") || "CAPTURED_PAYMENT",
+    minQualifiedMarginDollars: formData.get("minQualifiedMarginDollars") || 0,
+    pointValueDollars: formData.get("pointValueDollars") || 100,
     accentColor: formData.get("accentColor") || "#073763"
   });
 
@@ -96,6 +110,12 @@ export async function updateRewardLevel(formData: FormData) {
     data: {
       name: parsed.name,
       salesThreshold: parsed.salesThreshold,
+      participantRole: parsed.participantRole,
+      scopeMode: parsed.scopeMode,
+      metricMode: parsed.metricMode,
+      qualificationEvent: parsed.qualificationEvent,
+      minQualifiedMarginCents: Math.round(parsed.minQualifiedMarginDollars * 100),
+      pointValueCents: Math.round(parsed.pointValueDollars * 100),
       accentColor: parsed.accentColor
     }
   });
@@ -156,6 +176,12 @@ export async function saveRewardLevelBundle(formData: FormData) {
     levelId: formData.get("levelId"),
     name: formData.get("name"),
     salesThreshold: formData.get("salesThreshold"),
+    participantRole: formData.get("participantRole") || "CONSULTANT",
+    scopeMode: formData.get("scopeMode") || "PERSONAL",
+    metricMode: formData.get("metricMode") || "UNITS",
+    qualificationEvent: formData.get("qualificationEvent") || "CAPTURED_PAYMENT",
+    minQualifiedMarginDollars: formData.get("minQualifiedMarginDollars") || 0,
+    pointValueDollars: formData.get("pointValueDollars") || 100,
     accentColor: formData.get("accentColor") || "#073763",
     rewardId: formData.get("rewardId") || undefined,
     rewardTitle: formData.get("rewardTitle"),
@@ -177,6 +203,12 @@ export async function saveRewardLevelBundle(formData: FormData) {
     data: {
       name: parsed.name,
       salesThreshold: parsed.salesThreshold,
+      participantRole: parsed.participantRole,
+      scopeMode: parsed.scopeMode,
+      metricMode: parsed.metricMode,
+      qualificationEvent: parsed.qualificationEvent,
+      minQualifiedMarginCents: Math.round(parsed.minQualifiedMarginDollars * 100),
+      pointValueCents: Math.round(parsed.pointValueDollars * 100),
       accentColor: parsed.accentColor
     }
   });
@@ -220,6 +252,8 @@ async function persistRewardCampaign(formData: FormData) {
     startsAt: formData.get("startsAt"),
     endsAt: formData.get("endsAt"),
     status: formData.get("status") || "DRAFT",
+    participantRole: formData.get("participantRole") || "CONSULTANT",
+    scopeMode: formData.get("scopeMode") || "PERSONAL",
     goalMode: formData.get("goalMode") || "TOTAL_UNITS",
     windowMode: formData.get("windowMode") || "CAMPAIGN_RANGE",
     metricMode: formData.get("metricMode") || "UNITS",
@@ -276,6 +310,8 @@ async function persistRewardCampaign(formData: FormData) {
     startsAt: parsed.startsAt,
     endsAt: parsed.endsAt,
     status: parsed.status,
+    participantRole: parsed.participantRole,
+    scopeMode: parsed.scopeMode,
     goalMode: parsed.goalMode,
     windowMode: parsed.windowMode,
     metricMode: parsed.metricMode,

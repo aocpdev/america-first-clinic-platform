@@ -9,6 +9,10 @@ type RewardLevel = {
   level: number;
   name: string;
   salesThreshold: number;
+  participantRole: "MANAGER" | "GROUP_LEADER" | "CONSULTANT";
+  scopeMode: "PERSONAL" | "DIRECT_TEAM" | "FULL_DOWNLINE";
+  metricMode: "UNITS" | "QUALIFIED_POINTS";
+  qualificationEvent: "CAPTURED_PAYMENT" | "SHIPPED_ORDER";
   accentColor: string;
   rewards: Array<{
     id: string;
@@ -39,6 +43,8 @@ type CampaignProgress = {
   rewardImageUrl: string | null;
   rewardValueType: "CASH" | "NON_CASH";
   rewardValueCents: number;
+  participantRole: "MANAGER" | "GROUP_LEADER" | "CONSULTANT";
+  scopeMode: "PERSONAL" | "DIRECT_TEAM" | "FULL_DOWNLINE";
   goalMode: "TOTAL_UNITS" | "PRODUCT_BUNDLE";
   windowMode: "CAMPAIGN_RANGE" | "ROLLING_DAYS";
   rollingWindowDays: number | null;
@@ -133,6 +139,16 @@ function campaignWindowLabel(campaign: CampaignProgress) {
   return `${durationLabel(campaign.startsAt, campaign.endsAt)} · ${formatShortDate(campaign.startsAt)} to ${formatShortDate(campaign.endsAt)}`;
 }
 
+function scopeLabel(scope: RewardLevel["scopeMode"]) {
+  if (scope === "FULL_DOWNLINE") return "Full downline";
+  if (scope === "DIRECT_TEAM") return "Direct team";
+  return "Personal";
+}
+
+function progressUnitLabel(level: RewardLevel) {
+  return level.metricMode === "QUALIFIED_POINTS" ? "qualified points" : "qualified units";
+}
+
 function productBundleLabel(campaign: CampaignProgress) {
   if (campaign.goalMode === "PRODUCT_BUNDLE" && campaign.productProgress.length) {
     return campaign.productProgress.map((item) => `${item.targetQuantity} ${item.title}`).join(" + ");
@@ -213,7 +229,7 @@ export function RewardDashboard({
                   </div>
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white/70">Your personal reward status</p>
+                  <p className="text-sm font-semibold text-white/70">Reward status</p>
                   <h2 className="mt-1 text-3xl font-semibold">{agentName}</h2>
                   <p className="mt-2 text-sm font-semibold text-white/80">
                     {currentLevel ? `Level ${currentLevel.level}: ${currentLevel.name}` : "Start with your first captured sale"}
@@ -222,7 +238,7 @@ export function RewardDashboard({
               </div>
 
               <div className="rounded-3xl border border-white/15 bg-white/10 p-4 text-left md:w-44">
-                <p className="text-xs font-bold uppercase text-white/60">Captured sales</p>
+                <p className="text-xs font-bold uppercase text-white/60">Qualified progress</p>
                 <p className="mt-2 text-4xl font-semibold">{salesCount}</p>
               </div>
             </div>
@@ -232,7 +248,7 @@ export function RewardDashboard({
                 <div>
                   <p className="text-sm font-semibold text-white/70">Next unlock</p>
                   <p className="mt-1 text-lg font-semibold">
-                    {nextLevel ? `${salesToNextLevel} sale${salesToNextLevel === 1 ? "" : "s"} to Level ${nextLevel.level}` : "All levels unlocked"}
+                    {nextLevel ? `${salesToNextLevel} more to Level ${nextLevel.level}` : "All levels unlocked"}
                   </p>
                 </div>
                 {nextReward ? (
@@ -257,7 +273,7 @@ export function RewardDashboard({
                 </div>
               </div>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                {currentReward?.description ?? "Close your first paid order to begin unlocking rewards and moving up the agent levels."}
+                {currentReward?.description ?? "Close your first qualified order to begin unlocking rewards and moving up the level path."}
               </p>
               {currentReward ? <p className="mt-4 text-sm font-bold text-emerald-700">Valued at {money(currentReward.valueCents)}</p> : null}
             </div>
@@ -283,7 +299,7 @@ export function RewardDashboard({
             <Sparkles className="h-5 w-5 text-clinic-red" />
             <div>
               <p className="text-xs font-bold uppercase text-slate-500">Level path</p>
-              <h2 className="mt-1 text-2xl font-semibold text-clinic-ink">Your personal achievement path</h2>
+              <h2 className="mt-1 text-2xl font-semibold text-clinic-ink">Achievement path</h2>
             </div>
           </div>
         </div>
@@ -317,7 +333,10 @@ export function RewardDashboard({
                   </div>
                 </div>
                 <div className="mt-5 rounded-2xl bg-white/80 p-4 shadow-line">
-                  <p className="text-sm font-semibold text-clinic-navy">{level.salesThreshold} captured sales</p>
+                  <p className="text-sm font-semibold text-clinic-navy">
+                    {level.salesThreshold} {progressUnitLabel(level)}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{scopeLabel(level.scopeMode)} scope</p>
                   <p className="mt-1 text-sm text-slate-500">{reward?.title ?? "Reward pending"}</p>
                 </div>
               </div>
@@ -425,7 +444,7 @@ export function RewardDashboard({
               ))
             ) : (
               <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500">
-                No reward campaigns are active right now. Keep closing personal sales to move up your level path.
+                No reward campaigns are active right now. Keep closing qualified sales to move up your level path.
               </div>
             )}
           </div>
@@ -460,7 +479,7 @@ export function RewardDashboard({
               ))
             ) : (
               <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500">
-                Personal captured sales will build the leaderboard.
+                Qualified sales will build the leaderboard.
               </div>
             )}
           </div>

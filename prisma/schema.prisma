@@ -128,6 +128,12 @@ enum RewardCampaignQualificationEvent {
   SHIPPED_ORDER
 }
 
+enum RewardScopeMode {
+  PERSONAL
+  DIRECT_TEAM
+  FULL_DOWNLINE
+}
+
 enum RewardClaimStatus {
   EARNED
   PAYOUT_PENDING
@@ -930,14 +936,20 @@ model RewardLevel {
   level          Int
   name           String
   salesThreshold Int
+  participantRole RewardParticipantRole @default(CONSULTANT)
+  scopeMode      RewardScopeMode @default(PERSONAL)
+  metricMode     RewardCampaignMetricMode @default(UNITS)
+  qualificationEvent RewardCampaignQualificationEvent @default(CAPTURED_PAYMENT)
+  minQualifiedMarginCents Int @default(0)
+  pointValueCents Int @default(10000)
   accentColor    String   @default("#073763")
   isActive       Boolean  @default(true)
   rewards        Reward[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  @@unique([companyId, level])
-  @@index([companyId, salesThreshold])
+  @@unique([companyId, participantRole, level])
+  @@index([companyId, participantRole, salesThreshold])
 }
 
 model Reward {
@@ -968,6 +980,8 @@ model RewardCampaign {
   startsAt          DateTime
   endsAt            DateTime
   status            RewardCampaignStatus    @default(DRAFT)
+  participantRole   RewardParticipantRole    @default(CONSULTANT)
+  scopeMode         RewardScopeMode          @default(PERSONAL)
   goalMode          RewardCampaignGoalMode   @default(TOTAL_UNITS)
   windowMode        RewardCampaignWindowMode @default(CAMPAIGN_RANGE)
   metricMode        RewardCampaignMetricMode @default(UNITS)
