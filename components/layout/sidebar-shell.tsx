@@ -5,9 +5,12 @@ import { NotificationMenu } from "@/components/layout/notification-menu";
 import { SidebarNav, type SidebarNavItem } from "@/components/layout/sidebar-nav";
 import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { AlertCircle, ArrowRight } from "lucide-react";
 import { getImpersonationContext } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
 import { prisma } from "@/lib/db/prisma";
+import { getPayoutSetup } from "@/lib/payments/payout-accounts";
 
 type ImpersonationTargetRecord = {
   id: string;
@@ -47,6 +50,8 @@ export async function SidebarShell({
         prisma.notification.count({ where: { userId: user.id, readAt: null } })
       ])
     : [[], 0];
+  const payoutSetup = user ? await getPayoutSetup(user) : null;
+  const needsPayoutSetup = payoutSetup && payoutSetup.status !== "READY";
 
   return (
     <div className="min-h-screen overflow-x-clip bg-clinic-mist">
@@ -103,6 +108,22 @@ export async function SidebarShell({
             </div>
           </div>
         </header>
+        {needsPayoutSetup && user ? (
+          <div className="border-b border-blue-100 bg-white px-4 py-3 sm:px-6 lg:px-8">
+            <div className="flex flex-col gap-3 rounded-2xl border border-blue-100 bg-blue-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-clinic-red" />
+                <div>
+                  <p className="text-sm font-semibold text-clinic-ink">Complete your tax and payout setup</p>
+                  <p className="mt-0.5 text-xs leading-5 text-slate-600">Required before Go Virtual Health can send approved payments to your bank.</p>
+                </div>
+              </div>
+              <Link href={`${profilePathForRole(user.role)}#tax-payout-setup`} className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-clinic-navy">
+                Complete setup <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        ) : null}
         <div className="min-w-0 overflow-x-clip px-3 py-4 pb-28 sm:px-6 sm:py-6 lg:px-8 lg:pb-8">{children}</div>
       </main>
       <MobileNav nav={nav.map(({ href, label }) => ({ href, label }))} />

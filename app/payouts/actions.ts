@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireUser } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
 import { getCompanyStripeRuntimeConfig } from "@/lib/payments/stripe-config";
+import { syncPayoutAccount } from "@/lib/payments/payout-accounts";
 
 function jsonSafe(value: unknown) {
   return JSON.parse(JSON.stringify(value));
@@ -242,4 +243,95 @@ export async function sendPartnerPayout(formData: FormData) {
 
   revalidatePath(returnPath);
   revalidatePath("/partner/payouts");
+}
+
+export async function sendPayout(formData: FormData) {
+  const user = await requireUser();
+  const splitId = String(formData.get("splitId") || "");
+  const returnPath = String(formData.get("returnPath") || "/admin/payouts");
+
+  if (!splitId) throw new Error("Missing payout reference.");
+  if ((user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN") || !user.companyId) {
+    throw new Error("Only company admins can send payouts.");
+  }
+
+  const split = await prisma.commissionSplit.findUnique({
+    where: { id: splitId },
+    include: {
+      partnerProfile: { include: { user: true } },
+      managerProfile: { include: { user: true } },
+      groupLeaderProfile: { include: { user: true } },
+      consultantProfile: { include: { user: true } },
+      payoutTransfer: true
+    }
+  });
+  if (!split || split.companyId !== user.companyId || split.status !== "APPROVED") {
+    throw new Error("This payout is not approved or no longer available.");
+  }
+
+  const recipient = split.participantRole === "PARTNER"
+    ? split.partnerProfile?.user
+    : split.participantRole === "MANAGER"
+      ? split.managerProfile?.user
+      : split.participantRole === "GROUP_LEADER"
+        ? split.groupLeaderProfile?.user
+        : split.consultantProfile?.user;
+  if (!recipient) throw new Error("The payout recipient does not have an active user profile.");
+
+  if (split.payoutTransfer) {
+    await prisma.commissionSplit.update({ where: { id: split.id }, data: { status: "PAID", paidAt: split.payoutTransfer.paidAt ?? new Date() } });
+    revalidatePath(returnPath);
+    return;
+  }
+
+  const payoutAccount = await syncPayoutAccount({ id: recipient.id, companyId: split.companyId });
+  if (!payoutAccount?.stripeConnectedAccountId || payoutAccount.status !== "READY" || !payoutAccount.transfersEnabled) {
+    throw new Error("The recipient must complete tax and bank setup before this payout can be sent.");
+  }
+
+  const config = await getCompanyStripeRuntimeConfig(user.companyId);
+  if (!config.secretKey) throw new Error("The company payout processor is not configured.");
+  const stripe = new Stripe(config.secretKey);
+  const transfer = await stripe.transfers.create(
+    {
+      amount: split.amountCents,
+      currency: "usd",
+      destination: payoutAccount.stripeConnectedAccountId,
+      transfer_group: `commission_${split.orderId}`,
+      metadata: {
+        companyId: split.companyId,
+        orderId: split.orderId,
+        commissionSplitId: split.id,
+        recipientUserId: recipient.id,
+        recipientRole: split.participantRole,
+        source: "direct_commission_payout",
+        stripeMode: config.mode
+      }
+    },
+    { idempotencyKey: `direct_commission_payout_${split.id}` }
+  );
+
+  const paidAt = new Date();
+  await prisma.$transaction(async (tx) => {
+    await tx.payoutTransfer.create({
+      data: {
+        companyId: split.companyId,
+        commissionSplitId: split.id,
+        recipientUserId: recipient.id,
+        amountCents: split.amountCents,
+        stripeConnectedAccountId: payoutAccount.stripeConnectedAccountId!,
+        stripeTransferId: transfer.id,
+        status: "TRANSFERRED",
+        rawEvent: jsonSafe(transfer),
+        createdByUserId: user.id,
+        paidAt
+      }
+    });
+    await tx.commissionSplit.update({ where: { id: split.id }, data: { status: "PAID", paidAt } });
+  });
+
+  revalidatePath(returnPath);
+  revalidatePath("/partner/payouts");
+  revalidatePath("/manager/payouts");
+  revalidatePath("/consultant/payouts");
 }

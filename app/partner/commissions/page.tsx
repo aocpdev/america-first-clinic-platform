@@ -39,7 +39,7 @@ function copyForScope(scope: CommissionLedgerScope) {
   return {
     eyebrow: "Partner",
     title: "Partner commission ledger",
-    description: "Review your partner profit, team payout obligations, and commission statuses for the network assigned to you."
+    description: "Review partner earnings and commission statuses for the network assigned to you. Go Virtual Health sends each recipient their payout directly."
   };
 }
 

@@ -31,6 +31,10 @@ export type CommissionLedgerEntry = {
   partnerBankRoutingLast4?: string | null;
   partnerBankStatus?: string | null;
   partnerStripeConnectedAccountId?: string | null;
+  payoutAccountStatus: string;
+  payoutBankAccountLast4: string | null;
+  payoutStripeConnectedAccountId: string | null;
+  payoutTransfersEnabled: boolean;
 };
 
 const commissionSplitInclude = {
@@ -38,32 +42,32 @@ const commissionSplitInclude = {
     include: {
       customer: true,
       consultantProfile: {
-        include: { user: true }
+        include: { user: { include: { payoutAccount: true } } }
       },
       partnerProfile: {
-        include: { user: true }
+        include: { user: { include: { payoutAccount: true } } }
       },
       managerProfile: {
-        include: { user: true }
+        include: { user: { include: { payoutAccount: true } } }
       },
       groupLeaderProfile: {
-        include: { user: true }
+        include: { user: { include: { payoutAccount: true } } }
       }
     }
   },
   partnerProfile: {
     include: {
-      user: true
+      user: { include: { payoutAccount: true } }
     }
   },
   managerProfile: {
-    include: { user: true }
+    include: { user: { include: { payoutAccount: true } } }
   },
   groupLeaderProfile: {
-    include: { user: true }
+    include: { user: { include: { payoutAccount: true } } }
   },
   consultantProfile: {
-    include: { user: true }
+    include: { user: { include: { payoutAccount: true } } }
   }
 } satisfies Prisma.CommissionSplitInclude;
 
@@ -99,27 +103,31 @@ function participantFor(split: CommissionSplitWithRelations) {
   if (split.participantRole === "PARTNER") {
     return {
       name: split.partnerProfile?.displayName || personName(split.partnerProfile?.user),
-      email: split.partnerProfile?.user.email || ""
+      email: split.partnerProfile?.user.email || "",
+      payoutAccount: split.partnerProfile?.user.payoutAccount ?? null
     };
   }
 
   if (split.participantRole === "MANAGER") {
     return {
       name: split.managerProfile?.displayName || personName(split.managerProfile?.user),
-      email: split.managerProfile?.user.email || ""
+      email: split.managerProfile?.user.email || "",
+      payoutAccount: split.managerProfile?.user.payoutAccount ?? null
     };
   }
 
   if (split.participantRole === "GROUP_LEADER") {
     return {
       name: split.groupLeaderProfile?.displayName || personName(split.groupLeaderProfile?.user),
-      email: split.groupLeaderProfile?.user.email || ""
+      email: split.groupLeaderProfile?.user.email || "",
+      payoutAccount: split.groupLeaderProfile?.user.payoutAccount ?? null
     };
   }
 
   return {
     name: personName(split.consultantProfile?.user),
-    email: split.consultantProfile?.user.email || ""
+    email: split.consultantProfile?.user.email || "",
+    payoutAccount: split.consultantProfile?.user.payoutAccount ?? null
   };
 }
 
@@ -198,7 +206,11 @@ export function mapCommissionSplit(split: CommissionSplitWithRelations): Commiss
     partnerBankAccountLast4: null,
     partnerBankRoutingLast4: null,
     partnerBankStatus: null,
-    partnerStripeConnectedAccountId: null
+    partnerStripeConnectedAccountId: null,
+    payoutAccountStatus: participant.payoutAccount?.status ?? "NOT_STARTED",
+    payoutBankAccountLast4: participant.payoutAccount?.bankAccountLast4 ?? null,
+    payoutStripeConnectedAccountId: participant.payoutAccount?.stripeConnectedAccountId ?? null,
+    payoutTransfersEnabled: participant.payoutAccount?.transfersEnabled ?? false
   };
 }
 

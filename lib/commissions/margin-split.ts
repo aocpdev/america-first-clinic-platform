@@ -424,7 +424,7 @@ export async function createMarginCommissionLedger({
                   grossMarginCents: split.grossMarginCents,
                   commissionPoolCents: split.commissionPoolCents,
                   status,
-                  payoutResponsibility: "PARTNER" as const
+                  payoutResponsibility: "COMPANY" as const
                 }
               ]
             : []),
@@ -439,7 +439,7 @@ export async function createMarginCommissionLedger({
             grossMarginCents: split.grossMarginCents,
             commissionPoolCents: split.commissionPoolCents,
             status,
-            payoutResponsibility: "PARTNER"
+            payoutResponsibility: "COMPANY"
           }
         ],
         skipDuplicates: true
@@ -472,7 +472,7 @@ export async function createMarginCommissionLedger({
             grossMarginCents: split.grossMarginCents,
             commissionPoolCents: split.commissionPoolCents,
             status,
-            payoutResponsibility: "PARTNER"
+            payoutResponsibility: "COMPANY"
           }
         ],
         skipDuplicates: true
@@ -524,7 +524,7 @@ export async function createMarginCommissionLedger({
                 grossMarginCents: split.grossMarginCents,
                 commissionPoolCents: split.commissionPoolCents,
                 status,
-                payoutResponsibility: "PARTNER" as const
+                payoutResponsibility: "COMPANY" as const
               }
             ]
           : []),
@@ -542,7 +542,7 @@ export async function createMarginCommissionLedger({
                 grossMarginCents: split.grossMarginCents,
                 commissionPoolCents: split.commissionPoolCents,
                 status,
-                payoutResponsibility: "PARTNER" as const
+                payoutResponsibility: "COMPANY" as const
               }
             ]
           : []),
@@ -558,7 +558,7 @@ export async function createMarginCommissionLedger({
           grossMarginCents: split.grossMarginCents,
           commissionPoolCents: split.commissionPoolCents,
           status,
-          payoutResponsibility: "PARTNER"
+          payoutResponsibility: "COMPANY"
         }
       ],
       skipDuplicates: true

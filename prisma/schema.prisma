@@ -186,6 +186,9 @@ model User {
   rewardCampaignClaims          RewardCampaignClaim[]
   auditLogs                     AuditLog[]
   onboardingSteps               OnboardingStep[]
+  payoutAccount                 PayoutAccount?
+  receivedPayoutTransfers       PayoutTransfer[]     @relation("PayoutRecipient")
+  createdPayoutTransfers        PayoutTransfer[]     @relation("PayoutCreator")
   createdAt                     DateTime            @default(now())
   updatedAt                     DateTime            @updatedAt
 
@@ -225,6 +228,8 @@ model Company {
   leads               Lead[]
   activityLogs        ActivityLog[]
   auditLogs           AuditLog[]
+  payoutAccounts      PayoutAccount[]
+  payoutTransfers     PayoutTransfer[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 }
@@ -690,9 +695,10 @@ model CommissionSplit {
   grossMarginCents     Int
   commissionPoolCents  Int
   status               CommissionStatus          @default(PENDING)
-  payoutResponsibility PayoutResponsibility      @default(PARTNER)
+  payoutResponsibility PayoutResponsibility      @default(COMPANY)
   paidAt               DateTime?
   partnerPayoutLines   PartnerPayoutLine[]
+  payoutTransfer       PayoutTransfer?
   createdAt            DateTime                  @default(now())
   updatedAt            DateTime                  @updatedAt
 
@@ -733,6 +739,54 @@ model Payout {
   commissions  Commission[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+}
+
+model PayoutAccount {
+  id                       String   @id @default(uuid()) @db.Uuid
+  companyId                String   @db.Uuid
+  company                  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId                   String   @unique @db.Uuid
+  user                     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stripeConnectedAccountId String?  @unique
+  status                   String   @default("NOT_STARTED")
+  detailsSubmitted         Boolean  @default(false)
+  transfersEnabled         Boolean  @default(false)
+  payoutsEnabled           Boolean  @default(false)
+  bankName                 String?
+  bankAccountLast4         String?
+  requirementsCurrentlyDue String[] @default([])
+  requirementsPastDue      String[] @default([])
+  onboardingStartedAt      DateTime?
+  onboardingCompletedAt    DateTime?
+  lastSyncedAt             DateTime?
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@index([companyId, status])
+}
+
+model PayoutTransfer {
+  id                       String          @id @default(uuid()) @db.Uuid
+  companyId                String          @db.Uuid
+  company                  Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  commissionSplitId        String          @unique @db.Uuid
+  commissionSplit          CommissionSplit @relation(fields: [commissionSplitId], references: [id], onDelete: Restrict)
+  recipientUserId          String          @db.Uuid
+  recipientUser            User            @relation("PayoutRecipient", fields: [recipientUserId], references: [id], onDelete: Restrict)
+  amountCents              Int
+  stripeConnectedAccountId String
+  stripeTransferId         String          @unique
+  status                   String          @default("TRANSFERRED")
+  failureReason            String?
+  rawEvent                 Json?
+  createdByUserId          String?         @db.Uuid
+  createdByUser            User?           @relation("PayoutCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  paidAt                   DateTime?
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+
+  @@index([companyId, status])
+  @@index([recipientUserId, paidAt])
 }
 
 model PartnerPayout {

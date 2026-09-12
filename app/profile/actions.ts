@@ -13,6 +13,7 @@ import { encryptField, last4 } from "@/lib/security/field-encryption";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { updateConfirmedAuthUser } from "@/lib/supabase/admin-auth";
 import { portalBaseUrl } from "@/lib/urls";
+import { isPayoutRecipientRole, syncPayoutAccount } from "@/lib/payments/payout-accounts";
 
 function textValue(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -337,4 +338,87 @@ export async function connectPartnerStripeAccount() {
   });
 
   redirect(link.url);
+}
+
+export async function connectPayoutAccount() {
+  const user = await requireUser();
+  const profilePath = profilePathForRole(user.role);
+  if (!isPayoutRecipientRole(user.role) || !user.companyId) {
+    redirect(`${profilePath}?error=payout_profile_required`);
+  }
+
+  const config = await getCompanyStripeRuntimeConfig(user.companyId);
+  if (!config.secretKey) {
+    redirect(`${profilePath}?error=stripe_not_configured`);
+  }
+
+  const stripe = new Stripe(config.secretKey);
+  const existing = await prisma.payoutAccount.findUnique({ where: { userId: user.id } });
+  let connectedAccountId = existing?.stripeConnectedAccountId ?? null;
+
+  if (!connectedAccountId) {
+    const displayName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
+    const account = await stripe.accounts.create({
+      type: "express",
+      country: "US",
+      email: user.email,
+      business_profile: { name: user.partnerProfile?.companyName || user.partnerProfile?.displayName || displayName },
+      capabilities: { transfers: { requested: true } },
+      metadata: {
+        companyId: user.companyId,
+        userId: user.id,
+        recipientRole: user.role,
+        source: "payout_tax_profile",
+        stripeMode: config.mode
+      }
+    });
+    connectedAccountId = account.id;
+    await prisma.payoutAccount.upsert({
+      where: { userId: user.id },
+      create: {
+        companyId: user.companyId,
+        userId: user.id,
+        stripeConnectedAccountId: connectedAccountId,
+        status: "ACTION_REQUIRED",
+        onboardingStartedAt: new Date()
+      },
+      update: {
+        stripeConnectedAccountId: connectedAccountId,
+        status: "ACTION_REQUIRED",
+        onboardingStartedAt: existing?.onboardingStartedAt ?? new Date()
+      }
+    });
+  }
+
+  const baseUrl = portalBaseUrl();
+  const link = await stripe.accountLinks.create({
+    account: connectedAccountId,
+    type: "account_onboarding",
+    refresh_url: `${baseUrl}${profilePath}?stripe=refresh#tax-payout-setup`,
+    return_url: `${baseUrl}${profilePath}?updated=payout_setup#tax-payout-setup`
+  });
+  redirect(link.url);
+}
+
+export async function openPayoutDashboard() {
+  const user = await requireUser();
+  const profilePath = profilePathForRole(user.role);
+  if (!isPayoutRecipientRole(user.role) || !user.companyId) {
+    redirect(`${profilePath}?error=payout_profile_required`);
+  }
+
+  const account = await syncPayoutAccount(user);
+  if (!account?.stripeConnectedAccountId) {
+    redirect(`${profilePath}?error=payout_setup_required#tax-payout-setup`);
+  }
+
+  if (account.status !== "READY") {
+    return connectPayoutAccount();
+  }
+
+  const config = await getCompanyStripeRuntimeConfig(user.companyId);
+  if (!config.secretKey) redirect(`${profilePath}?error=stripe_not_configured`);
+  const stripe = new Stripe(config.secretKey);
+  const loginLink = await stripe.accounts.createLoginLink(account.stripeConnectedAccountId);
+  redirect(loginLink.url);
 }

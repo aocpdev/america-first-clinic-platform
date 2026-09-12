@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { CommissionParticipantRole, CommissionStatus } from "@prisma/client";
 import { ArrowUpRight, BadgeCheck, Banknote, CheckCircle2, Clock3, Landmark, LockKeyhole, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 
-import { markCommissionSplitPaid, sendPartnerPayout } from "@/app/payouts/actions";
+import { sendPayout } from "@/app/payouts/actions";
 import type { CommissionLedgerEntry, CommissionLedgerScope } from "@/lib/commissions/queries";
 import type { PartnerCashRewardPayoutItem } from "@/lib/rewards/reward-engine";
 import { cn, currency } from "@/lib/utils";
@@ -117,11 +117,11 @@ function resetPath(scope: CommissionLedgerScope) {
 
 function visiblePayoutEntries(scope: CommissionLedgerScope, entries: CommissionLedgerEntry[]) {
   if (scope === "admin") {
-    return entries.filter((entry) => entry.payoutResponsibility === "COMPANY" && entry.participantRole === "PARTNER");
+    return entries.filter((entry) => entry.payoutResponsibility === "COMPANY");
   }
 
   if (scope === "partner") {
-    return entries.filter((entry) => entry.payoutResponsibility === "PARTNER" && entry.participantRole !== "PARTNER");
+    return entries.filter((entry) => entry.participantRole === "PARTNER");
   }
 
   if (scope === "manager") {
@@ -204,7 +204,7 @@ function partnerPacketAmount(entry: CommissionLedgerEntry, entries: CommissionLe
 }
 
 function displayPayoutAmount(entry: CommissionLedgerEntry, scope: CommissionLedgerScope, entries: CommissionLedgerEntry[]) {
-  return scope === "admin" && entry.participantRole === "PARTNER" ? partnerPacketAmount(entry, entries) : entry.amountCents;
+  return entry.amountCents;
 }
 
 function partnerCompanyPayments(entries: CommissionLedgerEntry[]) {
@@ -270,26 +270,26 @@ function copyForScope(scope: CommissionLedgerScope) {
   if (scope === "admin") {
     return {
       eyebrow: "Company payout control",
-      title: "Partner payout center",
-      description: "The company pays partners only. Partners then manage payouts for managers, leaders, and agents from their partner pool.",
-      owedLabel: "Partner payouts owed",
+      title: "Direct payout center",
+      description: "Go Virtual Health sends each approved commission directly to the verified bank destination for partners, managers, leaders, and agents.",
+      owedLabel: "Payouts owed",
       readyLabel: "Ready to pay",
-      paidLabel: "Paid to partners",
-      empty: "No partner payout obligations are waiting right now.",
+      paidLabel: "Paid directly",
+      empty: "No direct payout obligations are waiting right now.",
       showActions: true
     };
   }
 
   if (scope === "partner") {
     return {
-      eyebrow: "Partner payout desk",
-      title: "Team payout center",
-      description: "Pay managers, leaders, and agents from your partner pool. The company only pays your partner payout.",
-      owedLabel: "Team payouts owed",
+      eyebrow: "Partner payout status",
+      title: "Your payout tracker",
+      description: "Review your personal partner earnings. Go Virtual Health sends every recipient their approved payment directly.",
+      owedLabel: "Pending earnings",
       readyLabel: "Ready to pay",
-      paidLabel: "Paid to team",
-      empty: "No team payout obligations are waiting right now.",
-      showActions: true
+      paidLabel: "Paid earnings",
+      empty: "No partner payout activity yet.",
+      showActions: false
     };
   }
 
@@ -297,7 +297,7 @@ function copyForScope(scope: CommissionLedgerScope) {
     return {
       eyebrow: "Manager payout status",
       title: "Your payout tracker",
-      description: "Review personal manager earnings and payout status. Partner-managed team payout details remain internal to the partner.",
+      description: "Review personal manager earnings and payout status. Go Virtual Health sends approved payments directly to your verified bank.",
       owedLabel: "Pending earnings",
       readyLabel: "Approved earnings",
       paidLabel: "Paid earnings",
@@ -310,7 +310,7 @@ function copyForScope(scope: CommissionLedgerScope) {
     return {
       eyebrow: "Leader payout status",
       title: "Your payout tracker",
-      description: "Review personal leader earnings and payout status. Agent payout management belongs to the partner.",
+      description: "Review personal leader earnings and payout status. Go Virtual Health sends approved payments directly to your verified bank.",
       owedLabel: "Pending earnings",
       readyLabel: "Approved earnings",
       paidLabel: "Paid earnings",
@@ -385,9 +385,8 @@ function PayoutRow({
 }) {
   const displayedAmount = displayPayoutAmount(entry, scope, allEntries);
   const sourcePacketAmount = sourceCompanyPayment ? partnerPacketAmount(sourceCompanyPayment, allEntries) : 0;
-  const isAdminPartnerPayout = scope === "admin" && entry.participantRole === "PARTNER";
-  const hasStripeDestination = Boolean(entry.partnerStripeConnectedAccountId);
-  const hasExternalBank = Boolean(entry.partnerBankAccountLast4);
+  const isAdminPayout = scope === "admin";
+  const canSendDirectly = entry.payoutAccountStatus === "READY" && entry.payoutTransfersEnabled && Boolean(entry.payoutStripeConnectedAccountId);
 
   return (
     <div className="grid gap-4 border-t border-border px-5 py-5 lg:grid-cols-[1.15fr_1fr_0.75fr_0.7fr_auto] lg:items-center">
@@ -410,19 +409,12 @@ function PayoutRow({
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Amount</p>
         <p className="mt-1 text-2xl font-semibold text-clinic-navy">{dollars(displayedAmount)}</p>
-        {scope === "admin" && relatedEntries.length ? (
-          <p className="mt-1 text-xs leading-5 text-slate-500">
-            Partner keeps {dollars(entry.amountCents)} after downline payouts.
-          </p>
-        ) : null}
-        {isAdminPartnerPayout ? (
+        {isAdminPayout ? (
           <div className="mt-3 rounded-2xl border border-blue-100 bg-white/80 px-3 py-2 text-xs leading-5 text-slate-600">
-            <span className="font-bold uppercase tracking-[0.14em] text-slate-500">Payout rail</span>{" "}
-            {hasStripeDestination
-              ? "Stripe Connect"
-              : hasExternalBank
-                ? `External bank •••• ${entry.partnerBankAccountLast4}`
-                : "External payment"}
+            <span className="font-bold uppercase tracking-[0.14em] text-slate-500">Destination</span>{" "}
+            {canSendDirectly
+              ? `Verified bank${entry.payoutBankAccountLast4 ? ` •••• ${entry.payoutBankAccountLast4}` : ""}`
+              : "Setup required"}
           </div>
         ) : null}
       </div>
@@ -436,27 +428,16 @@ function PayoutRow({
         <Link href={orderHref(scope, entry.orderId)} className="inline-flex items-center justify-center rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-clinic-navy shadow-sm">
           Review
         </Link>
-        {canMarkPaid && entry.status === "APPROVED" ? (
-          <form action={isAdminPartnerPayout ? sendPartnerPayout : markCommissionSplitPaid} className="flex flex-wrap gap-2 lg:justify-end">
+        {canMarkPaid && entry.status === "APPROVED" && canSendDirectly ? (
+          <form action={sendPayout} className="flex flex-wrap gap-2 lg:justify-end">
             <input type="hidden" name="splitId" value={entry.id} />
             <input type="hidden" name="returnPath" value={returnPath(scope)} />
-            <button
-              name={isAdminPartnerPayout ? "payoutRail" : undefined}
-              value={isAdminPartnerPayout && hasStripeDestination ? "stripe" : "external"}
-              className="inline-flex items-center justify-center rounded-2xl bg-clinic-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-clinic-blue"
-            >
-              {isAdminPartnerPayout ? (hasStripeDestination ? "Send via Stripe" : "Record external payout") : "Mark paid"}
+            <button className="inline-flex items-center justify-center rounded-2xl bg-clinic-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-clinic-blue">
+              Send payout
             </button>
-            {isAdminPartnerPayout && hasStripeDestination ? (
-              <button
-                name="payoutRail"
-                value="external"
-                className="inline-flex items-center justify-center rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-clinic-navy shadow-sm transition hover:bg-clinic-mist"
-              >
-                Record external
-              </button>
-            ) : null}
           </form>
+        ) : canMarkPaid && entry.status === "APPROVED" ? (
+          <span className="rounded-2xl bg-amber-50 px-4 py-3 text-center text-xs font-semibold text-amber-800">Recipient setup required</span>
         ) : null}
       </div>
 
@@ -762,6 +743,7 @@ function PartnerPayoutHistory({ payouts }: { payouts: PartnerPayoutHistoryItem[]
 }
 
 export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], partnerPayouts = [] }: PayoutCenterProps) {
+  const showLegacyPartnerSettlement = false;
   const visibleRows = visiblePayoutEntries(scope, entries);
   const rows = applyPayoutFilters(visibleRows, filters);
   const visibleRewardPayouts = scope === "partner" ? applyRewardPayoutFilters(rewardPayouts, filters) : [];
@@ -814,7 +796,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
                 <div>
                   <p className="font-semibold">Payment responsibility is role-based</p>
                   <p className="mt-1 text-sm leading-6 text-slate-600">
-                    {scope === "admin" ? "Company payout queue only shows partner obligations." : "Partner queue only shows network obligations funded by the partner pool."}
+                    {scope === "admin" ? "Every recipient must have a verified payout destination before funds can be sent." : "Go Virtual Health sends approved earnings directly to each recipient."}
                   </p>
                 </div>
               </div>
@@ -868,11 +850,11 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
         </div>
       ) : null}
 
-      {scope === "partner" ? (
+      {showLegacyPartnerSettlement && scope === "partner" ? (
         <PartnerPayoutOverview teamRows={rows} companyPayments={companyPayments} entries={entries} rewardPayouts={visibleRewardPayouts} />
       ) : null}
 
-      {scope === "partner" ? <PartnerPayoutHistory payouts={partnerPayouts} /> : null}
+      {showLegacyPartnerSettlement && scope === "partner" ? <PartnerPayoutHistory payouts={partnerPayouts} /> : null}
 
       <RecordFilters
         title="Payout filters"
@@ -886,7 +868,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
         ]}
       />
 
-      {scope === "partner" && companyPayments.length ? (
+      {showLegacyPartnerSettlement && scope === "partner" && companyPayments.length ? (
         <Card className="overflow-hidden rounded-[28px] border-blue-100 bg-blue-50/40">
           <div className="border-b border-blue-100 p-6">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">Company payments received</p>
@@ -950,11 +932,11 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
         </Card>
       ) : null}
 
-      {scope === "partner" ? (
+      {showLegacyPartnerSettlement && scope === "partner" ? (
         <PartnerPayeeLedger summaries={partnerPayeeSummaries} entries={entries} scope={scope} />
       ) : null}
 
-      {scope === "partner" ? (
+      {showLegacyPartnerSettlement && scope === "partner" ? (
         <Card className="overflow-hidden rounded-[28px] border-emerald-100 bg-emerald-50/30">
           <div className="border-b border-emerald-100 p-6">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -1027,8 +1009,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
                     scope={scope}
                     canMarkPaid={copy.showActions}
                     allEntries={entries}
-                    relatedEntries={scope === "admin" ? relatedPartnerObligations(entry, entries) : []}
-                    sourceCompanyPayment={scope === "partner" ? partnerCompanyPayments(entries).find((item) => item.orderId === entry.orderId) : undefined}
+                    relatedEntries={[]}
                   />
                 ))}
               </div>
@@ -1044,8 +1025,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
                     scope={scope}
                     canMarkPaid={false}
                     allEntries={entries}
-                    relatedEntries={scope === "admin" ? relatedPartnerObligations(entry, entries) : []}
-                    sourceCompanyPayment={scope === "partner" ? partnerCompanyPayments(entries).find((item) => item.orderId === entry.orderId) : undefined}
+                    relatedEntries={[]}
                   />
                 ))}
               </div>
@@ -1061,8 +1041,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
                     scope={scope}
                     canMarkPaid={false}
                     allEntries={entries}
-                    relatedEntries={scope === "admin" ? relatedPartnerObligations(entry, entries) : []}
-                    sourceCompanyPayment={scope === "partner" ? partnerCompanyPayments(entries).find((item) => item.orderId === entry.orderId) : undefined}
+                    relatedEntries={[]}
                   />
                 ))}
               </div>
@@ -1076,7 +1055,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
           <div className="border-b border-border p-6 lg:border-b-0 lg:border-r">
             <Banknote className="h-6 w-6 text-clinic-red" />
             <h3 className="mt-4 text-xl font-semibold text-clinic-ink">Money path</h3>
-            <p className="mt-2 text-slate-600">Gross margin creates the partner pool. The company pays partners, then partners distribute their pool downline.</p>
+            <p className="mt-2 text-slate-600">Gross margin creates each role&apos;s approved earning. Go Virtual Health sends every payout directly to that recipient&apos;s verified bank.</p>
           </div>
           <div className="border-b border-border p-6 lg:border-b-0 lg:border-r">
             <Clock3 className="h-6 w-6 text-clinic-red" />
@@ -1086,7 +1065,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
           <div className="p-6">
             <ShieldCheck className="h-6 w-6 text-clinic-red" />
             <h3 className="mt-4 text-xl font-semibold text-clinic-ink">Role privacy</h3>
-            <p className="mt-2 text-slate-600">Agents only see their own payout. Managers and leaders see their own status. Partners manage the network payout queue.</p>
+            <p className="mt-2 text-slate-600">Recipients see only their own payout history. Go Virtual Health administrators control approval and payment execution.</p>
           </div>
         </div>
       </Card>
