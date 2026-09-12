@@ -774,9 +774,10 @@ model PayoutTransfer {
   recipientUserId          String          @db.Uuid
   recipientUser            User            @relation("PayoutRecipient", fields: [recipientUserId], references: [id], onDelete: Restrict)
   amountCents              Int
-  stripeConnectedAccountId String
-  stripeTransferId         String          @unique
-  status                   String          @default("TRANSFERRED")
+  paymentMethod            String          @default("BANK")
+  stripeConnectedAccountId String?
+  stripeTransferId         String?         @unique
+  status                   String          @default("PAID")
   failureReason            String?
   rawEvent                 Json?
   createdByUserId          String?         @db.Uuid

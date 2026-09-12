@@ -20,12 +20,12 @@ Go Virtual Health must not add fields that persist full SSN, EIN, routing number
 
 1. Confirm the underlying order payment is captured and the commission split is approved.
 2. Open **Admin → Payouts**.
-3. Confirm the row shows a verified bank destination.
-4. Select **Send payout**.
-5. The platform sends exactly that recipient's approved split using an idempotent Stripe transfer.
-6. Store the transfer ID and audit record, then mark the split paid.
+3. Choose **Send to bank** or **Record cash**.
+4. For a bank payout, confirm the row shows a verified destination. The platform sends exactly that recipient's approved split using an idempotent transfer.
+5. For cash, deliver the funds outside the platform first; **Record cash** records the date, amount, recipient, and administrator but does not move money.
+6. Store the payment method and audit record, then mark the split paid.
 
-If the recipient has not finished setup, the payment action remains blocked. Do not mark the item paid unless money was delivered through a documented external exception process.
+If the recipient has not finished setup, only the electronic bank option remains blocked. Do not record cash unless the funds were actually delivered. Zero-dollar commission splits are never displayed as payout options and are rejected by the payout action.
 
 ## Stripe tax-reporting configuration
 

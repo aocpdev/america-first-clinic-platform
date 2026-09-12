@@ -249,6 +249,7 @@ export async function sendPayout(formData: FormData) {
   const user = await requireUser();
   const splitId = String(formData.get("splitId") || "");
   const returnPath = String(formData.get("returnPath") || "/admin/payouts");
+  const paymentMethod = String(formData.get("paymentMethod") || "BANK") === "CASH" ? "CASH" : "BANK";
 
   if (!splitId) throw new Error("Missing payout reference.");
   if ((user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN") || !user.companyId) {
@@ -268,6 +269,9 @@ export async function sendPayout(formData: FormData) {
   if (!split || split.companyId !== user.companyId || split.status !== "APPROVED") {
     throw new Error("This payout is not approved or no longer available.");
   }
+  if (split.amountCents <= 0) {
+    throw new Error("Zero-dollar commissions cannot be paid out.");
+  }
 
   const recipient = split.participantRole === "PARTNER"
     ? split.partnerProfile?.user
@@ -284,32 +288,41 @@ export async function sendPayout(formData: FormData) {
     return;
   }
 
-  const payoutAccount = await syncPayoutAccount({ id: recipient.id, companyId: split.companyId });
-  if (!payoutAccount?.stripeConnectedAccountId || payoutAccount.status !== "READY" || !payoutAccount.transfersEnabled) {
-    throw new Error("The recipient must complete tax and bank setup before this payout can be sent.");
-  }
+  let stripeConnectedAccountId: string | null = null;
+  let stripeTransferId: string | null = null;
+  let rawEvent: unknown = { method: "cash", note: "Cash payout recorded by a Go Virtual Health administrator. No electronic funds were moved." };
 
-  const config = await getCompanyStripeRuntimeConfig(user.companyId);
-  if (!config.secretKey) throw new Error("The company payout processor is not configured.");
-  const stripe = new Stripe(config.secretKey);
-  const transfer = await stripe.transfers.create(
-    {
-      amount: split.amountCents,
-      currency: "usd",
-      destination: payoutAccount.stripeConnectedAccountId,
-      transfer_group: `commission_${split.orderId}`,
-      metadata: {
-        companyId: split.companyId,
-        orderId: split.orderId,
-        commissionSplitId: split.id,
-        recipientUserId: recipient.id,
-        recipientRole: split.participantRole,
-        source: "direct_commission_payout",
-        stripeMode: config.mode
-      }
-    },
-    { idempotencyKey: `direct_commission_payout_${split.id}` }
-  );
+  if (paymentMethod === "BANK") {
+    const payoutAccount = await syncPayoutAccount({ id: recipient.id, companyId: split.companyId });
+    if (!payoutAccount?.stripeConnectedAccountId || payoutAccount.status !== "READY" || !payoutAccount.transfersEnabled) {
+      throw new Error("The recipient must complete tax and bank setup before this payout can be sent.");
+    }
+
+    const config = await getCompanyStripeRuntimeConfig(user.companyId);
+    if (!config.secretKey) throw new Error("The company payout processor is not configured.");
+    const stripe = new Stripe(config.secretKey);
+    const transfer = await stripe.transfers.create(
+      {
+        amount: split.amountCents,
+        currency: "usd",
+        destination: payoutAccount.stripeConnectedAccountId,
+        transfer_group: `commission_${split.orderId}`,
+        metadata: {
+          companyId: split.companyId,
+          orderId: split.orderId,
+          commissionSplitId: split.id,
+          recipientUserId: recipient.id,
+          recipientRole: split.participantRole,
+          source: "direct_commission_payout",
+          stripeMode: config.mode
+        }
+      },
+      { idempotencyKey: `direct_commission_payout_${split.id}` }
+    );
+    stripeConnectedAccountId = payoutAccount.stripeConnectedAccountId;
+    stripeTransferId = transfer.id;
+    rawEvent = transfer;
+  }
 
   const paidAt = new Date();
   await prisma.$transaction(async (tx) => {
@@ -319,10 +332,11 @@ export async function sendPayout(formData: FormData) {
         commissionSplitId: split.id,
         recipientUserId: recipient.id,
         amountCents: split.amountCents,
-        stripeConnectedAccountId: payoutAccount.stripeConnectedAccountId!,
-        stripeTransferId: transfer.id,
-        status: "TRANSFERRED",
-        rawEvent: jsonSafe(transfer),
+        paymentMethod,
+        stripeConnectedAccountId,
+        stripeTransferId,
+        status: paymentMethod === "CASH" ? "PAID_CASH" : "TRANSFERRED",
+        rawEvent: jsonSafe(rawEvent),
         createdByUserId: user.id,
         paidAt
       }

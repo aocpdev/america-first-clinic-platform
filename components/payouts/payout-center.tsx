@@ -116,23 +116,24 @@ function resetPath(scope: CommissionLedgerScope) {
 }
 
 function visiblePayoutEntries(scope: CommissionLedgerScope, entries: CommissionLedgerEntry[]) {
+  const payableEntries = entries.filter((entry) => entry.amountCents > 0);
   if (scope === "admin") {
-    return entries.filter((entry) => entry.payoutResponsibility === "COMPANY");
+    return payableEntries.filter((entry) => entry.payoutResponsibility === "COMPANY");
   }
 
   if (scope === "partner") {
-    return entries.filter((entry) => entry.participantRole === "PARTNER");
+    return payableEntries.filter((entry) => entry.participantRole === "PARTNER");
   }
 
   if (scope === "manager") {
-    return entries.filter((entry) => entry.participantRole === "MANAGER");
+    return payableEntries.filter((entry) => entry.participantRole === "MANAGER");
   }
 
   if (scope === "group_leader") {
-    return entries.filter((entry) => entry.participantRole === "GROUP_LEADER");
+    return payableEntries.filter((entry) => entry.participantRole === "GROUP_LEADER");
   }
 
-  return entries.filter((entry) => entry.participantRole === "CONSULTANT");
+  return payableEntries.filter((entry) => entry.participantRole === "CONSULTANT");
 }
 
 function applyPayoutFilters(entries: CommissionLedgerEntry[], filters?: RecordFiltersState) {
@@ -428,16 +429,20 @@ function PayoutRow({
         <Link href={orderHref(scope, entry.orderId)} className="inline-flex items-center justify-center rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-clinic-navy shadow-sm">
           Review
         </Link>
-        {canMarkPaid && entry.status === "APPROVED" && canSendDirectly ? (
+        {canMarkPaid && entry.status === "APPROVED" ? (
           <form action={sendPayout} className="flex flex-wrap gap-2 lg:justify-end">
             <input type="hidden" name="splitId" value={entry.id} />
             <input type="hidden" name="returnPath" value={returnPath(scope)} />
-            <button className="inline-flex items-center justify-center rounded-2xl bg-clinic-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-clinic-blue">
-              Send payout
+            {canSendDirectly ? (
+              <button name="paymentMethod" value="BANK" className="inline-flex items-center justify-center rounded-2xl bg-clinic-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-clinic-blue">
+                Send to bank
+              </button>
+            ) : null}
+            <button name="paymentMethod" value="CASH" className="inline-flex items-center justify-center rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-clinic-navy shadow-sm transition hover:bg-clinic-mist">
+              Record cash
             </button>
+            {!canSendDirectly ? <span className="w-full text-right text-xs font-semibold text-amber-700">Bank setup required for electronic payment</span> : null}
           </form>
-        ) : canMarkPaid && entry.status === "APPROVED" ? (
-          <span className="rounded-2xl bg-amber-50 px-4 py-3 text-center text-xs font-semibold text-amber-800">Recipient setup required</span>
         ) : null}
       </div>
 
