@@ -821,7 +821,7 @@ model AgencyFeeSetting {
   isEnabled                Boolean  @default(false)
   agencyName               String   @default("Agency")
   stripeConnectedAccountId String?
-  feeBps                   Int      @default(800)
+  feeBps                   Int      @default(1000)
   basis                    String   @default("GROSS_MARGIN")
   createdAt                DateTime @default(now())
   updatedAt                DateTime @updatedAt

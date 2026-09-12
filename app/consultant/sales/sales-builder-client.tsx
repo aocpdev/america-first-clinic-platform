@@ -203,6 +203,10 @@ function addressSummary(address: CustomerAddressOption) {
     .join(", ");
 }
 
+function preferredShippingAddress(customer: CustomerOption) {
+  return customer.addresses.find((address) => address.isDefault) ?? customer.addresses[0] ?? null;
+}
+
 function ProductGuideBlock({ title, items }: { title: string; items: string[] }) {
   return (
     <div className="rounded-2xl border border-border bg-white p-4">
@@ -476,6 +480,16 @@ export function SalesBuilderClient({
     setSelectedShippingAddressId("");
   }
 
+  function selectExistingCustomer(customer: CustomerOption) {
+    const preferredAddress = preferredShippingAddress(customer);
+
+    setSelectedCustomerId(customer.id);
+    setCustomerQuery(customerDisplayName(customer));
+    setCustomerPickerOpen(false);
+    setShippingMode(preferredAddress ? "saved" : "new");
+    setSelectedShippingAddressId(preferredAddress?.id ?? "");
+  }
+
   return (
     <div className="min-w-0 space-y-6 pb-48 xl:pb-0">
       {createdOrderId && (
@@ -542,7 +556,15 @@ export function SalesBuilderClient({
                   <div className="grid grid-cols-2 rounded-xl bg-clinic-mist p-1">
                     <button
                       type="button"
-                      onClick={() => setCustomerMode("existing")}
+                      onClick={() => {
+                        setCustomerMode("existing");
+
+                        if (customerMode !== "existing" && selectedCustomer) {
+                          const preferredAddress = preferredShippingAddress(selectedCustomer);
+                          setShippingMode(preferredAddress ? "saved" : "new");
+                          setSelectedShippingAddressId(preferredAddress?.id ?? "");
+                        }
+                      }}
                       className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${customerMode === "existing" ? "bg-white text-clinic-navy shadow-line" : "text-slate-500"}`}
                       disabled={customers.length === 0}
                     >
@@ -605,11 +627,7 @@ export function SalesBuilderClient({
                                   <button
                                     key={customer.id}
                                     type="button"
-                                    onClick={() => {
-                                      setSelectedCustomerId(customer.id);
-                                      setCustomerQuery(customerDisplayName(customer));
-                                      setCustomerPickerOpen(false);
-                                    }}
+                                    onClick={() => selectExistingCustomer(customer)}
                                     className={`flex w-full items-center gap-3 rounded-2xl p-3 text-left transition ${
                                       isSelected ? "bg-clinic-mist ring-1 ring-clinic-navy/15" : "hover:bg-clinic-mist"
                                     }`}

@@ -8,7 +8,7 @@ export const DISCOUNT_FUNDING_STRATEGIES = [
 export type DiscountFundingStrategy = (typeof DISCOUNT_FUNDING_STRATEGIES)[number];
 
 export const DEFAULT_DISCOUNT_FUNDING_STRATEGY: DiscountFundingStrategy = "ORIGINATOR_FUNDED";
-export const AGENCY_FEE_BPS = 800;
+export const AGENCY_FEE_BPS = 1000;
 
 export function isDiscountFundingStrategy(value: unknown): value is DiscountFundingStrategy {
   return typeof value === "string" && DISCOUNT_FUNDING_STRATEGIES.includes(value as DiscountFundingStrategy);

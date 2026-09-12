@@ -18,7 +18,7 @@ function percentFromBps(bps: number) {
 
 export function AgencyFeeSettings({ setting }: { setting: AgencyFeeSetting }) {
   const enabled = setting?.isEnabled ?? false;
-  const feePercent = percentFromBps(setting?.feeBps ?? 800);
+  const feePercent = percentFromBps(setting?.feeBps ?? 1000);
   const accountId = setting?.stripeConnectedAccountId ?? "";
   const ready = enabled && accountId.startsWith("acct_");
 
