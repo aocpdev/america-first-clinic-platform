@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { CommissionParticipantRole, CommissionStatus } from "@prisma/client";
 import { ArrowUpRight, BadgeCheck, Banknote, CheckCircle2, Clock3, Landmark, LockKeyhole, ShieldCheck, Sparkles, WalletCards } from "lucide-react";
 
-import { sendPayout } from "@/app/payouts/actions";
+import { sendPayout, sendRecipientPayout } from "@/app/payouts/actions";
 import type { CommissionLedgerEntry, CommissionLedgerScope } from "@/lib/commissions/queries";
 import type { PartnerCashRewardPayoutItem } from "@/lib/rewards/reward-engine";
 import { cn, currency } from "@/lib/utils";
@@ -232,6 +232,94 @@ type PartnerPayeeSummary = {
   deferredCents: number;
   entries: CommissionLedgerEntry[];
 };
+
+type RecipientPayoutSummary = {
+  key: string;
+  recipientUserId: string;
+  role: CommissionParticipantRole;
+  name: string;
+  email: string;
+  totalCents: number;
+  bankAccountLast4: string | null;
+  canSendToBank: boolean;
+  entries: CommissionLedgerEntry[];
+};
+
+function buildRecipientPayoutSummaries(entries: CommissionLedgerEntry[]): RecipientPayoutSummary[] {
+  const summaries = new Map<string, RecipientPayoutSummary>();
+  entries.filter((entry) => entry.status === "APPROVED" && entry.amountCents > 0).forEach((entry) => {
+    if (!entry.participantUserId) return;
+    const key = entry.participantUserId;
+    const existing = summaries.get(key) ?? {
+      key,
+      recipientUserId: entry.participantUserId,
+      role: entry.participantRole,
+      name: entry.participantName,
+      email: entry.participantEmail,
+      totalCents: 0,
+      bankAccountLast4: entry.payoutBankAccountLast4,
+      canSendToBank: entry.payoutAccountStatus === "READY" && entry.payoutTransfersEnabled && Boolean(entry.payoutStripeConnectedAccountId),
+      entries: []
+    };
+    existing.totalCents += entry.amountCents;
+    existing.entries.push(entry);
+    summaries.set(key, existing);
+  });
+  return Array.from(summaries.values()).sort((a, b) => b.totalCents - a.totalCents || a.name.localeCompare(b.name));
+}
+
+function RecipientBatchPayouts({ summaries }: { summaries: RecipientPayoutSummary[] }) {
+  if (!summaries.length) return null;
+
+  return (
+    <Card className="overflow-hidden rounded-[32px] border-emerald-100 bg-white shadow-sm">
+      <div className="border-b border-emerald-100 bg-gradient-to-br from-white to-emerald-50/60 p-6 sm:p-8">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-700">Pay by recipient</p>
+        <h3 className="mt-2 text-3xl font-semibold tracking-tight text-clinic-ink">One payment, every approved item</h3>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
+          Each total includes every approved, unpaid commission for that recipient. One action creates one payment and closes every included item as paid.
+        </p>
+      </div>
+      <div className="grid gap-4 p-4 xl:grid-cols-2">
+        {summaries.map((summary) => (
+          <div key={summary.key} className="rounded-[26px] border border-border bg-white p-5 shadow-sm">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="truncate text-xl font-semibold text-clinic-ink">{summary.name}</p>
+                  <Badge className="border-blue-200 bg-blue-50 text-clinic-navy">{roleCopy[summary.role]}</Badge>
+                </div>
+                <p className="mt-1 break-all text-sm text-slate-500">{summary.email || "No email on file"}</p>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  {summary.entries.length} approved {summary.entries.length === 1 ? "item" : "items"} selected
+                </p>
+              </div>
+              <div className="rounded-[22px] bg-emerald-50 px-5 py-4 text-right">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Total payment</p>
+                <p className="mt-1 text-3xl font-semibold text-emerald-700">{dollars(summary.totalCents)}</p>
+              </div>
+            </div>
+            <form action={sendRecipientPayout} className="mt-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              {summary.entries.map((entry) => <input key={entry.id} type="hidden" name="splitId" value={entry.id} />)}
+              <input type="hidden" name="recipientUserId" value={summary.recipientUserId} />
+              <input type="hidden" name="returnPath" value="/admin/payouts" />
+              {summary.canSendToBank ? (
+                <button name="paymentMethod" value="BANK" className="inline-flex items-center justify-center rounded-2xl bg-clinic-navy px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-clinic-blue">
+                  Send total to bank{summary.bankAccountLast4 ? ` •••• ${summary.bankAccountLast4}` : ""}
+                </button>
+              ) : (
+                <span className="text-xs font-semibold text-amber-700 sm:mr-auto">Bank setup required for electronic payment</span>
+              )}
+              <button name="paymentMethod" value="CASH" className="inline-flex items-center justify-center rounded-2xl border border-border bg-white px-4 py-3 text-sm font-semibold text-clinic-navy shadow-sm transition hover:bg-clinic-mist">
+                Record total cash
+              </button>
+            </form>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
 
 function buildPartnerPayeeSummaries(entries: CommissionLedgerEntry[]): PartnerPayeeSummary[] {
   const summaries = new Map<string, PartnerPayeeSummary>();
@@ -767,6 +855,7 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
   const historyRows = rows.filter((entry) => entry.status === "PAID" || entry.status === "REJECTED").slice(0, 12);
   const companyPayments = scope === "partner" ? applyPayoutFilters(partnerCompanyPayments(entries), filters) : [];
   const partnerPayeeSummaries = scope === "partner" ? buildPartnerPayeeSummaries(rows) : [];
+  const recipientPayoutSummaries = scope === "admin" ? buildRecipientPayoutSummaries(visibleRows) : [];
   const pendingRewardPayouts = visibleRewardPayouts.filter((claim) => claim.status === "PAYOUT_PENDING");
   const fundedRewardPayouts = visibleRewardPayouts.filter((claim) => claim.status === "PAYOUT_APPLIED");
   const rewardPayoutTotal = visibleRewardPayouts.reduce((total, claim) => total + claim.rewardValueCents, 0);
@@ -872,6 +961,8 @@ export function PayoutCenter({ entries, scope, filters, rewardPayouts = [], part
           { name: "role", label: "Role", options: roleOptions }
         ]}
       />
+
+      {scope === "admin" ? <RecipientBatchPayouts summaries={recipientPayoutSummaries} /> : null}
 
       {showLegacyPartnerSettlement && scope === "partner" && companyPayments.length ? (
         <Card className="overflow-hidden rounded-[28px] border-blue-100 bg-blue-50/40">

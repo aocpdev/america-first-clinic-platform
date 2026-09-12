@@ -1,6 +1,7 @@
 "use server";
 
 import Stripe from "stripe";
+import { createHash } from "node:crypto";
 import { revalidatePath } from "next/cache";
 
 import { requireUser } from "@/lib/auth/current-user";
@@ -342,6 +343,152 @@ export async function sendPayout(formData: FormData) {
       }
     });
     await tx.commissionSplit.update({ where: { id: split.id }, data: { status: "PAID", paidAt } });
+  });
+
+  revalidatePath(returnPath);
+  revalidatePath("/partner/payouts");
+  revalidatePath("/manager/payouts");
+  revalidatePath("/consultant/payouts");
+}
+
+export async function sendRecipientPayout(formData: FormData) {
+  const user = await requireUser();
+  const splitIds = Array.from(new Set(formData.getAll("splitId").map(String).filter(Boolean))).sort();
+  const requestedRecipientUserId = String(formData.get("recipientUserId") || "");
+  const returnPath = String(formData.get("returnPath") || "/admin/payouts");
+  const paymentMethod = String(formData.get("paymentMethod") || "BANK") === "CASH" ? "CASH" : "BANK";
+
+  if ((user.role !== "COMPANY_ADMIN" && user.role !== "SUPER_ADMIN") || !user.companyId) {
+    throw new Error("Only company admins can send grouped payouts.");
+  }
+  if (!splitIds.length) throw new Error("Select at least one approved payout.");
+  if (!requestedRecipientUserId) throw new Error("The payout recipient is missing.");
+
+  const splits = await prisma.commissionSplit.findMany({
+    where: { id: { in: splitIds } },
+    include: {
+      partnerProfile: { include: { user: true } },
+      managerProfile: { include: { user: true } },
+      groupLeaderProfile: { include: { user: true } },
+      consultantProfile: { include: { user: true } },
+      payoutTransfer: true
+    },
+    orderBy: { id: "asc" }
+  });
+  if (splits.length !== splitIds.length) throw new Error("One or more payout items could not be found.");
+
+  const payoutItems = splits.map((split) => {
+    const recipient = split.participantRole === "PARTNER"
+      ? split.partnerProfile?.user
+      : split.participantRole === "MANAGER"
+        ? split.managerProfile?.user
+        : split.participantRole === "GROUP_LEADER"
+          ? split.groupLeaderProfile?.user
+          : split.consultantProfile?.user;
+    return { split, recipient };
+  });
+  const recipientUserId = payoutItems[0]?.recipient?.id;
+  if (!recipientUserId || payoutItems.some(({ recipient }) => recipient?.id !== recipientUserId)) {
+    throw new Error("A grouped payout can only contain items for one recipient.");
+  }
+  if (recipientUserId !== requestedRecipientUserId) throw new Error("The payout recipient does not match the selected items.");
+  if (payoutItems.some(({ split }) => split.companyId !== user.companyId || split.status !== "APPROVED" || split.amountCents <= 0 || split.payoutTransfer)) {
+    throw new Error("Every grouped item must be approved, unpaid, positive, and belong to this company.");
+  }
+
+  const allEligibleSplits = await prisma.commissionSplit.findMany({
+    where: {
+      companyId: user.companyId,
+      status: "APPROVED",
+      amountCents: { gt: 0 },
+      payoutTransfer: { is: null },
+      OR: [
+        { partnerProfile: { userId: recipientUserId } },
+        { managerProfile: { userId: recipientUserId } },
+        { groupLeaderProfile: { userId: recipientUserId } },
+        { consultantProfile: { userId: recipientUserId } }
+      ]
+    },
+    select: { id: true },
+    orderBy: { id: "asc" }
+  });
+  if (allEligibleSplits.map((item) => item.id).join(":") !== splitIds.join(":")) {
+    throw new Error("The recipient payout total changed. Refresh the page before sending the grouped payment.");
+  }
+
+  const totalCents = payoutItems.reduce((total, { split }) => total + split.amountCents, 0);
+  let stripeConnectedAccountId: string | null = null;
+  let stripeTransferId: string | null = null;
+  let rawEvent: unknown = { method: "cash", note: "Grouped cash payout recorded by a Go Virtual Health administrator. No electronic funds were moved." };
+  const batchKey = createHash("sha256").update(splitIds.join(":"), "utf8").digest("hex").slice(0, 32);
+
+  if (paymentMethod === "BANK") {
+    const payoutAccount = await syncPayoutAccount({ id: recipientUserId, companyId: user.companyId });
+    if (!payoutAccount?.stripeConnectedAccountId || payoutAccount.status !== "READY" || !payoutAccount.transfersEnabled) {
+      throw new Error("The recipient must complete tax and bank setup before this grouped payout can be sent.");
+    }
+    const config = await getCompanyStripeRuntimeConfig(user.companyId);
+    if (!config.secretKey) throw new Error("The company payout processor is not configured.");
+    const stripe = new Stripe(config.secretKey);
+    const transfer = await stripe.transfers.create(
+      {
+        amount: totalCents,
+        currency: "usd",
+        destination: payoutAccount.stripeConnectedAccountId,
+        transfer_group: `recipient_payout_${batchKey}`,
+        metadata: {
+          companyId: user.companyId,
+          recipientUserId,
+          itemCount: String(splitIds.length),
+          payoutBatchKey: batchKey,
+          source: "grouped_recipient_payout",
+          stripeMode: config.mode
+        }
+      },
+      { idempotencyKey: `grouped_recipient_payout_${batchKey}` }
+    );
+    stripeConnectedAccountId = payoutAccount.stripeConnectedAccountId;
+    stripeTransferId = transfer.id;
+    rawEvent = transfer;
+  }
+
+  const paidAt = new Date();
+  await prisma.$transaction(async (tx) => {
+    const batch = await tx.payoutBatch.create({
+      data: {
+        companyId: user.companyId!,
+        recipientUserId,
+        paymentMethod,
+        totalCents,
+        itemCount: payoutItems.length,
+        stripeConnectedAccountId,
+        stripeTransferId,
+        status: paymentMethod === "CASH" ? "PAID_CASH" : "TRANSFERRED",
+        rawEvent: jsonSafe(rawEvent),
+        createdByUserId: user.id,
+        paidAt
+      }
+    });
+    await tx.payoutTransfer.createMany({
+      data: payoutItems.map(({ split }) => ({
+        companyId: split.companyId,
+        commissionSplitId: split.id,
+        payoutBatchId: batch.id,
+        recipientUserId,
+        amountCents: split.amountCents,
+        paymentMethod,
+        stripeConnectedAccountId,
+        status: paymentMethod === "CASH" ? "PAID_CASH" : "TRANSFERRED",
+        rawEvent: { payoutBatchId: batch.id, payoutBatchKey: batchKey },
+        createdByUserId: user.id,
+        paidAt
+      }))
+    });
+    const updated = await tx.commissionSplit.updateMany({
+      where: { id: { in: splitIds }, status: "APPROVED" },
+      data: { status: "PAID", paidAt }
+    });
+    if (updated.count !== splitIds.length) throw new Error("A payout item changed while the grouped payment was being processed.");
   });
 
   revalidatePath(returnPath);

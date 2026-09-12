@@ -189,6 +189,8 @@ model User {
   payoutAccount                 PayoutAccount?
   receivedPayoutTransfers       PayoutTransfer[]     @relation("PayoutRecipient")
   createdPayoutTransfers        PayoutTransfer[]     @relation("PayoutCreator")
+  receivedPayoutBatches         PayoutBatch[]        @relation("PayoutBatchRecipient")
+  createdPayoutBatches          PayoutBatch[]        @relation("PayoutBatchCreator")
   createdAt                     DateTime            @default(now())
   updatedAt                     DateTime            @updatedAt
 
@@ -230,6 +232,7 @@ model Company {
   auditLogs           AuditLog[]
   payoutAccounts      PayoutAccount[]
   payoutTransfers     PayoutTransfer[]
+  payoutBatches       PayoutBatch[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 }
@@ -771,6 +774,8 @@ model PayoutTransfer {
   company                  Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   commissionSplitId        String          @unique @db.Uuid
   commissionSplit          CommissionSplit @relation(fields: [commissionSplitId], references: [id], onDelete: Restrict)
+  payoutBatchId            String?         @db.Uuid
+  payoutBatch              PayoutBatch?    @relation(fields: [payoutBatchId], references: [id], onDelete: SetNull)
   recipientUserId          String          @db.Uuid
   recipientUser            User            @relation("PayoutRecipient", fields: [recipientUserId], references: [id], onDelete: Restrict)
   amountCents              Int
@@ -785,6 +790,31 @@ model PayoutTransfer {
   paidAt                   DateTime?
   createdAt                DateTime        @default(now())
   updatedAt                DateTime        @updatedAt
+
+  @@index([companyId, status])
+  @@index([recipientUserId, paidAt])
+  @@index([payoutBatchId])
+}
+
+model PayoutBatch {
+  id                       String           @id @default(uuid()) @db.Uuid
+  companyId                String           @db.Uuid
+  company                  Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  recipientUserId          String           @db.Uuid
+  recipientUser            User             @relation("PayoutBatchRecipient", fields: [recipientUserId], references: [id], onDelete: Restrict)
+  paymentMethod            String
+  totalCents               Int
+  itemCount                Int
+  stripeConnectedAccountId String?
+  stripeTransferId         String?          @unique
+  status                   String           @default("PAID")
+  rawEvent                 Json?
+  createdByUserId          String?          @db.Uuid
+  createdByUser            User?            @relation("PayoutBatchCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  paidAt                   DateTime?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
+  transfers                PayoutTransfer[]
 
   @@index([companyId, status])
   @@index([recipientUserId, paidAt])

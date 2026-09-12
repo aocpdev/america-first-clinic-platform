@@ -18,6 +18,7 @@ export type CommissionLedgerEntry = {
   participantRole: CommissionParticipantRole;
   participantName: string;
   participantEmail: string;
+  participantUserId: string | null;
   amountCents: number;
   grossMarginCents: number;
   commissionPoolCents: number;
@@ -104,6 +105,7 @@ function participantFor(split: CommissionSplitWithRelations) {
     return {
       name: split.partnerProfile?.displayName || personName(split.partnerProfile?.user),
       email: split.partnerProfile?.user.email || "",
+      userId: split.partnerProfile?.user.id ?? null,
       payoutAccount: split.partnerProfile?.user.payoutAccount ?? null
     };
   }
@@ -112,6 +114,7 @@ function participantFor(split: CommissionSplitWithRelations) {
     return {
       name: split.managerProfile?.displayName || personName(split.managerProfile?.user),
       email: split.managerProfile?.user.email || "",
+      userId: split.managerProfile?.user.id ?? null,
       payoutAccount: split.managerProfile?.user.payoutAccount ?? null
     };
   }
@@ -120,6 +123,7 @@ function participantFor(split: CommissionSplitWithRelations) {
     return {
       name: split.groupLeaderProfile?.displayName || personName(split.groupLeaderProfile?.user),
       email: split.groupLeaderProfile?.user.email || "",
+      userId: split.groupLeaderProfile?.user.id ?? null,
       payoutAccount: split.groupLeaderProfile?.user.payoutAccount ?? null
     };
   }
@@ -127,6 +131,7 @@ function participantFor(split: CommissionSplitWithRelations) {
   return {
     name: personName(split.consultantProfile?.user),
     email: split.consultantProfile?.user.email || "",
+    userId: split.consultantProfile?.user.id ?? null,
     payoutAccount: split.consultantProfile?.user.payoutAccount ?? null
   };
 }
@@ -194,6 +199,7 @@ export function mapCommissionSplit(split: CommissionSplitWithRelations): Commiss
     participantRole: split.participantRole,
     participantName: participant.name,
     participantEmail: participant.email,
+    participantUserId: participant.userId,
     amountCents: split.amountCents,
     grossMarginCents: split.grossMarginCents,
     commissionPoolCents: split.commissionPoolCents,

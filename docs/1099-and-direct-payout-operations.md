@@ -27,6 +27,12 @@ Go Virtual Health must not add fields that persist full SSN, EIN, routing number
 
 If the recipient has not finished setup, only the electronic bank option remains blocked. Do not record cash unless the funds were actually delivered. Zero-dollar commission splits are never displayed as payout options and are rejected by the payout action.
 
+## Grouped recipient payouts
+
+The admin payout center groups every approved, unpaid, positive commission by recipient. **Send total to bank** creates one electronic transfer for the combined amount. **Record total cash** creates one cash batch record without moving funds. In either case, every included commission split is linked to the same batch and marked paid in one database transaction.
+
+Pending commissions that have not been approved, zero-dollar splits, previously paid items, and items belonging to another recipient or company cannot enter the batch. The grouped action revalidates every item immediately before payment and uses an idempotency key derived from the exact included split IDs to prevent a repeated electronic transfer.
+
 ## Stripe tax-reporting configuration
 
 Before production tax reporting, an authorized Go Virtual Health administrator and tax adviser should review these settings in the Stripe Dashboard:
