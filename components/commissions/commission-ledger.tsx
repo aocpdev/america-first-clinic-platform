@@ -209,9 +209,83 @@ function EmptyLedger({ scope }: { scope: CommissionLedgerScope }) {
   );
 }
 
+type CommissionOrderGroup = {
+  orderId: string;
+  orderNumber: string;
+  orderTotalCents: number;
+  customerName: string;
+  customerEmail: string;
+  agentName: string;
+  agentRole: CommissionLedgerEntry["agentRole"];
+  grossMarginCents: number;
+  commissionPoolCents: number;
+  commissionTotalCents: number;
+  createdAt: Date;
+  statuses: CommissionStatus[];
+  splits: CommissionLedgerEntry[];
+};
+
+function groupCommissionOrders(entries: CommissionLedgerEntry[]): CommissionOrderGroup[] {
+  const groups = new Map<string, CommissionOrderGroup>();
+
+  entries.forEach((entry) => {
+    const existing = groups.get(entry.orderId);
+    if (existing) {
+      existing.commissionTotalCents += entry.amountCents;
+      existing.splits.push(entry);
+      if (!existing.statuses.includes(entry.status)) existing.statuses.push(entry.status);
+      return;
+    }
+
+    groups.set(entry.orderId, {
+      orderId: entry.orderId,
+      orderNumber: entry.orderNumber,
+      orderTotalCents: entry.orderTotalCents,
+      customerName: entry.customerName,
+      customerEmail: entry.customerEmail,
+      agentName: entry.agentName,
+      agentRole: entry.agentRole,
+      grossMarginCents: entry.grossMarginCents,
+      commissionPoolCents: entry.commissionPoolCents,
+      commissionTotalCents: entry.amountCents,
+      createdAt: entry.createdAt,
+      statuses: [entry.status],
+      splits: [entry]
+    });
+  });
+
+  return Array.from(groups.values());
+}
+
+function StatusBadges({ statuses }: { statuses: CommissionStatus[] }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {statuses.map((status) => (
+        <Badge key={status} className={cn("px-3 py-1.5", statusClassName[status])}>{statusCopy[status]}</Badge>
+      ))}
+    </div>
+  );
+}
+
+function SplitBreakdown({ splits }: { splits: CommissionLedgerEntry[] }) {
+  return (
+    <div className="mt-3 space-y-1.5">
+      {splits.map((split) => (
+        <div key={split.id} className="flex items-center justify-between gap-3 rounded-xl bg-clinic-mist/80 px-3 py-2 text-xs">
+          <span className="min-w-0 truncate text-slate-600">
+            <span className="font-semibold text-clinic-ink">{split.participantName}</span> · {roleCopy[split.participantRole]}
+          </span>
+          <span className="shrink-0 font-semibold text-emerald-700">{dollars(split.amountCents)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function CommissionLedger({ entries, scope, title, description, filters, dateRangeLabel = "selected range" }: CommissionLedgerProps) {
   const scopedRows = visibleEntries(scope, entries);
   const rows = applyCommissionFilters(scopedRows, filters);
+  const orderRows = groupCommissionOrders(rows);
   const metrics = metricsFor(scope, rows);
   const showInternalColumns = scope === "admin" || scope === "partner";
   const showTeamColumns = scope !== "consultant";
@@ -227,7 +301,7 @@ export function CommissionLedger({ entries, scope, title, description, filters, 
               <p className="mt-3 max-w-3xl text-lg leading-8 text-slate-600">{description}</p>
             </div>
             <Badge className="w-fit border-blue-200 bg-blue-50 px-4 py-2 text-clinic-navy">
-              {rows.length} ledger {rows.length === 1 ? "entry" : "entries"}
+              {orderRows.length} {orderRows.length === 1 ? "order" : "orders"}
             </Badge>
           </div>
         </div>
@@ -302,7 +376,7 @@ export function CommissionLedger({ entries, scope, title, description, filters, 
           </div>
         </div>
 
-        {rows.length === 0 ? (
+        {orderRows.length === 0 ? (
           <EmptyLedger scope={scope} />
         ) : (
           <>
@@ -313,7 +387,7 @@ export function CommissionLedger({ entries, scope, title, description, filters, 
                     <th className="px-5 py-4">Order</th>
                     <th className="px-5 py-4">Customer</th>
                     {showTeamColumns ? <th className="px-5 py-4">Agent</th> : null}
-                    <th className="px-5 py-4">Amount</th>
+                    <th className="px-5 py-4">Total commissions</th>
                     {showInternalColumns ? <th className="px-5 py-4">Margin</th> : null}
                     {showInternalColumns ? <th className="px-5 py-4">Pool</th> : null}
                     <th className="px-5 py-4">Status</th>
@@ -322,8 +396,8 @@ export function CommissionLedger({ entries, scope, title, description, filters, 
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border bg-white">
-                  {rows.map((entry) => (
-                    <tr key={entry.id} className="align-top">
+                  {orderRows.map((entry) => (
+                    <tr key={entry.orderId} className="align-top">
                       <td className="px-5 py-5">
                         <p className="font-semibold text-clinic-navy">{entry.orderNumber}</p>
                         <p className="mt-1 text-slate-500">{dollars(entry.orderTotalCents)} sale</p>
@@ -336,16 +410,17 @@ export function CommissionLedger({ entries, scope, title, description, filters, 
                         <td className="px-5 py-5">
                           <p className="font-semibold text-clinic-ink">{entry.agentName}</p>
                           <p className="mt-1 text-slate-500">{entry.agentRole}</p>
-                          <p className="mt-2 text-xs font-medium text-slate-400">
-                            Payout: {entry.participantName} · {roleCopy[entry.participantRole]}
-                          </p>
+                          <SplitBreakdown splits={entry.splits} />
                         </td>
                       ) : null}
-                      <td className="px-5 py-5 text-lg font-semibold text-emerald-700">{dollars(entry.amountCents)}</td>
+                      <td className="px-5 py-5">
+                        <p className="text-lg font-semibold text-emerald-700">{dollars(entry.commissionTotalCents)}</p>
+                        <p className="mt-1 text-xs text-slate-500">{entry.splits.length} payout {entry.splits.length === 1 ? "split" : "splits"}</p>
+                      </td>
                       {showInternalColumns ? <td className="px-5 py-5 font-semibold text-clinic-navy">{dollars(entry.grossMarginCents)}</td> : null}
                       {showInternalColumns ? <td className="px-5 py-5 font-semibold text-clinic-red">{dollars(entry.commissionPoolCents)}</td> : null}
                       <td className="px-5 py-5">
-                        <Badge className={cn("px-3 py-1.5", statusClassName[entry.status])}>{statusCopy[entry.status]}</Badge>
+                        <StatusBadges statuses={entry.statuses} />
                       </td>
                       <td className="px-5 py-5 text-slate-500">{entry.createdAt.toLocaleDateString("en-US")}</td>
                       <td className="px-5 py-5">
@@ -360,30 +435,28 @@ export function CommissionLedger({ entries, scope, title, description, filters, 
             </div>
 
             <div className="grid gap-4 p-4 lg:hidden">
-              {rows.map((entry) => (
-                <div key={entry.id} className="rounded-[28px] border border-border bg-white p-5 shadow-sm">
+              {orderRows.map((entry) => (
+                <div key={entry.orderId} className="rounded-[28px] border border-border bg-white p-5 shadow-sm">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{entry.orderNumber}</p>
                       <h3 className="mt-2 text-xl font-semibold text-clinic-ink">{entry.customerName}</h3>
                       <p className="mt-1 break-all text-sm text-slate-500">{entry.customerEmail}</p>
                     </div>
-                    <Badge className={cn("shrink-0 px-3 py-1.5", statusClassName[entry.status])}>{statusCopy[entry.status]}</Badge>
+                    <StatusBadges statuses={entry.statuses} />
                   </div>
                   {showTeamColumns ? (
                     <div className="mt-4 rounded-2xl bg-clinic-mist p-4">
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Agent</p>
                       <p className="mt-1 font-semibold text-clinic-ink">{entry.agentName}</p>
                       <p className="mt-1 text-sm text-slate-500">{entry.agentRole}</p>
-                      <p className="mt-3 text-xs font-medium text-slate-500">
-                        Payout: {entry.participantName} · {roleCopy[entry.participantRole]}
-                      </p>
+                      <SplitBreakdown splits={entry.splits} />
                     </div>
                   ) : null}
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl bg-emerald-50 p-4">
-                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Amount</p>
-                      <p className="mt-2 text-2xl font-semibold text-emerald-700">{dollars(entry.amountCents)}</p>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-700">Total commissions</p>
+                      <p className="mt-2 text-2xl font-semibold text-emerald-700">{dollars(entry.commissionTotalCents)}</p>
                     </div>
                     <div className="rounded-2xl bg-clinic-mist p-4">
                       <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Sale</p>
