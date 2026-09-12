@@ -27,7 +27,7 @@ export default async function ConsultantRewardsPage() {
       avatarUrl: user.avatarUrl,
       consultantProfileId: user.consultantProfile.id
     }),
-    getCompanyRewardLeaderboard(user.companyId),
+    getCompanyRewardLeaderboard(user.companyId, "CONSULTANT"),
     getActiveRewardCampaignProgress({
       companyId: user.companyId,
       userId: user.id,

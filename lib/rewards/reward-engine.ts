@@ -111,11 +111,12 @@ export async function ensureDefaultRewardLevels(companyId: string) {
 }
 
 export async function getRewardLevels(companyId: string, participantRole: RewardParticipantRole = "CONSULTANT") {
-  return prisma.rewardLevel.findMany({
+  const levels = await prisma.rewardLevel.findMany({
     where: { companyId, participantRole, isActive: true },
     include: { rewards: { where: { isActive: true }, orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
     orderBy: { salesThreshold: "asc" }
   });
+  return levels.map(withCanonicalRewardScope);
 }
 
 export async function getRewardLevelAdminModels(companyId: string) {
@@ -137,13 +138,16 @@ export async function getRewardLevelAdminModels(companyId: string) {
     products.reduce((sum, product) => sum + Math.max(product.priceCents - product.internalCostCents, 0), 0) / productCount
   );
 
-  return levels.map((level) => ({
-    ...level,
-    projectedRevenueCents: level.salesThreshold * averageRevenueCents,
-    projectedMarginCents: level.salesThreshold * averageMarginCents,
-    averageRevenueCents,
-    averageMarginCents
-  }));
+  return levels.map((storedLevel) => {
+    const level = withCanonicalRewardScope(storedLevel);
+    return {
+      ...level,
+      projectedRevenueCents: level.salesThreshold * averageRevenueCents,
+      projectedMarginCents: level.salesThreshold * averageMarginCents,
+      averageRevenueCents,
+      averageMarginCents
+    };
+  });
 }
 
 export async function getRewardProducts(companyId: string) {
@@ -182,9 +186,13 @@ function clampDate(date: Date, min: Date, max: Date) {
   return date;
 }
 
-function defaultScopeForParticipant(role: RewardParticipantRole | null): RewardScopeMode {
+export function rewardScopeForParticipant(role: RewardParticipantRole | null): RewardScopeMode {
   if (role === "MANAGER" || role === "GROUP_LEADER") return "FULL_DOWNLINE";
   return "PERSONAL";
+}
+
+function withCanonicalRewardScope<T extends { participantRole: RewardParticipantRole; scopeMode: RewardScopeMode }>(item: T): T {
+  return { ...item, scopeMode: rewardScopeForParticipant(item.participantRole) };
 }
 
 export async function getAgentSalesCount(input: {
@@ -193,7 +201,7 @@ export async function getAgentSalesCount(input: {
   managerProfileId?: string | null;
   groupLeaderProfileId?: string | null;
   consultantProfileId?: string | null;
-}, scopeMode?: RewardScopeMode) {
+}) {
   if (input.consultantProfileId) {
     return prisma.order.count({
       where: { companyId: input.companyId, consultantProfileId: input.consultantProfileId, paymentStatus: "CAPTURED" }
@@ -201,24 +209,20 @@ export async function getAgentSalesCount(input: {
   }
 
   if (input.groupLeaderProfileId) {
-    const effectiveScope = scopeMode ?? defaultScopeForParticipant("GROUP_LEADER");
     return prisma.order.count({
       where: {
         companyId: input.companyId,
         groupLeaderProfileId: input.groupLeaderProfileId,
-        ...(effectiveScope === "PERSONAL" ? { consultantProfileId: null } : {}),
         paymentStatus: "CAPTURED"
       }
     });
   }
 
   if (input.managerProfileId) {
-    const effectiveScope = scopeMode ?? defaultScopeForParticipant("MANAGER");
     return prisma.order.count({
       where: {
         companyId: input.companyId,
         managerProfileId: input.managerProfileId,
-        ...(effectiveScope === "PERSONAL" ? { groupLeaderProfileId: null, consultantProfileId: null } : {}),
         paymentStatus: "CAPTURED"
       }
     });
@@ -250,8 +254,7 @@ export async function getRewardProgress(input: {
 }) {
   const participant = resolveRewardParticipant(input);
   const levels = await getRewardLevels(input.companyId, participant?.role ?? "CONSULTANT");
-  const progressScope = levels[0]?.scopeMode ?? defaultScopeForParticipant(participant?.role ?? null);
-  const salesCount = await getAgentSalesCount(input, progressScope);
+  const salesCount = await getAgentSalesCount(input);
 
   const currentLevel = [...levels].reverse().find((level) => salesCount >= level.salesThreshold) ?? null;
   const nextLevel = levels.find((level) => level.salesThreshold > salesCount) ?? null;
@@ -264,6 +267,7 @@ export async function getRewardProgress(input: {
   return {
     agentName: input.agentName,
     avatarUrl: input.avatarUrl ?? null,
+    participantRole: participant?.role ?? "CONSULTANT",
     salesCount,
     levels,
     currentLevel,
@@ -276,48 +280,51 @@ export async function getRewardProgress(input: {
   };
 }
 
-export async function getCompanyRewardLeaderboard(companyId: string) {
-  const [consultants, groupLeaders, managers] = await Promise.all([
-    prisma.consultantProfile.findMany({
+export async function getCompanyRewardLeaderboard(companyId: string, participantRole: RewardParticipantRole) {
+  if (participantRole === "CONSULTANT") {
+    const consultants = await prisma.consultantProfile.findMany({
       where: { companyId, user: { status: "ACTIVE", isActive: true } },
       include: { user: true },
       orderBy: { createdAt: "asc" }
-    }),
-    prisma.groupLeaderProfile.findMany({
+    });
+    const rows = await Promise.all(
+      consultants.map(async (profile) => ({
+        id: profile.id,
+        name: displayName(profile.user),
+        email: profile.user.email,
+        avatarUrl: profile.user.avatarUrl,
+        role: "Agent",
+        salesCount: await getAgentSalesCount({ companyId, consultantProfileId: profile.id })
+      }))
+    );
+    return rows.sort((a, b) => b.salesCount - a.salesCount);
+  }
+
+  if (participantRole === "GROUP_LEADER") {
+    const groupLeaders = await prisma.groupLeaderProfile.findMany({
       where: { companyId, user: { status: "ACTIVE", isActive: true } },
       include: { user: true },
       orderBy: { createdAt: "asc" }
-    }),
-    prisma.managerProfile.findMany({
-      where: { companyId, user: { status: "ACTIVE", isActive: true } },
-      include: { user: true },
-      orderBy: { createdAt: "asc" }
-    })
-  ]);
+    });
+    const rows = await Promise.all(
+      groupLeaders.map(async (profile) => ({
+        id: profile.id,
+        name: profile.displayName || displayName(profile.user),
+        email: profile.user.email,
+        avatarUrl: profile.user.avatarUrl,
+        role: "Leader",
+        salesCount: await getAgentSalesCount({ companyId, groupLeaderProfileId: profile.id })
+      }))
+    );
+    return rows.sort((a, b) => b.salesCount - a.salesCount);
+  }
 
-  const consultantRows = await Promise.all(
-    consultants.map(async (profile) => ({
-      id: profile.id,
-      name: displayName(profile.user),
-      email: profile.user.email,
-      avatarUrl: profile.user.avatarUrl,
-      role: "Agent",
-      salesCount: await getAgentSalesCount({ companyId, consultantProfileId: profile.id })
-    }))
-  );
-
-  const leaderRows = await Promise.all(
-    groupLeaders.map(async (profile) => ({
-      id: profile.id,
-      name: profile.displayName || displayName(profile.user),
-      email: profile.user.email,
-      avatarUrl: profile.user.avatarUrl,
-      role: "Leader",
-      salesCount: await getAgentSalesCount({ companyId, groupLeaderProfileId: profile.id })
-    }))
-  );
-
-  const managerRows = await Promise.all(
+  const managers = await prisma.managerProfile.findMany({
+    where: { companyId, user: { status: "ACTIVE", isActive: true } },
+    include: { user: true },
+    orderBy: { createdAt: "asc" }
+  });
+  const rows = await Promise.all(
     managers.map(async (profile) => ({
       id: profile.id,
       name: profile.displayName || displayName(profile.user),
@@ -327,9 +334,13 @@ export async function getCompanyRewardLeaderboard(companyId: string) {
       salesCount: await getAgentSalesCount({ companyId, managerProfileId: profile.id })
     }))
   );
+  return rows.sort((a, b) => b.salesCount - a.salesCount);
+}
 
-  const rows = [...consultantRows, ...leaderRows, ...managerRows];
-  return rows.sort((a, b) => b.salesCount - a.salesCount).slice(0, 12);
+export async function getOrganizationCapturedSalesCount(input: { companyId: string; partnerProfileId: string }) {
+  return prisma.order.count({
+    where: { companyId: input.companyId, partnerProfileId: input.partnerProfileId, paymentStatus: "CAPTURED" }
+  });
 }
 
 export async function getScopedRewardLeaderboard(input: {
@@ -416,7 +427,7 @@ export async function getScopedRewardLeaderboard(input: {
   );
 
   const rows = [...consultantRows, ...leaderRows, ...managerRows];
-  return rows.sort((a, b) => b.salesCount - a.salesCount).slice(0, 12);
+  return rows.sort((a, b) => b.salesCount - a.salesCount);
 }
 
 export async function getRewardCampaigns(companyId: string) {
@@ -444,7 +455,8 @@ export async function getRewardCampaigns(companyId: string) {
     orderBy: [{ startsAt: "desc" }, { createdAt: "desc" }]
   });
 
-  return campaigns.map((campaign) => {
+  return campaigns.map((storedCampaign) => {
+    const campaign = withCanonicalRewardScope(storedCampaign);
     const bundleRevenueCents = campaign.products.reduce((sum, item) => sum + item.product.priceCents * item.targetQuantity, 0);
     const bundleMarginCents = campaign.products.reduce(
       (sum, item) => sum + Math.max(item.product.priceCents - item.product.internalCostCents, 0) * item.targetQuantity,
@@ -500,7 +512,7 @@ export async function getActiveRewardCampaignProgress(input: {
 }) {
   const now = new Date();
   const participant = resolveRewardParticipant(input);
-  const campaigns = await prisma.rewardCampaign.findMany({
+  const storedCampaigns = await prisma.rewardCampaign.findMany({
     where: {
       companyId: input.companyId,
       participantRole: participant?.role ?? "CONSULTANT",
@@ -526,6 +538,8 @@ export async function getActiveRewardCampaignProgress(input: {
     orderBy: { endsAt: "asc" }
   });
 
+  const campaigns = storedCampaigns.map(withCanonicalRewardScope);
+
   return Promise.all(
     campaigns.map(async (campaign) => {
       const productIds = campaign.products.map((item) => item.productId);
@@ -540,13 +554,9 @@ export async function getActiveRewardCampaignProgress(input: {
       const orderScopeFilter = input.consultantProfileId
         ? { consultantProfileId: input.consultantProfileId }
         : input.groupLeaderProfileId
-          ? campaign.scopeMode === "PERSONAL"
-            ? { groupLeaderProfileId: input.groupLeaderProfileId, consultantProfileId: null }
-            : { groupLeaderProfileId: input.groupLeaderProfileId }
+          ? { groupLeaderProfileId: input.groupLeaderProfileId }
           : input.managerProfileId
-            ? campaign.scopeMode === "PERSONAL"
-              ? { managerProfileId: input.managerProfileId, groupLeaderProfileId: null, consultantProfileId: null }
-              : { managerProfileId: input.managerProfileId }
+            ? { managerProfileId: input.managerProfileId }
             : { id: "00000000-0000-0000-0000-000000000000" };
       const orderItems = await prisma.orderItem.findMany({
         where: {

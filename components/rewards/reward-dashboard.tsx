@@ -1,15 +1,17 @@
-import { Award, CalendarDays, CheckCircle2, Gift, Lock, Medal, Sparkles, Target, Trophy } from "lucide-react";
+import { Award, CalendarDays, CheckCircle2, Gift, Lock, Medal, Sparkles, Target, Trophy, Users } from "lucide-react";
 import { redeemRewardCampaign } from "@/app/rewards/actions";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { currency } from "@/lib/utils";
+
+type RewardParticipantRole = "MANAGER" | "GROUP_LEADER" | "CONSULTANT";
 
 type RewardLevel = {
   id: string;
   level: number;
   name: string;
   salesThreshold: number;
-  participantRole: "MANAGER" | "GROUP_LEADER" | "CONSULTANT";
+  participantRole: RewardParticipantRole;
   scopeMode: "PERSONAL" | "DIRECT_TEAM" | "FULL_DOWNLINE";
   metricMode: "UNITS" | "QUALIFIED_POINTS";
   qualificationEvent: "CAPTURED_PAYMENT" | "SHIPPED_ORDER";
@@ -139,10 +141,38 @@ function campaignWindowLabel(campaign: CampaignProgress) {
   return `${durationLabel(campaign.startsAt, campaign.endsAt)} · ${formatShortDate(campaign.startsAt)} to ${formatShortDate(campaign.endsAt)}`;
 }
 
-function scopeLabel(scope: RewardLevel["scopeMode"]) {
-  if (scope === "FULL_DOWNLINE") return "Full downline";
-  if (scope === "DIRECT_TEAM") return "Direct team";
-  return "Personal";
+function scopeLabel(role: RewardParticipantRole) {
+  if (role === "MANAGER") return "Organization production";
+  if (role === "GROUP_LEADER") return "Team production";
+  return "Personal production";
+}
+
+function roleExperience(role: RewardParticipantRole) {
+  if (role === "MANAGER") {
+    return {
+      progressLabel: "Organization progress",
+      startMessage: "Build organization production to begin unlocking rewards",
+      leaderboardTitle: "Top managers",
+      topLabel: "Top manager",
+      teamDescription: "Performance for the leaders and agents in your organization. These results support oversight and remain credited to each seller."
+    };
+  }
+  if (role === "GROUP_LEADER") {
+    return {
+      progressLabel: "Team progress",
+      startMessage: "Build team production to begin unlocking rewards",
+      leaderboardTitle: "Top leaders",
+      topLabel: "Top leader",
+      teamDescription: "Performance for the agents assigned to your team. Their sales remain individually attributed while contributing to your team rewards."
+    };
+  }
+  return {
+    progressLabel: "Personal progress",
+    startMessage: "Start with your first captured sale",
+    leaderboardTitle: "Top agents",
+    topLabel: "Top agent",
+    teamDescription: ""
+  };
 }
 
 function progressUnitLabel(level: RewardLevel) {
@@ -172,7 +202,7 @@ function campaignStatusText(campaign: CampaignProgress) {
     return `${campaign.remainingQuantity} more to unlock`;
   }
   if (campaign.rewardValueType === "CASH") {
-    return campaign.claimStatus === "PAYOUT_APPLIED" ? "Funded to partner payout" : "Queued for partner payout";
+    return campaign.claimStatus === "PAYOUT_APPLIED" ? "Included in your payout" : "Queued for direct payout";
   }
   if (campaign.claimStatus === "REDEEM_REQUESTED") return "Redemption requested";
   if (campaign.claimStatus === "FULFILLED") return "Fulfilled";
@@ -182,6 +212,7 @@ function campaignStatusText(campaign: CampaignProgress) {
 export function RewardDashboard({
   agentName,
   avatarUrl,
+  participantRole,
   salesCount,
   levels,
   currentLevel,
@@ -191,10 +222,12 @@ export function RewardDashboard({
   earnedRewards,
   campaignProgress = [],
   claimHistory = [],
-  leaderboard = []
+  leaderboard = [],
+  teamPerformance
 }: {
   agentName: string;
   avatarUrl?: string | null;
+  participantRole: RewardParticipantRole;
   salesCount: number;
   levels: RewardLevel[];
   currentLevel: RewardLevel | null;
@@ -205,11 +238,16 @@ export function RewardDashboard({
   campaignProgress?: CampaignProgress[];
   claimHistory?: RewardClaimHistory[];
   leaderboard?: LeaderboardRow[];
+  teamPerformance?: LeaderboardRow[];
 }) {
   const currentReward = currentLevel?.rewards[0] ?? null;
   const nextReward = nextLevel?.rewards[0] ?? null;
-  const topAgent = leaderboard[0] ?? null;
+  const topPeer = leaderboard[0] ?? null;
   const initials = initialsFor(agentName) || "AF";
+  const experience = roleExperience(participantRole);
+  const teamGroups = ["Leader", "Agent"]
+    .map((role) => ({ role, rows: (teamPerformance ?? []).filter((row) => row.role === role) }))
+    .filter((group) => group.rows.length > 0);
 
   return (
     <div className="space-y-6">
@@ -232,13 +270,13 @@ export function RewardDashboard({
                   <p className="text-sm font-semibold text-white/70">Reward status</p>
                   <h2 className="mt-1 text-3xl font-semibold">{agentName}</h2>
                   <p className="mt-2 text-sm font-semibold text-white/80">
-                    {currentLevel ? `Level ${currentLevel.level}: ${currentLevel.name}` : "Start with your first captured sale"}
+                    {currentLevel ? `Level ${currentLevel.level}: ${currentLevel.name}` : experience.startMessage}
                   </p>
                 </div>
               </div>
 
               <div className="rounded-3xl border border-white/15 bg-white/10 p-4 text-left md:w-44">
-                <p className="text-xs font-bold uppercase text-white/60">Qualified progress</p>
+                <p className="text-xs font-bold uppercase text-white/60">{experience.progressLabel}</p>
                 <p className="mt-2 text-4xl font-semibold">{salesCount}</p>
               </div>
             </div>
@@ -284,9 +322,9 @@ export function RewardDashboard({
                 <p className="mt-2 text-3xl font-semibold text-clinic-navy">{campaignProgress.length}</p>
               </div>
               <div className="rounded-[1.5rem] border border-border bg-white p-4 shadow-line">
-                <p className="text-xs font-bold uppercase text-slate-500">Top agent</p>
-                <p className="mt-2 truncate text-lg font-semibold text-clinic-ink">{topAgent?.name ?? "Pending"}</p>
-                <p className="mt-1 text-sm font-semibold text-clinic-navy">{topAgent ? `${topAgent.salesCount} sales` : "No captured sales"}</p>
+                <p className="text-xs font-bold uppercase text-slate-500">{experience.topLabel}</p>
+                <p className="mt-2 truncate text-lg font-semibold text-clinic-ink">{topPeer?.name ?? "Pending"}</p>
+                <p className="mt-1 text-sm font-semibold text-clinic-navy">{topPeer ? `${topPeer.salesCount} sales` : "No captured sales"}</p>
               </div>
             </div>
           </div>
@@ -336,7 +374,7 @@ export function RewardDashboard({
                   <p className="text-sm font-semibold text-clinic-navy">
                     {level.salesThreshold} {progressUnitLabel(level)}
                   </p>
-                  <p className="mt-1 text-xs font-semibold text-slate-500">{scopeLabel(level.scopeMode)} scope</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">{scopeLabel(level.participantRole)}</p>
                   <p className="mt-1 text-sm text-slate-500">{reward?.title ?? "Reward pending"}</p>
                 </div>
               </div>
@@ -456,7 +494,7 @@ export function RewardDashboard({
               <Trophy className="h-5 w-5 text-clinic-red" />
               <div>
                 <p className="text-xs font-bold uppercase text-slate-500">Leaderboard</p>
-                <h2 className="mt-1 text-2xl font-semibold text-clinic-ink">Top agents</h2>
+                <h2 className="mt-1 text-2xl font-semibold text-clinic-ink">{experience.leaderboardTitle}</h2>
               </div>
             </div>
           </div>
@@ -485,6 +523,54 @@ export function RewardDashboard({
           </div>
         </Card>
       </div>
+
+      {teamPerformance ? (
+        <Card className="overflow-hidden rounded-[2rem]">
+          <div className="border-b border-border p-6">
+            <div className="flex items-start gap-3">
+              <Users className="mt-1 h-5 w-5 text-clinic-red" />
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Management visibility</p>
+                <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Team performance</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">{experience.teamDescription}</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-5 p-6 lg:grid-cols-2">
+            {teamGroups.length ? (
+              teamGroups.map((group) => (
+                <section key={group.role} className="rounded-[1.75rem] border border-border bg-clinic-mist p-4">
+                  <div className="flex items-center justify-between gap-3 px-1 pb-3">
+                    <h3 className="font-semibold text-clinic-ink">{group.role === "Leader" ? "Leader teams" : "Agents"}</h3>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-clinic-navy shadow-line">{group.rows.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {group.rows.map((row) => (
+                      <div key={`${row.role}-${row.id}`} className="flex items-center gap-3 rounded-2xl border border-white bg-white p-3 shadow-line">
+                        <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-clinic-navy text-xs font-bold text-white">
+                          {row.avatarUrl ? <img src={row.avatarUrl} alt={row.name} className="h-full w-full object-cover" /> : initialsFor(row.name)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-clinic-ink">{row.name}</p>
+                          <p className="truncate text-xs text-slate-500">{row.role === "Leader" ? "Team production" : "Personal production"}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-base font-bold text-clinic-navy">{row.salesCount}</p>
+                          <p className="text-[11px] font-semibold text-slate-500">sales</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              ))
+            ) : (
+              <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500 lg:col-span-2">
+                Team members will appear here after their profiles are active.
+              </div>
+            )}
+          </div>
+        </Card>
+      ) : null}
 
       <Card className="overflow-hidden rounded-[2rem]">
         <div className="border-b border-border p-6">

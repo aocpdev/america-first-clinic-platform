@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireRole } from "@/lib/auth/current-user";
 import { prisma } from "@/lib/db/prisma";
+import { rewardScopeForParticipant } from "@/lib/rewards/reward-engine";
 
 const levelSchema = z.object({
   levelId: z.string().uuid(),
@@ -81,6 +82,40 @@ const deleteCampaignSchema = z.object({
   campaignId: z.string().uuid()
 });
 
+const createLevelSchema = z.object({
+  participantRole: z.enum(["MANAGER", "GROUP_LEADER", "CONSULTANT"])
+});
+
+export async function createRewardLevel(formData: FormData) {
+  const user = await requireRole("COMPANY_ADMIN");
+  if (!user.companyId) return;
+
+  const { participantRole } = createLevelSchema.parse({ participantRole: formData.get("participantRole") });
+  const latestLevel = await prisma.rewardLevel.findFirst({
+    where: { companyId: user.companyId, participantRole },
+    orderBy: { level: "desc" },
+    select: { level: true, salesThreshold: true }
+  });
+  const nextLevel = (latestLevel?.level ?? 0) + 1;
+  const roleLabel = participantRole === "MANAGER" ? "Manager" : participantRole === "GROUP_LEADER" ? "Leader" : "Agent";
+
+  await prisma.rewardLevel.create({
+    data: {
+      companyId: user.companyId,
+      participantRole,
+      scopeMode: rewardScopeForParticipant(participantRole),
+      level: nextLevel,
+      name: `${roleLabel} Level ${nextLevel}`,
+      salesThreshold: Math.max((latestLevel?.salesThreshold ?? 0) + 1, 1),
+      accentColor: "#073763"
+    }
+  });
+
+  revalidatePath("/admin/rewards");
+  revalidatePath("/consultant/rewards");
+  revalidatePath("/partner/rewards");
+}
+
 export type RewardCampaignActionState = {
   ok: boolean;
   message: string | null;
@@ -111,7 +146,7 @@ export async function updateRewardLevel(formData: FormData) {
       name: parsed.name,
       salesThreshold: parsed.salesThreshold,
       participantRole: parsed.participantRole,
-      scopeMode: parsed.scopeMode,
+      scopeMode: rewardScopeForParticipant(parsed.participantRole),
       metricMode: parsed.metricMode,
       qualificationEvent: parsed.qualificationEvent,
       minQualifiedMarginCents: Math.round(parsed.minQualifiedMarginDollars * 100),
@@ -204,7 +239,7 @@ export async function saveRewardLevelBundle(formData: FormData) {
       name: parsed.name,
       salesThreshold: parsed.salesThreshold,
       participantRole: parsed.participantRole,
-      scopeMode: parsed.scopeMode,
+      scopeMode: rewardScopeForParticipant(parsed.participantRole),
       metricMode: parsed.metricMode,
       qualificationEvent: parsed.qualificationEvent,
       minQualifiedMarginCents: Math.round(parsed.minQualifiedMarginDollars * 100),
@@ -311,7 +346,7 @@ async function persistRewardCampaign(formData: FormData) {
     endsAt: parsed.endsAt,
     status: parsed.status,
     participantRole: parsed.participantRole,
-    scopeMode: parsed.scopeMode,
+    scopeMode: rewardScopeForParticipant(parsed.participantRole),
     goalMode: parsed.goalMode,
     windowMode: parsed.windowMode,
     metricMode: parsed.metricMode,

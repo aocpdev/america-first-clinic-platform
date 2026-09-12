@@ -7,6 +7,7 @@ import { groupLeaderNav, managerNav, partnerNav } from "@/lib/constants/navigati
 import {
   getActiveRewardCampaignProgress,
   getCompanyRewardLeaderboard,
+  getOrganizationCapturedSalesCount,
   getRewardCampaigns,
   getRewardClaimHistory,
   getRewardLevels,
@@ -94,55 +95,57 @@ export default async function PartnerRewardsPage() {
 
   if (isManager && user.managerProfile?.id) {
     const agentName = user.managerProfile.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
-    const [progress, leaderboard, campaignProgress, claimHistory] = await Promise.all([
+    const [progress, leaderboard, campaignProgress, claimHistory, teamPerformance] = await Promise.all([
       getRewardProgress({
         companyId: user.companyId,
         agentName,
         avatarUrl: user.avatarUrl,
         managerProfileId: user.managerProfile.id
       }),
-      getCompanyRewardLeaderboard(user.companyId),
+      getCompanyRewardLeaderboard(user.companyId, "MANAGER"),
       getActiveRewardCampaignProgress({
         companyId: user.companyId,
         userId: user.id,
         managerProfileId: user.managerProfile.id
       }),
-      getRewardClaimHistory({ companyId: user.companyId, userId: user.id })
+      getRewardClaimHistory({ companyId: user.companyId, userId: user.id }),
+      getScopedRewardLeaderboard({ companyId: user.companyId, managerProfileId: user.managerProfile.id })
     ]);
 
     return (
       <SidebarShell nav={nav} eyebrow="Manager" title="Rewards">
-        <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} claimHistory={claimHistory} />
+        <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} claimHistory={claimHistory} teamPerformance={teamPerformance} />
       </SidebarShell>
     );
   }
 
   if (isGroupLeader && user.groupLeaderProfile?.id) {
     const agentName = user.groupLeaderProfile.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email;
-    const [progress, leaderboard, campaignProgress, claimHistory] = await Promise.all([
+    const [progress, leaderboard, campaignProgress, claimHistory, teamPerformance] = await Promise.all([
       getRewardProgress({
         companyId: user.companyId,
         agentName,
         avatarUrl: user.avatarUrl,
         groupLeaderProfileId: user.groupLeaderProfile.id
       }),
-      getCompanyRewardLeaderboard(user.companyId),
+      getCompanyRewardLeaderboard(user.companyId, "GROUP_LEADER"),
       getActiveRewardCampaignProgress({
         companyId: user.companyId,
         userId: user.id,
         groupLeaderProfileId: user.groupLeaderProfile.id
       }),
-      getRewardClaimHistory({ companyId: user.companyId, userId: user.id })
+      getRewardClaimHistory({ companyId: user.companyId, userId: user.id }),
+      getScopedRewardLeaderboard({ companyId: user.companyId, groupLeaderProfileId: user.groupLeaderProfile.id })
     ]);
 
     return (
       <SidebarShell nav={nav} eyebrow="Leader" title="Rewards">
-        <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} claimHistory={claimHistory} />
+        <RewardDashboard {...progress} leaderboard={leaderboard} campaignProgress={campaignProgress} claimHistory={claimHistory} teamPerformance={teamPerformance} />
       </SidebarShell>
     );
   }
 
-  const [networkRows, campaigns, agentLevels, leaderLevels, managerLevels] = await Promise.all([
+  const [networkRows, campaigns, agentLevels, leaderLevels, managerLevels, totalSales] = await Promise.all([
     getScopedRewardLeaderboard({
       companyId: user.companyId,
       partnerProfileId: user.partnerProfile?.id
@@ -150,12 +153,16 @@ export default async function PartnerRewardsPage() {
     getRewardCampaigns(user.companyId),
     getRewardLevels(user.companyId, "CONSULTANT"),
     getRewardLevels(user.companyId, "GROUP_LEADER"),
-    getRewardLevels(user.companyId, "MANAGER")
+    getRewardLevels(user.companyId, "MANAGER"),
+    getOrganizationCapturedSalesCount({ companyId: user.companyId, partnerProfileId: user.partnerProfile!.id })
   ]);
 
   const activeCampaigns = campaigns.filter((campaign) => campaign.isLive);
-  const totalSales = networkRows.reduce((sum, row) => sum + row.salesCount, 0);
-  const topAgent = networkRows[0] ?? null;
+  const roleGroups = ["Manager", "Leader", "Agent"].map((role) => ({
+    role,
+    rows: networkRows.filter((row) => row.role === role).sort((a, b) => b.salesCount - a.salesCount)
+  }));
+  const roleLeaders = roleGroups.flatMap((group) => group.rows[0] ? [{ role: group.role, row: group.rows[0] }] : []);
   const configuredLevelCount = agentLevels.length + leaderLevels.length + managerLevels.length;
   const levelsByRole = {
     Agent: agentLevels,
@@ -169,10 +176,10 @@ export default async function PartnerRewardsPage() {
         <Card className="overflow-hidden rounded-[2rem] border-white/80 bg-white shadow-[0_24px_80px_rgba(7,55,99,0.10)]">
           <div className="grid gap-6 p-6 lg:grid-cols-[1fr_360px] lg:p-8">
             <div className="rounded-[1.75rem] bg-clinic-navy p-6 text-white shadow-soft">
-              <p className="text-sm font-semibold text-white/70">Partner rewards command center</p>
-              <h2 className="mt-2 max-w-3xl text-3xl font-semibold">Track reward progress across your agent network.</h2>
+              <p className="text-sm font-semibold text-white/70">Organization rewards overview</p>
+              <h2 className="mt-2 max-w-3xl text-3xl font-semibold">Clear performance tracks for every role.</h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-white/75">
-                Partners do not compete for rewards. This page shows each manager, group leader, and consultant as an individual competitor. Team overrides do not count toward reward progress.
+                Agents compete on personal production. Leaders compete on their team production, and managers compete on total organization production. Sales always remain attributed to the original seller.
               </p>
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-3xl border border-white/15 bg-white/10 p-4">
@@ -194,16 +201,24 @@ export default async function PartnerRewardsPage() {
               <div className="rounded-[1.75rem] border border-border bg-clinic-mist p-5">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-xs font-bold uppercase text-slate-500">Top performer</p>
-                    <h3 className="mt-2 truncate text-xl font-semibold text-clinic-ink">{topAgent?.name ?? "No captured sales yet"}</h3>
+                    <p className="text-xs font-bold uppercase text-slate-500">Role leaders</p>
+                    <h3 className="mt-2 text-xl font-semibold text-clinic-ink">Separate competition</h3>
                   </div>
                   <div className="grid size-12 place-items-center rounded-2xl bg-white text-clinic-red shadow-line">
                     <Trophy className="h-5 w-5" />
                   </div>
                 </div>
-                <p className="mt-3 text-sm leading-6 text-slate-600">
-                  {topAgent ? `${topAgent.role} · ${topAgent.salesCount} captured sale${topAgent.salesCount === 1 ? "" : "s"}` : "Agent progress will appear as captured payments come in."}
-                </p>
+                <div className="mt-4 space-y-2">
+                  {roleLeaders.length ? roleLeaders.map(({ role, row }) => (
+                    <div key={role} className="flex items-center justify-between gap-3 rounded-2xl bg-white px-3 py-2 shadow-line">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold uppercase text-slate-500">{role}</p>
+                        <p className="truncate text-sm font-semibold text-clinic-ink">{row.name}</p>
+                      </div>
+                      <p className="text-sm font-bold text-clinic-navy">{row.salesCount}</p>
+                    </div>
+                  )) : <p className="text-sm text-slate-600">Performance will appear after captured sales.</p>}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -226,25 +241,30 @@ export default async function PartnerRewardsPage() {
               <div className="flex items-center gap-3">
                 <Users className="h-5 w-5 text-clinic-red" />
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Network progress</p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Agents moving through rewards</h2>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Performance by role</p>
+                  <h2 className="mt-1 text-2xl font-semibold tracking-tight text-clinic-ink">Reward progress</h2>
                 </div>
               </div>
             </div>
             <div className="space-y-3 p-5">
-              {networkRows.length ? (
-                networkRows.map((row, index) => {
-                  const levels = levelsByRole[row.role as keyof typeof levelsByRole] ?? agentLevels;
-                  const nextLevel = levels.find((level) => level.salesThreshold > row.salesCount);
-                  const currentLevel = [...levels].reverse().find((level) => row.salesCount >= level.salesThreshold);
-                  const previousThreshold = currentLevel?.salesThreshold ?? 0;
-                  const nextThreshold = nextLevel?.salesThreshold ?? Math.max(row.salesCount, previousThreshold);
-                  const progressPercent = nextLevel
-                    ? Math.round((Math.max(Math.min(row.salesCount - previousThreshold, nextThreshold - previousThreshold), 0) / Math.max(nextThreshold - previousThreshold, 1)) * 100)
-                    : 100;
-
-                  return (
-                    <div key={row.id} className="rounded-[1.5rem] border border-border bg-white p-4 shadow-line">
+              {networkRows.length ? roleGroups.map((group) => (
+                <section key={group.role} className="rounded-[1.5rem] border border-border bg-clinic-mist p-3">
+                  <div className="flex items-center justify-between gap-3 px-2 py-2">
+                    <h3 className="font-semibold text-clinic-ink">{group.role === "Manager" ? "Managers" : group.role === "Leader" ? "Leaders" : "Agents"}</h3>
+                    <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-clinic-navy shadow-line">{group.rows.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                  {group.rows.length ? group.rows.map((row, index) => {
+                    const levels = levelsByRole[row.role as keyof typeof levelsByRole] ?? agentLevels;
+                    const nextLevel = levels.find((level) => level.salesThreshold > row.salesCount);
+                    const currentLevel = [...levels].reverse().find((level) => row.salesCount >= level.salesThreshold);
+                    const previousThreshold = currentLevel?.salesThreshold ?? 0;
+                    const nextThreshold = nextLevel?.salesThreshold ?? Math.max(row.salesCount, previousThreshold);
+                    const progressPercent = nextLevel
+                      ? Math.round((Math.max(Math.min(row.salesCount - previousThreshold, nextThreshold - previousThreshold), 0) / Math.max(nextThreshold - previousThreshold, 1)) * 100)
+                      : 100;
+                    return (
+                    <div key={`${row.role}-${row.id}`} className="rounded-[1.25rem] border border-white bg-white p-4 shadow-line">
                       <div className="flex items-center gap-3">
                         <div className="grid size-9 shrink-0 place-items-center rounded-full bg-clinic-mist text-sm font-bold text-clinic-navy">{index + 1}</div>
                         <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-2xl bg-clinic-navy text-sm font-bold text-white">
@@ -263,9 +283,11 @@ export default async function PartnerRewardsPage() {
                         {nextLevel ? `${Math.max(nextLevel.salesThreshold - row.salesCount, 0)} sale${nextLevel.salesThreshold - row.salesCount === 1 ? "" : "s"} to Level ${nextLevel.level}` : "Top level unlocked"}
                       </p>
                     </div>
-                  );
-                })
-              ) : (
+                    );
+                  }) : <p className="rounded-2xl bg-white p-4 text-sm text-slate-500">No active {group.role.toLowerCase()} profiles yet.</p>}
+                  </div>
+                </section>
+              )) : (
                 <div className="rounded-3xl border border-dashed border-border bg-clinic-mist p-6 text-sm font-medium text-slate-500">
                   Eligible managers, group leaders, and consultants will appear here after they are active.
                 </div>
