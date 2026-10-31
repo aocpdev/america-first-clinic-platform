@@ -1,3 +1,4 @@
+import { GVH_LOGO_SRC } from "@/lib/brand";
 import { Prisma, PrismaClient } from "@prisma/client";
 import { calculateMarginBps, slugify } from "@/lib/products/catalog";
 
@@ -90,7 +91,7 @@ async function main() {
     create: {
       name: "Go Virtual Health",
       slug: "america-first-clinic",
-      logoUrl: "/go-virtual-health-logo.jpeg",
+      logoUrl: GVH_LOGO_SRC,
       primaryColor: "#073763",
       accentColor: "#DC1F2A"
     }

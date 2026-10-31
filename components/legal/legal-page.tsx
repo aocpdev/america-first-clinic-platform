@@ -11,18 +11,21 @@ export function LegalPage({
   title,
   updated,
   intro,
-  sections
+  sections,
+  showNavigation = true
 }: {
   eyebrow: string;
   title: string;
   updated: string;
   intro: string;
   sections: LegalSection[];
+  showNavigation?: boolean;
 }) {
+  const Container = showNavigation ? "main" : "div";
   return (
     <>
-      <MarketingHeader />
-      <main className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
+      {showNavigation && <MarketingHeader />}
+      <Container className="mx-auto max-w-4xl px-4 py-14 sm:px-6 lg:px-8">
         <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">{eyebrow}</p>
         <h1 className="mt-3 text-4xl font-semibold tracking-normal text-clinic-ink">{title}</h1>
         <p className="mt-3 text-sm font-semibold text-slate-500">Last updated: {updated}</p>
@@ -35,8 +38,8 @@ export function LegalPage({
             </section>
           ))}
         </div>
-      </main>
-      <LegalFooter />
+      </Container>
+      {showNavigation && <LegalFooter />}
     </>
   );
 }

@@ -1,3 +1,4 @@
+import { GVH_LOGO_SRC } from "@/lib/brand";
 import { UserRole, UserStatus } from "@prisma/client";
 import { prisma } from "@/lib/db/prisma";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
@@ -17,7 +18,7 @@ async function main() {
     create: {
       name: "Go Virtual Health",
       slug: "america-first-clinic",
-      logoUrl: "/go-virtual-health-logo.jpeg"
+      logoUrl: GVH_LOGO_SRC
     }
   });
 

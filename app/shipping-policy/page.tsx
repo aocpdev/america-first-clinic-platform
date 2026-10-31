@@ -1,3 +1,4 @@
+import { LEGAL_COMPANY_NAME, LEGAL_POLICY_UPDATED } from "@/lib/legal/company";
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 
@@ -11,8 +12,8 @@ export default function ShippingPolicyPage() {
     <LegalPage
       eyebrow="Fulfillment"
       title="Shipping Policy"
-      updated="May 18, 2026"
-      intro="This policy describes how Go Virtual Health handles order processing, shipping, delivery, and address responsibilities for products and programs operated by ACV2 Investment Group LLC."
+      updated={LEGAL_POLICY_UPDATED}
+      intro={`This policy describes how Go Virtual Health handles order processing, shipping, delivery, and address responsibilities for products and programs operated by ${LEGAL_COMPANY_NAME}.`}
       sections={[
         {
           title: "Order processing",
@@ -24,7 +25,7 @@ export default function ShippingPolicyPage() {
         },
         {
           title: "Shipping methods and tracking",
-          body: "When tracking is available, customers may receive tracking information by email, SMS, invoice communication, or customer support. Delivery estimates are not guarantees. Carrier delays, weather, address issues, and supply limitations may affect arrival time."
+          body: "When tracking is available, customers may receive tracking information by email, invoice communication, or customer support. SMS tracking updates require a separate opt-in to the applicable messaging program; providing a phone number for delivery does not by itself grant SMS consent. Delivery estimates are not guarantees. Carrier delays, weather, address issues, and supply limitations may affect arrival time."
         },
         {
           title: "Customer address responsibility",

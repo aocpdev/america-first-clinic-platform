@@ -34,6 +34,13 @@ export async function SidebarShell({
   children: React.ReactNode;
 }) {
   const { realUser, activeUser: user, isImpersonating } = await getImpersonationContext();
+  if (process.env.AFFILIATE_ADMIN_ENABLED === "true" && user?.isActive && user.status === "ACTIVE" &&
+      (user.role === "COMPANY_ADMIN" || user.role === "SUPER_ADMIN") &&
+      nav.some(item => item.href === "/admin/dashboard") && !nav.some(item => item.href === "/admin/affiliates")) {
+    nav = [...nav];
+    const agentIndex = nav.findIndex(item => item.href === "/admin/consultants");
+    nav.splice(agentIndex >= 0 ? agentIndex + 1 : nav.length, 0, { href: "/admin/affiliates", label: "Affiliates" });
+  }
   const activeName = user ? [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.email : "";
   const realName = realUser ? [realUser.firstName, realUser.lastName].filter(Boolean).join(" ").trim() || realUser.email : "";
   const impersonationTargets = realUser

@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { prisma } from "@/lib/db/prisma";
-import { requireUser } from "@/lib/auth/current-user";
+import { getAuthenticatedUser, requireUser } from "@/lib/auth/current-user";
 import { profilePathForRole } from "@/lib/auth/profile-path";
 import { getCompanyStripeRuntimeConfig } from "@/lib/payments/stripe-config";
 import { normalizePhoneToE164 } from "@/lib/phone";
@@ -14,6 +14,8 @@ import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { updateConfirmedAuthUser } from "@/lib/supabase/admin-auth";
 import { portalBaseUrl } from "@/lib/urls";
 import { isPayoutRecipientRole, syncPayoutAccount } from "@/lib/payments/payout-accounts";
+import { readSmsChoice } from "@/lib/legal/sms-consent";
+import { recordSmsConsentRequest, smsConsentPhone } from "@/lib/legal/sms-consent-record";
 
 function textValue(formData: FormData, key: string) {
   return String(formData.get(key) || "").trim();
@@ -34,6 +36,13 @@ export async function updateProfile(formData: FormData) {
   const phone = normalizePhoneToE164(textValue(formData, "phone"));
   const nextEmail = emailResult.success ? emailResult.data.toLowerCase() : null;
   const profilePath = profilePathForRole(user.role);
+  let smsChoice;
+  try {
+    smsChoice = readSmsChoice(formData);
+    smsConsentPhone(smsChoice, phone);
+    // requireUser may represent an impersonated account; consent must come from its owner.
+    if (smsChoice.smsOptIn && (!user.companyId || (await getAuthenticatedUser())?.id !== user.id)) throw new Error("SELF_CONSENT_REQUIRED");
+  } catch { redirect(`${profilePath}?error=invalid_sms_consent`); }
 
   if (!nextEmail) {
     redirect(`${profilePath}?error=invalid_email`);
@@ -66,14 +75,19 @@ export async function updateProfile(formData: FormData) {
     }
   }
 
-  await prisma.user.update({
-    where: { id: user.id },
-    data: {
-      email: nextEmail,
-      firstName: firstName || null,
-      lastName: lastName || null,
-      phone
-    }
+  await prisma.$transaction(async tx => {
+    await tx.user.update({
+      where: { id: user.id },
+      data: {
+        email: nextEmail,
+        firstName: firstName || null,
+        lastName: lastName || null,
+        phone
+      }
+    });
+    if (user.companyId) await recordSmsConsentRequest(tx, { companyId: user.companyId, subjectId: user.id,
+      subjectType: "User", actorUserId: user.id, source: "/profile",
+      program: user.role === "CUSTOMER" ? "CUSTOMER_ORDERS" : "PARTNER_ACCOUNT", phone, choice: smsChoice });
   });
 
   await revalidateUserProfilePaths(user.role);

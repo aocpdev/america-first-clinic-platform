@@ -233,8 +233,72 @@ model Company {
   payoutAccounts      PayoutAccount[]
   payoutTransfers     PayoutTransfer[]
   payoutBatches       PayoutBatch[]
+  affiliateProfiles   AffiliateProfile[]
+  affiliateProgram    AffiliateProgramSetting?
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
+}
+
+// Separate from the internal sales hierarchy. Login provisioning is a later,
+// explicit step; an approved profile alone never grants application access.
+model AffiliateProfile {
+  id             String   @id @default(uuid()) @db.Uuid
+  authUserId     String?  @unique
+  companyId      String   @db.Uuid
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  displayName    String
+  email          String
+  referralCode   String   @unique
+  category       String   @default("OTHER")
+  status         String   @default("PENDING")
+  commissionBps  Int?
+  revision       Int      @default(1)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([companyId, email])
+  @@index([companyId, status, createdAt])
+}
+
+// Additive RX settlement records. No existing commission/payout tables are replaced.
+model RxCustomerOwner {
+  customerId    String   @id @db.Uuid
+  companyId     String   @db.Uuid
+  sellerRole    String
+  profileId     String   @db.Uuid
+  sourceOrderId String   @db.Uuid
+  capturedAt    DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([companyId, profileId])
+}
+
+model RxOrderCommission {
+  orderId          String    @id @db.Uuid
+  companyId        String    @db.Uuid
+  customerId       String    @db.Uuid
+  sellerRole       String
+  profileId        String    @db.Uuid
+  rateBps          Int?
+  basisCents       Int
+  amountCents      Int
+  status           String    @default("AWAITING_PAYMENT")
+  captureId        String?   @unique @db.Uuid
+  settledAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  @@index([companyId, profileId, status])
+  @@index([customerId, status])
+}
+
+model AffiliateProgramSetting {
+  id            String   @id @default(uuid()) @db.Uuid
+  companyId     String   @unique @db.Uuid
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  commissionBps Int      @default(2500)
+  revision      Int      @default(1)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model ConsultantProfile {
@@ -1237,6 +1301,8 @@ model AuditLog {
   ipAddress  String?
   metadata   Json?
   createdAt  DateTime @default(now())
+
+  @@index([companyId, action, createdAt], map: "AuditLog_application_lookup_idx")
 }
 
 model OnboardingStep {

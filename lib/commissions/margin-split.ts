@@ -1,4 +1,4 @@
-import { CommissionStatus, type PrismaClient } from "@prisma/client";
+import { CommissionStatus, type PrismaClient, type Prisma } from "@prisma/client";
 import { normalizeDiscountFundingStrategy, type DiscountFundingStrategy } from "@/lib/discounts/calculations";
 
 export const DEFAULT_MARGIN_POOL_BPS = 2500;
@@ -225,7 +225,7 @@ export async function createMarginCommissionLedger({
   status = CommissionStatus.PENDING,
   commissionMode = "CONSULTANT_PARTNER_SPLIT"
 }: {
-  prisma: PrismaClient;
+  prisma: PrismaClient | Prisma.TransactionClient;
   orderId: string;
   status?: CommissionStatus;
   commissionMode?: CommissionMode;
@@ -361,7 +361,7 @@ export async function createMarginCommissionLedger({
     grossMarginCents: actualGrossMarginCents
   };
 
-  await prisma.$transaction(async (tx) => {
+  const persist = async (tx: Prisma.TransactionClient) => {
     await tx.order.update({
       where: { id: order.id },
       data: {
@@ -563,7 +563,9 @@ export async function createMarginCommissionLedger({
       ],
       skipDuplicates: true
     });
-  });
-
+  };
+  // Existing callers retain their transaction. RX can create order + ledger atomically.
+  if ("$transaction" in prisma) await prisma.$transaction(persist);
+  else await persist(prisma);
   return split;
 }

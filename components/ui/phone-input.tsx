@@ -4,19 +4,22 @@ import * as React from "react";
 import { Input, type InputProps } from "@/components/ui/input";
 import { maskPhoneInput, phoneCountryInfo } from "@/lib/phone";
 import { cn } from "@/lib/utils";
+import { ContactPrivacyNotice } from "@/components/legal/contact-privacy-notice";
 
 export interface PhoneInputProps extends Omit<InputProps, "type" | "onChange"> {
   onChange?: React.ChangeEventHandler<HTMLInputElement>;
+  privacyNotice?: boolean;
 }
 
 const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
-  ({ defaultValue, value, onChange, placeholder = "(555) 123-4567", className, ...props }, ref) => {
+  ({ defaultValue, value, onChange, placeholder = "(555) 123-4567", className, privacyNotice = true, ...props }, ref) => {
     const controlled = value !== undefined;
     const [innerValue, setInnerValue] = React.useState(() => maskPhoneInput(String(defaultValue ?? "")));
     const displayValue = controlled ? maskPhoneInput(String(value ?? "")) : innerValue;
     const country = phoneCountryInfo(displayValue);
 
     return (
+      <div className="min-w-0">
       <div className="relative min-w-0">
         <div
           className="pointer-events-none absolute left-2.5 top-1/2 z-10 flex -translate-y-1/2 items-center gap-1 rounded-md bg-clinic-mist px-1.5 py-1 text-xs font-semibold text-slate-600"
@@ -42,6 +45,8 @@ const PhoneInput = React.forwardRef<HTMLInputElement, PhoneInputProps>(
             onChange?.(event);
           }}
         />
+      </div>
+      {privacyNotice && <ContactPrivacyNotice />}
       </div>
     );
   }

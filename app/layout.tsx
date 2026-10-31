@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
+import { GVH_ICON_SRC, GVH_APPLE_ICON_SRC } from "@/lib/brand";
 
 export const metadata: Metadata = {
   title: "Go Virtual Health CRM",
   description: "A premium healthcare and wellness CRM commerce platform for agent-led sales.",
   icons: {
-    icon: "/go-virtual-health-emblem.png",
-    apple: "/go-virtual-health-emblem.png"
+    icon: GVH_ICON_SRC,
+    apple: GVH_APPLE_ICON_SRC
   }
 };
 

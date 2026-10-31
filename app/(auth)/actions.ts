@@ -1,5 +1,6 @@
 "use server";
 
+import { GVH_LOGO_SRC } from "@/lib/brand";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
@@ -21,6 +22,8 @@ import { companyAdminUserIds, notifyUsers, personDisplayName } from "@/lib/notif
 import { normalizePhoneToE164 } from "@/lib/phone";
 import { portalBaseUrl } from "@/lib/urls";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
+import { readSmsChoice } from "@/lib/legal/sms-consent";
+import { recordSmsConsentRequest, smsConsentPhone } from "@/lib/legal/sms-consent-record";
 
 function formValue(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -87,7 +90,7 @@ async function getGoVirtualHealthCompany() {
     create: {
       name: "Go Virtual Health",
       slug: "america-first-clinic",
-      logoUrl: "/go-virtual-health-logo.jpeg"
+      logoUrl: GVH_LOGO_SRC
     }
   });
 }
@@ -151,6 +154,9 @@ export async function registerUser(formData: FormData) {
   const email = formValue(formData, "email").toLowerCase();
   const password = formValue(formData, "password");
   const phone = normalizePhoneToE164(formValue(formData, "phone"));
+  let smsChoice;
+  try { smsChoice = readSmsChoice(formData); smsConsentPhone(smsChoice, phone); }
+  catch { redirect("/register?error=invalid_sms_consent"); }
   const requestedRole = roleSchema.extract(["CONSULTANT", "GROUP_LEADER"]).catch("CONSULTANT").parse(formValue(formData, "requestedRole") || "CONSULTANT");
   const requestedPartnerProfileId = formValue(formData, "requestedPartnerProfileId");
   const requestedManagerProfileId = requestedRole === "GROUP_LEADER" ? formValue(formData, "requestedManagerProfileId") || null : null;
@@ -250,36 +256,41 @@ export async function registerUser(formData: FormData) {
     redirect("/register?error=registration_failed");
   }
 
-  const user = await prisma.user.upsert({
-    where: { authUserId: authUser.id },
-    update: {
-      companyId: company.id,
-      requestedRole,
-      requestedPartnerProfileId: selectedPartner.id,
-      requestedManagerProfileId,
-      requestedGroupLeaderProfileId,
-      role,
-      status,
-      firstName,
-      lastName,
-      phone,
-      isActive: false
-    },
-    create: {
-      authUserId: authUser.id,
-      companyId: company.id,
-      requestedRole,
-      requestedPartnerProfileId: selectedPartner.id,
-      requestedManagerProfileId,
-      requestedGroupLeaderProfileId,
-      role,
-      status,
-      email,
-      firstName,
-      lastName,
-      phone,
-      isActive: false
-    }
+  const user = await prisma.$transaction(async tx => {
+    const registered = await tx.user.upsert({
+      where: { authUserId: authUser.id },
+      update: {
+        companyId: company.id,
+        requestedRole,
+        requestedPartnerProfileId: selectedPartner.id,
+        requestedManagerProfileId,
+        requestedGroupLeaderProfileId,
+        role,
+        status,
+        firstName,
+        lastName,
+        phone,
+        isActive: false
+      },
+      create: {
+        authUserId: authUser.id,
+        companyId: company.id,
+        requestedRole,
+        requestedPartnerProfileId: selectedPartner.id,
+        requestedManagerProfileId,
+        requestedGroupLeaderProfileId,
+        role,
+        status,
+        email,
+        firstName,
+        lastName,
+        phone,
+        isActive: false
+      }
+    });
+    await recordSmsConsentRequest(tx, { companyId: company.id, subjectId: registered.id, subjectType: "User",
+      program: "PARTNER_ACCOUNT", source: "/register", phone, choice: smsChoice });
+    return registered;
   });
 
   const adminIds = await companyAdminUserIds(prisma, company.id);

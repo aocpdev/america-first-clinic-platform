@@ -4,8 +4,10 @@ import type { User } from "@prisma/client";
 import { changePassword, uploadAvatar, updateProfile } from "@/app/profile/actions";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { SmsOptIn } from "@/components/legal/sms-opt-in";
 
 const errors: Record<string, string> = {
+  invalid_sms_consent: "Text updates require a valid phone number and your own consent. Leave the optional box unchecked to save without requesting texts.",
   missing_avatar: "Choose an image before uploading.",
   invalid_avatar: "Upload a JPG, PNG, WebP, or GIF image.",
   avatar_too_large: "Avatar images must be 3 MB or smaller.",
@@ -136,6 +138,7 @@ export function ProfileSettings({
             <span className="text-sm font-semibold text-clinic-ink">Phone</span>
             <PhoneInput
               name="phone"
+              privacyNotice={false}
               defaultValue={user.phone ?? ""}
               className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
             />
@@ -150,6 +153,7 @@ export function ProfileSettings({
               className="h-11 w-full rounded-xl border border-border bg-white px-3 text-sm outline-none transition focus:border-clinic-navy focus:ring-4 focus:ring-clinic-navy/10"
             />
           </label>
+          <SmsOptIn program={user.role === "CUSTOMER" ? "CUSTOMER_ORDERS" : "PARTNER_ACCOUNT"} className="md:col-span-2" />
           <div className="md:col-span-2">
             <SubmitButton>Save profile</SubmitButton>
           </div>

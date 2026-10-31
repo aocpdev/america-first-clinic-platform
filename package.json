@@ -3,6 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "test:customers": "node --import tsx --test lib/customers/*.test.ts",
+    "test:attribution": "node --import tsx --test lib/referrals/attribution-policy.test.ts",
+    "test:affiliates": "node --import tsx --test lib/referrals/affiliate-*.test.ts",
+    "test:rx": "node --import tsx --test lib/products/rx-*.test.ts lib/orders/rx-*.test.ts lib/referrals/rx-*.test.ts lib/payments/rx-*.test.ts",
+    "audit:attribution": "node --import tsx scripts/audit-customer-attribution.ts",
     "dev": "next dev",
     "dev:fresh": "npm run clean:next && next dev",
     "build": "next build",

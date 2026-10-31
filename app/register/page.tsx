@@ -10,6 +10,7 @@ export default async function RegisterPage({
 }) {
   const { error } = await searchParams;
   const errorMessages: Record<string, string> = {
+    invalid_sms_consent: "To request text updates, provide a valid phone number and select the optional SMS checkbox. You can leave it unchecked to continue without texts.",
     duplicate_email: "That email is already registered. Please use another email or log in.",
     duplicate_phone: "That phone number is already registered. Please use another phone number.",
     invalid_role: "Please choose whether you are registering as a agent or group leader.",

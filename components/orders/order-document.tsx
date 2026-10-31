@@ -1,3 +1,5 @@
+import { GVH_LOGO_SRC } from "@/lib/brand";
+import { LEGAL_COMPANY_NAME } from "@/lib/legal/company";
 import { resendReceiptWebhook } from "@/app/orders/actions";
 import { BadgePercent, Download, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -161,14 +163,14 @@ export function OrderDocument({
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-4">
             <div className="rounded-2xl border border-border bg-white px-4 py-3 shadow-line">
-              <img src="/go-virtual-health-logo.jpeg" alt="Go Virtual Health" className="h-12 w-auto object-contain" />
+              <img src={GVH_LOGO_SRC} alt="Go Virtual Health" className="h-12 w-auto object-contain" />
             </div>
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">Go Virtual Health</p>
               <h2 className="mt-2 text-2xl font-semibold text-clinic-ink">
                 {isReceipt ? "Customer receipt" : "Internal order document"}
               </h2>
-              <p className="mt-1 text-sm text-slate-500">Operated by ACV2 Investment Group LLC.</p>
+              <p className="mt-1 text-sm text-slate-500">Operated by {LEGAL_COMPANY_NAME}.</p>
             </div>
           </div>
           <div className="rounded-2xl border border-border bg-white px-4 py-3 text-right shadow-line">

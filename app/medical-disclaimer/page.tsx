@@ -1,3 +1,4 @@
+import { LEGAL_COMPANY_NAME, LEGAL_POLICY_UPDATED } from "@/lib/legal/company";
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 
@@ -11,8 +12,8 @@ export default function MedicalDisclaimerPage() {
     <LegalPage
       eyebrow="Medical notice"
       title="Medical Disclaimer"
-      updated="May 18, 2026"
-      intro="Go Virtual Health provides wellness information, sales support, and access to products or programs operated by ACV2 Investment Group LLC. This disclaimer explains the limits of website and CRM information."
+      updated={LEGAL_POLICY_UPDATED}
+      intro={`Go Virtual Health provides wellness information, sales support, and access to products or programs operated by ${LEGAL_COMPANY_NAME}. This disclaimer explains the limits of website and CRM information.`}
       sections={[
         {
           title: "Information is not medical advice",

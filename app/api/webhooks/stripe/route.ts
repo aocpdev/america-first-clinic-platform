@@ -8,6 +8,10 @@ import { stripeRuntimeConfigForEvent } from "@/lib/payments/stripe-config";
 import { phoneForWebhook } from "@/lib/phone";
 import { publicSiteBaseUrl } from "@/lib/urls";
 import { dispatchWebhookEvent } from "@/lib/webhooks/dispatch";
+import { isRxStripeEvent, processRxStripeWebhook } from "@/lib/payments/rx-stripe-webhook";
+import { rxWebhookCanProcess } from "@/lib/payments/rx-checkout-release";
+import { reconcileRxAgencyFee } from "@/lib/payments/rx-agency-fee";
+import { dispatchRxPaymentCaptured } from "@/lib/payments/rx-payment-effects";
 
 function jsonSafe(value: unknown) {
   return JSON.parse(JSON.stringify(value));
@@ -248,6 +252,25 @@ export async function POST(request: Request) {
 
   if (!event) {
     return NextResponse.json({ error: "Invalid webhook signature" }, { status: 401 });
+  }
+
+  // RX orders must never use the legacy path (which does not settle RX ownership).
+  // Processing has its own switch: stopping new checkouts must not abandon paid orders.
+  if (await isRxStripeEvent(prisma, event)) {
+    if (!rxWebhookCanProcess()) return NextResponse.json({ error: "RX payment processing is awaiting release validation" }, { status: 503 });
+    const config = stripeRuntimeConfigForEvent(event.livemode);
+    try {
+      const status = await processRxStripeWebhook(prisma, payload, signature!, config, event.type, {
+        transferAgencyFee: input => reconcileRxAgencyFee(prisma, input.orderId, config),
+        reverseAgencyFee: input => reconcileRxAgencyFee(prisma, input.orderId, config),
+        paymentCaptured: input => dispatchRxPaymentCaptured(prisma, input)
+      });
+      return NextResponse.json({ received: true, status });
+    } catch {
+      // Persisted capture, fee intents and delivery IDs permit a safe Stripe retry.
+      console.error("RX payment processing requires retry or reconciliation", { eventId: event.id, eventType: event.type });
+      return NextResponse.json({ error: "RX payment processing requires retry or reconciliation" }, { status: 503 });
+    }
   }
 
   if (event.type === "checkout.session.completed") {

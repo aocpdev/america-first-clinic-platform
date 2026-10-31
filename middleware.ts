@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { rxDestination } from "./lib/products/rx-routing";
 
 const PORTAL_HOST = "portal.govirtualhealth.com";
 const PUBLIC_HOST = "govirtualhealth.com";
@@ -20,6 +21,13 @@ function withHost(request: NextRequest, host: string) {
 export function middleware(request: NextRequest) {
   const host = request.headers.get("host")?.split(":")[0].toLowerCase();
   const pathname = request.nextUrl.pathname;
+  const destination = rxDestination(host, pathname, process.env.RX_STOREFRONT_ENABLED === "true");
+  if (destination) {
+    if (destination === pathname) return NextResponse.next();
+    const url = request.nextUrl.clone();
+    url.pathname = destination;
+    return NextResponse.rewrite(url);
+  }
 
   if (
     !host ||

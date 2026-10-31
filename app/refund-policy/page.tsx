@@ -1,3 +1,4 @@
+import { LEGAL_COMPANY_NAME, LEGAL_POLICY_UPDATED } from "@/lib/legal/company";
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/legal-page";
 
@@ -11,8 +12,8 @@ export default function RefundPolicyPage() {
     <LegalPage
       eyebrow="Customer policy"
       title="Refund Policy"
-      updated="May 18, 2026"
-      intro="This policy explains how refunds, cancellations, and order adjustments are handled for Go Virtual Health products, services, and programs operated by ACV2 Investment Group LLC."
+      updated={LEGAL_POLICY_UPDATED}
+      intro={`This policy explains how refunds, cancellations, and order adjustments are handled for Go Virtual Health products, services, and programs operated by ${LEGAL_COMPANY_NAME}.`}
       sections={[
         {
           title: "General refund approach",

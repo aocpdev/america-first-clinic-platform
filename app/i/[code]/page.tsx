@@ -1,3 +1,5 @@
+import { GVH_LOGO_SRC } from "@/lib/brand";
+import { LEGAL_COMPANY_NAME } from "@/lib/legal/company";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -63,12 +65,12 @@ export default async function PublicInvoicePage({
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-4">
             <div className="rounded-2xl border border-border bg-white px-4 py-3 shadow-line">
-              <img src="/go-virtual-health-logo.jpeg" alt="Go Virtual Health" className="h-12 w-auto object-contain" />
+              <img src={GVH_LOGO_SRC} alt="Go Virtual Health" className="h-12 w-auto object-contain" />
             </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.18em] text-clinic-red">Go Virtual Health</p>
                 <h1 className="mt-2 text-3xl font-semibold text-clinic-ink">Invoice</h1>
-                <p className="mt-1 text-sm text-slate-500">Operated by ACV2 Investment Group LLC.</p>
+                <p className="mt-1 text-sm text-slate-500">Operated by {LEGAL_COMPANY_NAME}.</p>
               </div>
             </div>
             <div className="rounded-2xl border border-border bg-white px-4 py-3 text-left shadow-line sm:text-right">

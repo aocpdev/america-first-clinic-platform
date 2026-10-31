@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/utils";
+import { SmsOptIn } from "@/components/legal/sms-opt-in";
 
 type PartnerOption = {
   id: string;
@@ -130,7 +131,7 @@ export function RegisterForm({
           <Input name="firstName" placeholder="First name" required />
           <Input name="lastName" placeholder="Last name" required />
           <Input className="sm:col-span-2" name="email" placeholder="Email address" type="email" required />
-          <PhoneInput className="sm:col-span-2" name="phone" />
+          <PhoneInput className="sm:col-span-2" name="phone" privacyNotice={false} />
           <Input className="sm:col-span-2" name="password" placeholder="Password" type="password" minLength={8} required />
 
           <label className="sm:col-span-2 space-y-2 text-sm font-semibold text-clinic-ink">
@@ -190,6 +191,7 @@ export function RegisterForm({
             </label>
           ) : null}
 
+          <SmsOptIn program="PARTNER_ACCOUNT" className="sm:col-span-2" />
           <SubmitButton className="sm:col-span-2 mt-1 h-12 w-full rounded-2xl" pendingText="Creating account..." variant="accent">
             Request {requestedRole === "GROUP_LEADER" ? "leader" : "agent"} access
           </SubmitButton>
