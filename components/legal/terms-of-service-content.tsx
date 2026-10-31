@@ -23,7 +23,7 @@ export default function TermsOfServiceContent({ showNavigation = true }: { showN
         },
         {
           title: "Eligibility and accounts",
-          body: "You must provide accurate information when creating an account, placing an order, requesting agent access, or interacting with our team. Agent accounts require approval before accessing sales tools. We may suspend or restrict access if information is inaccurate, a user violates these terms, or continued access creates operational, compliance, payment, or security risk."
+          body: "You must be at least 18 years old to use the Services and to enroll in any text messaging program. You must provide accurate information when creating an account, placing an order, requesting agent access, or interacting with our team. Agent accounts require approval before accessing sales tools. We may suspend or restrict access if information is inaccurate, a user violates these terms, or continued access creates operational, compliance, payment, or security risk."
         },
         {
           title: "Healthcare and wellness services",

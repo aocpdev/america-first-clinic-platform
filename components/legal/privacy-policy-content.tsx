@@ -26,6 +26,10 @@ export default function PrivacyPolicyContent({ showNavigation = true }: { showNa
           body: "We use information to create accounts, manage agent approvals, process orders, support customers, send invoices or receipts, coordinate fulfillment, track sales attribution, calculate commissions, improve internal reporting, prevent fraud, maintain security, and comply with legal, payment, tax, and operational obligations."
         },
         {
+          title: "Cookies and tracking",
+          body: "We and our service providers may use cookies and similar technologies to operate the site, remember preferences, and understand how the platform is used. You can control cookies in your browser settings; disabling them may limit some features."
+        },
+        {
           title: "Payment information",
           body: "Payment processing may be handled by third-party payment providers. We do not intend to store raw card numbers or CVV codes in the CRM. When direct card collection is enabled, payment details should be tokenized or collected through approved payment-provider tools designed for secure processing."
         },
@@ -60,6 +64,10 @@ export default function PrivacyPolicyContent({ showNavigation = true }: { showNa
         {
           title: "Security and access",
           body: "We use role-based access, server-side controls, authentication, and operational safeguards to limit access to information. No system can be guaranteed completely secure, and users are responsible for protecting their login credentials and using the platform only for authorized purposes."
+        },
+        {
+          title: "Your rights",
+          body: "You may request access to, correction of, or deletion of your personal information by contacting support@govirtualhealth.com."
         },
         {
           title: "Contact",
