@@ -29,7 +29,6 @@ export default async function RxLayout({ children }: { children: React.ReactNode
     ? await approvedBrowsingAffiliate(prisma, company.id, (await cookies()).get(RX_REFERRAL_COOKIE)?.value) : null;
   return <div className="rx-store min-h-screen bg-white text-clinic-ink">
     <a href="#rx-main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-white focus:p-4">Skip to content</a>
-    <div className="bg-clinic-navy px-4 py-2 text-center text-xs leading-5 text-white">Catalog preview · Online ordering is not open yet</div>
     <StoreNavigation base={base} categories={orderRxCategories(categories)} cartCount={cart.items.reduce((sum, item) => sum + item.quantity, 0)} />
     {affiliate && <div className="border-b border-emerald-100 bg-emerald-50 px-4 py-3 text-center text-xs text-emerald-900">Referred by {affiliate.displayName} · Referral saved for this browser. Online ordering is not open yet.</div>}
     <main id="rx-main">{children}</main>
